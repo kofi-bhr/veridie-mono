@@ -1,0 +1,55 @@
+/* Custom styles for Veridie */
+
+/* Apply Bricolage Grotesque font to all headings */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-bricolage);
+  font-weight: 700;
+}
+
+/* Neobrutalism specific styles */
+.neo-border {
+  border: 2px solid black;
+  box-shadow: 4px 4px 0px 0px rgba(0,0,0,1);
+}
+
+.neo-hover {
+  transition-property: transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+.neo-hover:hover {
+  transform: translateY(-2px);
+}
+
+/* Content card styles */
+.content-card {
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  border: 2px solid black;
+  box-shadow: 4px 4px 0px 0px rgba(0,0,0,1);
+  transition-property: transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+.content-card:hover {
+  transform: translateY(-2px);
+}
+
+/* Button styles */
+.btn-secondary {
+  background-color: white;
+  color: black;
+  border: 2px solid black;
+  box-shadow: 4px 4px 0px 0px rgba(0,0,0,1);
+  border-radius: 0.75rem;
+  transition-property: transform, background-color;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+.btn-secondary:hover {
+  transform: translateY(-2px);
+  background-color: #f9fafb;
+}
