@@ -57,13 +57,13 @@ const UniversityMarquee = () => {
       <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-background to-transparent z-10"></div>
       <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-background to-transparent z-10"></div>
       
-      <div className="flex animate-marquee">
+      <div className="flex items-center animate-marquee">
         {duplicatedUniversities.map((university, index) => (
           <div 
             key={`${university.id}-${index}`} 
-            className="flex flex-col items-center mx-6"
+            className="flex flex-col justify-center items-center mx-6"
           >
-            <div className="w-16 h-16 md:w-20 md:h-20 relative">
+            <div className="w-16 h-16 md:w-20 md:h-20 relative flex items-center justify-center">
               {university.logo_url && (
                 <Image
                   src={university.logo_url}

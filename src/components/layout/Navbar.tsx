@@ -4,7 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { 
+  Sheet, 
+  SheetContent, 
+  SheetTrigger,
+  SheetTitle 
+} from "@/components/ui/sheet";
 import { Menu, X } from "lucide-react";
 
 const Navbar = () => {
@@ -44,10 +49,10 @@ const Navbar = () => {
 
         {/* Auth Buttons - Desktop */}
         <div className="hidden md:flex items-center space-x-4">
-          <Button variant="reverse" asChild>
+          <Button variant="reverse" asChild className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
             <Link href="/auth/signin">Sign In</Link>
           </Button>
-          <Button variant="default" asChild>
+          <Button variant="default" asChild className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
             <Link href="/auth/signup">Sign Up</Link>
           </Button>
         </div>
@@ -61,6 +66,7 @@ const Navbar = () => {
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="border-l-2 border-black">
+            <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
             <div className="flex flex-col h-full">
               <div className="flex items-center justify-between mb-6">
                 <span className="text-xl font-bold">Menu</span>
@@ -88,12 +94,12 @@ const Navbar = () => {
                 ))}
               </nav>
               <div className="mt-auto flex flex-col space-y-4 pt-6">
-                <Button variant="reverse" asChild className="w-full">
+                <Button variant="reverse" asChild className="w-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                   <Link href="/auth/signin" onClick={() => setIsOpen(false)}>
                     Sign In
                   </Link>
                 </Button>
-                <Button variant="default" asChild className="w-full">
+                <Button variant="default" asChild className="w-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                   <Link href="/auth/signup" onClick={() => setIsOpen(false)}>
                     Sign Up
                   </Link>
