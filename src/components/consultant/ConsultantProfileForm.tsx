@@ -211,36 +211,15 @@ const ConsultantProfileForm = ({ initialData, universities, userId }: Consultant
           </TabsContent>
           
           <TabsContent value="education">
-            <div className="space-y-6">
-              <h2 className="text-xl font-bold mb-4">Education Details</h2>
-              
-              {/* Placeholder for EducationSection component */}
-              <p className="p-4 bg-yellow-100 border-2 border-yellow-400 rounded-md">
-                EducationSection will be implemented in the next step
-              </p>
-            </div>
+            <EducationSection form={form} universities={universities} />
           </TabsContent>
           
           <TabsContent value="achievements">
-            <div className="space-y-6">
-              <h2 className="text-xl font-bold mb-4">Achievements & Activities</h2>
-              
-              {/* Placeholder for AchievementsSection component */}
-              <p className="p-4 bg-yellow-100 border-2 border-yellow-400 rounded-md">
-                AchievementsSection will be implemented in the next step
-              </p>
-            </div>
+            <AchievementsSection form={form} />
           </TabsContent>
           
           <TabsContent value="services">
-            <div className="space-y-6">
-              <h2 className="text-xl font-bold mb-4">Services & Packages</h2>
-              
-              {/* Placeholder for ServicesSection component */}
-              <p className="p-4 bg-yellow-100 border-2 border-yellow-400 rounded-md">
-                ServicesSection will be implemented in the next step
-              </p>
-            </div>
+            <ServicesSection form={form} />
           </TabsContent>
         </Tabs>
         

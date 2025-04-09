@@ -86,7 +86,6 @@ const ServicesSection = ({ form }: ServicesSectionProps) => {
         <Button
           type="button"
           onClick={handleAddPackage}
-          variant="primary"
           className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
         >
           <Plus className="h-4 w-4 mr-2" />
@@ -106,7 +105,6 @@ const ServicesSection = ({ form }: ServicesSectionProps) => {
                   <Button
                     type="button"
                     onClick={handleAddPackage}
-                    variant="outline"
                     className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                   >
                     <Plus className="h-4 w-4 mr-2" />
@@ -137,7 +135,6 @@ const ServicesSection = ({ form }: ServicesSectionProps) => {
                           </div>
                           <Button
                             type="button"
-                            variant="neutral"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleRemovePackage(index);
@@ -238,7 +235,6 @@ const ServicesSection = ({ form }: ServicesSectionProps) => {
                                   <span className="flex-grow">{feature}</span>
                                   <Button
                                     type="button"
-                                    variant="neutral"
                                     onClick={() => handleRemoveFeature(activePackageIndex, featureIndex)}
                                     className="h-6 w-6 p-0 text-red-500"
                                   >
@@ -264,7 +260,6 @@ const ServicesSection = ({ form }: ServicesSectionProps) => {
                               <Button
                                 type="button"
                                 onClick={() => handleAddFeature(activePackageIndex)}
-                                variant="primary"
                                 className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                               >
                                 <Plus className="h-4 w-4 mr-2" />
