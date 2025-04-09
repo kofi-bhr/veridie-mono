@@ -158,7 +158,7 @@ const Hero = () => {
               </Button>
               
               <Button 
-                variant="outline" 
+                variant="reverse" 
                 asChild 
                 size="lg" 
                 className="w-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
@@ -239,7 +239,7 @@ const Hero = () => {
                 </Button>
                 
                 <Button 
-                  variant="outline" 
+                  variant="reverse" 
                   asChild 
                   size="lg" 
                   className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"

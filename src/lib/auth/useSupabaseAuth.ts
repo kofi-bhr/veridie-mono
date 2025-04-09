@@ -52,7 +52,16 @@ const useSupabaseAuth = () => {
 
       if (error) throw error;
       
-      return { success: true, data };
+      // If sign up is successful and email confirmation is not required
+      // (depends on Supabase settings), redirect to onboarding
+      if (data.user && !data.user.identities?.[0].identity_data?.email_confirmed_at) {
+        // Email confirmation required - show confirmation message
+        return { success: true, data, requiresEmailConfirmation: true };
+      } else {
+        // No email confirmation required - redirect to onboarding
+        router.push('/onboarding');
+        return { success: true, data, requiresEmailConfirmation: false };
+      }
     } catch (err) {
       const authError = err as AuthError;
       setError(authError.message);
