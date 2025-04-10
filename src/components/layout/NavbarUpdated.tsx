@@ -18,7 +18,7 @@ const Navbar = () => {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const { user, signOut } = useAuth();
-  const [profileData, setProfileData] = useState<{ first_name: string; last_name: string; role: string } | null>(null);
+  const [profileData, setProfileData] = useState<{ first_name: string; last_name: string; role: string; slug: string | null } | null>(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
@@ -26,14 +26,36 @@ const Navbar = () => {
     const getProfileData = async () => {
       if (!user) return;
       
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('first_name, last_name, role')
-        .eq('id', user.id)
-        .single();
-      
-      if (!error && data) {
-        setProfileData(data);
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('first_name, last_name, role, slug')
+          .eq('id', user.id)
+          .single();
+        
+        if (!error && data) {
+          // If user is a consultant, fetch their slug from consultants table
+          if (data.role === 'consultant') {
+            const { data: consultantData, error: consultantError } = await supabase
+              .from('consultants')
+              .select('slug')
+              .eq('user_id', user.id)
+              .single();
+            
+            if (!consultantError && consultantData) {
+              setProfileData({
+                ...data,
+                slug: consultantData.slug
+              });
+            } else {
+              setProfileData(data);
+            }
+          } else {
+            setProfileData(data);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching profile data:', err);
       }
     };
     
@@ -120,7 +142,7 @@ const Navbar = () => {
                   
                   <div className="py-1">
                     <Link 
-                      href={profileData?.role === 'consultant' ? "/profile/consultant" : "/profile"} 
+                      href={profileData?.role === 'consultant' ? `/mentors/${profileData?.slug || ''}` : "/profile"} 
                       className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 transition-colors"
                       onClick={() => setShowProfileMenu(false)}
                       tabIndex={0}
@@ -247,7 +269,7 @@ const Navbar = () => {
                     </div>
                     
                     <Link 
-                      href={profileData?.role === 'consultant' ? "/profile/consultant" : "/profile"} 
+                      href={profileData?.role === 'consultant' ? `/mentors/${profileData?.slug || ''}` : "/profile"} 
                       onClick={() => setIsOpen(false)}
                       className="flex items-center gap-2 p-3 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white hover:bg-gray-50 transition-colors"
                     >

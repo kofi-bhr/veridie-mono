@@ -20,6 +20,7 @@ const consultantProfileSchema = z.object({
   headline: z.string().min(1, "Headline is required"),
   bio: z.string().min(1, "Bio is required"),
   image_url: z.string().optional(),
+  slug: z.string().min(1, "Profile URL is required"),
   
   // Education
   university: z.string().min(1, "University is required"),
@@ -92,6 +93,7 @@ const ConsultantProfileForm = ({ initialData, universities, userId }: Consultant
     headline: initialData?.headline || '',
     bio: initialData?.bio || '',
     image_url: initialData?.image_url || '',
+    slug: initialData?.slug || '',
     university: initialData?.university || '',
     major: initialData?.major || [],
     gpa_score: initialData?.gpa_score || null,
@@ -124,6 +126,7 @@ const ConsultantProfileForm = ({ initialData, universities, userId }: Consultant
           headline: values.headline,
           bio: values.bio,
           image_url: values.image_url,
+          slug: values.slug,
           university: values.university,
           major: values.major,
           gpa_score: values.gpa_score,
@@ -178,7 +181,8 @@ const ConsultantProfileForm = ({ initialData, universities, userId }: Consultant
       
       // Similar logic would be applied for extracurriculars, ap_scores, and packages
       
-      router.push('/profile/consultant');
+      // Redirect to the consultant's public profile page
+      router.push(`/mentors/${values.slug}`);
       router.refresh();
     } catch (err: any) {
       console.error('Error updating profile:', err);

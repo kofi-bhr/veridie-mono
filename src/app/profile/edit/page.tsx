@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { supabase } from '@/lib/supabase/client';
 import AuthForm from '@/components/auth/AuthForm';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
 
 const profileSchema = z.object({
@@ -120,37 +121,39 @@ const EditProfilePage = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-24 flex flex-col items-center justify-center min-h-screen">
-      <div className="w-full max-w-md border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white p-8 rounded-md">
-        <div className="space-y-8">
-          <div className="text-center">
-            <h1 className="text-3xl font-bold">Edit Profile</h1>
-            <p className="mt-2 text-muted-foreground">
-              Update your profile information
-            </p>
-          </div>
+    <ProtectedRoute>
+      <div className="container mx-auto px-4 py-24 flex flex-col items-center justify-center min-h-screen">
+        <div className="w-full max-w-md border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white p-8 rounded-md">
+          <div className="space-y-8">
+            <div className="text-center">
+              <h1 className="text-3xl font-bold">Edit Profile</h1>
+              <p className="mt-2 text-muted-foreground">
+                Update your profile information
+              </p>
+            </div>
 
-          <AuthForm
-            onSubmit={onSubmit}
-            formSchema={profileSchema}
-            fields={fields}
-            submitText="Save Changes"
-            isLoading={submitting}
-            error={error}
-          />
+            <AuthForm
+              onSubmit={onSubmit}
+              formSchema={profileSchema}
+              fields={fields}
+              submitText="Save Changes"
+              isLoading={submitting}
+              error={error}
+            />
 
-          <div className="text-center">
-            <Button 
-              variant="reverse" 
-              className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-              onClick={() => router.push('/profile')}
-            >
-              Cancel
-            </Button>
+            <div className="text-center">
+              <Button 
+                variant="reverse" 
+                className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                onClick={() => router.push('/profile')}
+              >
+                Cancel
+              </Button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </ProtectedRoute>
   );
 };
 

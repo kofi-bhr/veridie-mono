@@ -52,6 +52,32 @@ const BasicInfoSection = ({ form }: BasicInfoSectionProps) => {
       
       <FormField
         control={form.control}
+        name="slug"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel className="text-base">Profile URL</FormLabel>
+            <FormControl>
+              <div className="flex items-center border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-gray-50">
+                <span className="px-3 py-2 text-gray-500 bg-gray-100 border-r-2 border-black">
+                  veridie.com/mentors/
+                </span>
+                <Input 
+                  {...field} 
+                  placeholder="your-unique-url" 
+                  className="border-0 shadow-none p-6 text-base focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+              </div>
+            </FormControl>
+            <FormDescription>
+              This will be the URL for your public profile. Use only letters, numbers, and hyphens.
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      
+      <FormField
+        control={form.control}
         name="bio"
         render={({ field }) => (
           <FormItem>

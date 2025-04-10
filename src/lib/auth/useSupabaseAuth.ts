@@ -37,35 +37,49 @@ const useSupabaseAuth = () => {
     }
   };
 
-  const handleSignUp = async (email: string, password: string) => {
+  const handleSignUp = async (
+    email: string, 
+    password: string, 
+    role: 'student' | 'consultant'
+  ) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
       });
 
       if (error) throw error;
       
-      // If sign up is successful and email confirmation is not required
-      // (depends on Supabase settings), redirect to onboarding
-      if (data.user && !data.user.identities?.[0].identity_data?.email_confirmed_at) {
-        // Email confirmation required - show confirmation message
-        return { success: true, data, requiresEmailConfirmation: true };
-      } else {
-        // No email confirmation required - redirect to onboarding
-        router.push('/onboarding');
-        return { success: true, data, requiresEmailConfirmation: false };
+      if (!data.user) throw new Error('No user data returned after signup');
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: data.user.id,
+          role: role,
+          updated_at: new Date().toISOString(),
+        });
+
+      if (profileError) {
+        console.error("Profile creation/update error:", profileError);
+        throw new Error(`Failed to create profile: ${profileError.message}`);
       }
+
+      if (role === 'consultant') {
+        router.push('/profile/consultant');
+      } else {
+        router.push('/');
+      }
+
+      return { success: true, data };
     } catch (err) {
-      const authError = err as AuthError;
-      setError(authError.message);
-      return { success: false, error: authError.message };
+      console.error('Signup Error:', err);
+      const message = err instanceof Error ? err.message : 'An unknown error occurred during sign up.';
+      setError(message);
+      return { success: false, error: message };
     } finally {
       setLoading(false);
     }
