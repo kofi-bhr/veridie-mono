@@ -60,7 +60,6 @@ const useSupabaseAuth = () => {
         .upsert({
           id: data.user.id,
           role: role,
-          updated_at: new Date().toISOString(),
         });
 
       if (profileError) {
