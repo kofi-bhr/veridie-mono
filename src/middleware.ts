@@ -1,99 +1,81 @@
+import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 
-// List of paths that require authentication
-const protectedPaths = ['/dashboard'];
-
-// List of paths that require consultant role
-const consultantPaths = ['/profile/consultant'];
-
-// Check if a path starts with any of the protected paths
-const isProtectedPath = (pathname: string) => {
-  return protectedPaths.some(path => 
-    pathname === path || 
-    pathname.startsWith(`${path}/`)
-  );
-};
-
-// Check if a path starts with any of the consultant-only paths
-const isConsultantPath = (pathname: string) => {
-  return consultantPaths.some(path => 
-    pathname === path || 
-    pathname.startsWith(`${path}/`)
-  );
-};
-
-// List of paths that should redirect to home if user is already authenticated
-const authPaths = ['/auth/signin', '/auth/signup', '/auth/reset-password'];
-
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  
-  console.log(`Middleware processing path: ${pathname}`);
-  
-  // Create a response that we'll use to pass along cookies
-  const response = NextResponse.next();
-  
-  // Create a Supabase client with request and response
-  const supabase = createClient(request, response);
+export async function middleware(req: NextRequest) {
+  const res = NextResponse.next();
+  const supabase = createClient(req, res);
   
   // Check if the user is authenticated
-  const { data: { session } } = await supabase.auth.getSession();
-  const isAuthenticated = !!session;
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   
-  console.log(`Path: ${pathname}, Authenticated: ${isAuthenticated}`);
-
-  // For protected routes - redirect to signin if not authenticated
-  if (isProtectedPath(pathname) && !isAuthenticated) {
-    console.log(`Redirecting to signin: ${pathname} requires authentication`);
-    const redirectUrl = new URL('/auth/signin', request.url);
-    redirectUrl.searchParams.set('redirectTo', pathname);
+  const { pathname } = req.nextUrl;
+  
+  // Public routes that don't require authentication
+  const publicRoutes = [
+    '/',
+    '/auth/signin',
+    '/auth/signup',
+    '/auth/reset-password',
+    '/auth/callback',
+    '/mentors',
+    '/about',
+    '/contact',
+    '/privacy',
+    '/terms',
+  ];
+  
+  // Check if the current path starts with any of the public routes
+  const isPublicRoute = publicRoutes.some(route => 
+    pathname === route || pathname.startsWith(`${route}/`)
+  );
+  
+  // Always allow access to public routes
+  if (isPublicRoute) {
+    return res;
+  }
+  
+  // If user is not authenticated and trying to access a protected route, redirect to login
+  if (!session && !isPublicRoute) {
+    const redirectUrl = new URL('/auth/signin', req.url);
+    redirectUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(redirectUrl);
   }
-
-  // If authenticated and trying to access a consultant-only path, check role
-  if (isAuthenticated && isConsultantPath(pathname)) {
-    try {
-      // Get user profile to check role
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', session.user.id)
-        .single();
-      
-      console.log(`User role for consultant path: ${profile?.role}`);
-      
-      // If not a consultant, redirect to regular profile
-      if (!profile || profile.role !== 'consultant') {
-        console.log(`Redirecting to profile: User is not a consultant`);
-        return NextResponse.redirect(new URL('/profile', request.url));
+  
+  // If user is authenticated, get their role
+  if (session) {
+    const userRole = session.user?.user_metadata?.role as string;
+    
+    // Handle consultant-specific routes
+    if (pathname.startsWith('/profile/consultant')) {
+      // Only consultants can access consultant profile routes
+      if (userRole !== 'consultant') {
+        return NextResponse.redirect(new URL('/', req.url));
       }
-    } catch (error) {
-      console.error('Error checking role:', error);
-      // On error, redirect to profile as a fallback
-      return NextResponse.redirect(new URL('/profile', request.url));
+    }
+    
+    // Handle student-specific routes
+    if (pathname === '/profile' && userRole === 'consultant') {
+      // Redirect consultants to their consultant profile
+      return NextResponse.redirect(new URL('/profile/consultant', req.url));
     }
   }
-
-  // Handle auth routes - redirect to home if already authenticated
-  if (authPaths.some(path => pathname === path || pathname.startsWith(`${path}/`)) && isAuthenticated) {
-    console.log(`Redirecting to home: User is already authenticated`);
-    return NextResponse.redirect(new URL('/', request.url));
-  }
-
-  console.log(`Middleware allowing access to: ${pathname}`);
-  return response;
+  
+  return res;
 }
 
-// Configure the middleware to run on specific paths
+// Export config to specify which routes the middleware applies to
 export const config = {
   matcher: [
-    // Match all protected paths
-    ...protectedPaths.map(path => path + '/:path*'),
-    // Match all consultant paths
-    ...consultantPaths.map(path => path + '/:path*'),
-    // Match all auth paths
-    '/auth/:path*',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

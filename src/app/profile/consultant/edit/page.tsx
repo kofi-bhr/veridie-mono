@@ -50,30 +50,74 @@ const ConsultantProfileEditPage = () => {
         const { data: consultantData, error: consultantError } = await supabase
           .from('consultants')
           .select(`
-            *,
-            awards (
-              id, title, description, date, year
-            ),
-            extracurriculars (
-              id, title, description, role, institution, years
-            ),
-            ap_scores (
-              id, subject, score
-            ),
-            packages (
-              id, title, description, price, features, billing_frequency, position, is_visible
-            )
+            id,
+            user_id,
+            headline,
+            image_url,
+            slug,
+            university,
+            major,
+            gpa_score,
+            gpa_scale,
+            is_weighted,
+            sat_reading,
+            sat_math,
+            act_composite,
+            accepted_university_ids
           `)
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         // If consultant data doesn't exist, it's okay - we'll create a new one
         if (consultantError && consultantError.code !== 'PGRST116') {
-          console.error('ConsultantProfileEditPage: Error fetching consultant data:', consultantError);
+          console.error('ConsultantProfileEditPage: Error fetching consultant data:', consultantError.message || JSON.stringify(consultantError));
           throw consultantError;
         }
         
         console.log('ConsultantProfileEditPage: Consultant data fetched successfully');
+        
+        // Now fetch related data separately if consultant data exists
+        let fullConsultantData = consultantData || { user_id: user.id };
+        
+        if (consultantData) {
+          try {
+            // Fetch awards
+            const { data: awardsData } = await supabase
+              .from('awards')
+              .select('id, title, description, date, year')
+              .eq('consultant_id', consultantData.id);
+              
+            // Fetch extracurriculars
+            const { data: extracurricularsData } = await supabase
+              .from('extracurriculars')
+              .select('id, title, description, role, institution, years')
+              .eq('consultant_id', consultantData.id);
+              
+            // Fetch AP scores
+            const { data: apScoresData } = await supabase
+              .from('ap_scores')
+              .select('id, subject, score')
+              .eq('consultant_id', consultantData.id);
+              
+            // Fetch packages
+            const { data: packagesData } = await supabase
+              .from('packages')
+              .select('id, title, description, price, features, billing_frequency, position, is_visible')
+              .eq('consultant_id', consultantData.id);
+              
+            // Combine all data
+            fullConsultantData = {
+              ...consultantData,
+              awards: awardsData || [],
+              extracurriculars: extracurricularsData || [],
+              ap_scores: apScoresData || [],
+              packages: packagesData || []
+            };
+          } catch (err) {
+            console.error('ConsultantProfileEditPage: Error fetching related data:', err);
+            // Continue with the main consultant data even if related data fails
+          }
+        }
         
         // Fetch universities for dropdown
         const { data: universitiesData, error: universitiesError } = await supabase
@@ -93,7 +137,7 @@ const ConsultantProfileEditPage = () => {
           // We'll pass this to the form component
         }
 
-        setConsultantData(consultantData || { user_id: user.id });
+        setConsultantData(fullConsultantData);
         setUniversities(universitiesData || []);
       } catch (err: any) {
         console.error('ConsultantProfileEditPage: Error fetching data:', err);
@@ -146,10 +190,36 @@ const ConsultantProfileEditPage = () => {
             </div>
           ) : (
             <ConsultantProfileForm 
-              initialData={consultantData} 
+              initialData={{
+                id: consultantData.id,
+                user_id: consultantData.user_id,
+                headline: consultantData.headline,
+                description: consultantData.description,
+                image_url: consultantData.image_url,
+                slug: consultantData.slug,
+                university: consultantData.university,
+                major: consultantData.major,
+                gpa_score: consultantData.gpa_score,
+                gpa_scale: consultantData.gpa_scale,
+                is_weighted: consultantData.is_weighted,
+                sat_reading: consultantData.sat_reading,
+                sat_math: consultantData.sat_math,
+                act_composite: consultantData.act_composite,
+                accepted_university_ids: consultantData.accepted_university_ids,
+                essays: consultantData.essays || [],
+                extracurriculars: consultantData.extracurriculars || [],
+                awards: consultantData.awards || [],
+                ap_scores: consultantData.ap_scores || [],
+                packages: consultantData.packages || []
+              }} 
               universities={universities}
               userId={user?.id || ""}
               initialTab={searchParams.get('tab') || undefined}
+              onSubmit={(values) => {
+                // Redirect to the consultant's public profile page
+                router.push(`/mentors/${values.slug}`);
+                router.refresh();
+              }}
             />
           )}
         </div>

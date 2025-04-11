@@ -105,36 +105,128 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       // If the user is a consultant but doesn't have a consultant profile, create one
       if (data.role === 'consultant') {
-        const { data: consultantData, error: consultantError } = await supabase
-          .from('consultants')
-          .select('id')
-          .eq('user_id', userId)
-          .single();
-          
-        if (consultantError && consultantError.code === 'PGRST116') {
-          console.log('Consultant profile not found, creating default consultant profile');
-          
-          // Create a default consultant profile
-          const { error: createConsultantError } = await supabase
+        try {
+          console.log('Checking if consultant profile exists for user:', userId);
+          const { data: consultantData, error: consultantError } = await supabase
             .from('consultants')
-            .insert({
-              user_id: userId,
-              headline: 'Mentor',
-              bio: 'I am a mentor on Veridie.',
-              slug: `mentor-${userId.substring(0, 8)}`,
-            });
+            .select('*')
+            .eq('user_id', userId)
+            .maybeSingle();
             
-          if (createConsultantError) {
-            console.error('Error creating default consultant profile:', createConsultantError);
+          if (consultantError) {
+            console.error('Error checking consultant profile:', consultantError);
+            // Continue with the flow, don't try to create a profile if there was an error checking
+          } else if (!consultantData) {
+            console.log('Consultant profile not found, creating default consultant profile');
+            
+            try {
+              // Create a default consultant profile with retry logic
+              const defaultProfile = {
+                user_id: userId,
+                headline: 'Coming Soon',
+                description: 'This mentor profile is currently being set up. Check back soon for more information!',
+                image_url: 'https://via.placeholder.com/300',
+                slug: `mentor-${userId.substring(0, 8)}`,
+                university: 'Not specified', // Default value that satisfies the not-null constraint
+                major: ['Undecided'], // Default value as an array
+              };
+              
+              // First attempt
+              let { data: newConsultant, error: createError } = await supabase
+                .from('consultants')
+                .insert(defaultProfile)
+                .select()
+                .single();
+              
+              if (createError) {
+                console.error('First attempt to create consultant profile failed:', createError);
+                
+                // Wait a moment and retry once
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Second attempt
+                const { data: retryConsultant, error: retryError } = await supabase
+                  .from('consultants')
+                  .insert(defaultProfile)
+                  .select()
+                  .single();
+                
+                if (retryError) {
+                  console.error('Second attempt to create consultant profile failed:', retryError);
+                  // Log the detailed error but continue with auth flow
+                } else {
+                  console.log('Created consultant profile on second attempt:', retryConsultant);
+                }
+              } else {
+                console.log('Created consultant profile on first attempt:', newConsultant);
+              }
+            } catch (createError) {
+              console.error('Exception creating consultant profile:', createError);
+              // Don't throw to avoid breaking the auth flow
+            }
           } else {
-            console.log('Created default consultant profile for user:', userId);
+            console.log('Consultant profile already exists:', consultantData);
           }
+        } catch (error) {
+          console.error('Error in consultant profile check/creation:', error);
+          // Don't throw here to avoid breaking the auth flow
         }
       }
       
       return data as UserProfile;
     } catch (error) {
       console.error('Unexpected error fetching profile:', error);
+      return null;
+    }
+  };
+
+  // Create a consultant profile with default values
+  const createConsultantProfile = async (userId: string) => {
+    console.log('Creating consultant profile for user:', userId);
+    
+    try {
+      // First check if a profile already exists
+      const { data: existingProfile, error: checkError } = await supabase
+        .from('consultants')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (checkError) {
+        console.error('Error checking for existing consultant profile:', checkError);
+        return null;
+      }
+      
+      // If profile already exists, return it
+      if (existingProfile) {
+        console.log('Consultant profile already exists for user:', userId);
+        return existingProfile;
+      }
+      
+      // Create a default consultant profile with "coming soon" state
+      const { data: newConsultant, error: consultantError } = await supabase
+        .from('consultants')
+        .insert({
+          user_id: userId,
+          headline: 'Coming Soon',
+          description: 'This mentor profile is currently being set up. Check back soon for more information!',
+          image_url: 'https://via.placeholder.com/300',
+          slug: `mentor-${userId.substring(0, 8)}`,
+          university: 'Not specified', // Default value that satisfies the not-null constraint
+          major: ['Undecided'], // Default value as an array
+        })
+        .select()
+        .single();
+      
+      if (consultantError) {
+        console.error('Error creating consultant profile:', consultantError);
+        return null;
+      }
+      
+      console.log('Consultant profile created:', newConsultant);
+      return newConsultant;
+    } catch (error) {
+      console.error('Error in createConsultantProfile:', error);
       return null;
     }
   };
@@ -279,22 +371,9 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         console.log('Profile created successfully');
         
-        // If the user is a consultant, create a consultant profile
+        // Always create a consultant profile if the role is consultant
         if (role === 'consultant') {
-          console.log('Creating consultant profile for new user:', data.user.id);
-          const { error: consultantError } = await supabase.from('consultants').insert({
-            user_id: data.user.id,
-            headline: 'Mentor',
-            bio: 'I am a mentor on Veridie.',
-            slug: `mentor-${data.user.id.substring(0, 8)}`,
-          });
-          
-          if (consultantError) {
-            console.error('Error creating consultant profile:', consultantError);
-            // Don't throw here, we'll still allow the user to sign up
-          } else {
-            console.log('Consultant profile created successfully');
-          }
+          await createConsultantProfile(data.user.id);
         }
       }
 

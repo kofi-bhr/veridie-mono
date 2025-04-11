@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Edit, Award, Briefcase, GraduationCap, User } from 'lucide-react';
+import { Edit, Award, Briefcase, GraduationCap, User, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
 
 const ConsultantProfilePage = () => {
@@ -34,19 +34,28 @@ const ConsultantProfilePage = () => {
         const { data: consultantData, error: consultantError } = await supabase
           .from('consultants')
           .select(`
-            *,
-            profiles:profiles(
+            id,
+            user_id,
+            headline,
+            description,
+            image_url,
+            slug,
+            university,
+            major,
+            gpa_score,
+            gpa_scale,
+            is_weighted,
+            sat_reading,
+            sat_math,
+            act_composite,
+            accepted_university_ids,
+            profiles!consultants_user_id_fkey(
               first_name,
-              last_name,
-              email
-            ),
-            awards(*),
-            extracurriculars(*),
-            ap_scores(*),
-            packages(*)
+              last_name
+            )
           `)
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         if (consultantError) {
           console.error('ConsultantProfilePage: Error fetching consultant data:', consultantError.message || 'Unknown error');
@@ -59,7 +68,44 @@ const ConsultantProfilePage = () => {
           }
         } else {
           console.log('ConsultantProfilePage: Successfully fetched consultant data');
-          setConsultantData(consultantData);
+          
+          // Now fetch related data separately
+          if (consultantData) {
+            // Fetch awards
+            const { data: awardsData } = await supabase
+              .from('awards')
+              .select('*')
+              .eq('consultant_id', consultantData.id);
+              
+            // Fetch extracurriculars
+            const { data: extracurricularsData } = await supabase
+              .from('extracurriculars')
+              .select('*')
+              .eq('consultant_id', consultantData.id);
+              
+            // Fetch AP scores
+            const { data: apScoresData } = await supabase
+              .from('ap_scores')
+              .select('*')
+              .eq('consultant_id', consultantData.id);
+              
+            // Fetch packages
+            const { data: packagesData } = await supabase
+              .from('packages')
+              .select('*')
+              .eq('consultant_id', consultantData.id);
+              
+            // Combine all data
+            setConsultantData({
+              ...consultantData,
+              awards: awardsData || [],
+              extracurriculars: extracurricularsData || [],
+              ap_scores: apScoresData || [],
+              packages: packagesData || []
+            });
+          } else {
+            setConsultantData(null);
+          }
         }
         
         // Fetch universities for accepted schools
@@ -109,8 +155,8 @@ const ConsultantProfilePage = () => {
 
   if (isLoading || loading) {
     return (
-      <div className="container mx-auto px-4 py-24 flex flex-col items-center justify-center min-h-screen">
-        <div className="w-full max-w-4xl border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white p-8 rounded-md">
+      <div className="container mx-auto px-4 py-12 md:py-24 flex flex-col items-center justify-center min-h-screen">
+        <div className="w-full max-w-4xl border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white p-6 md:p-8 rounded-md">
           <div className="text-center">
             <div className="w-10 h-10 border-4 border-main border-t-transparent rounded-full animate-spin mx-auto"></div>
             <p className="mt-4 text-lg">Loading profile data...</p>
@@ -122,10 +168,13 @@ const ConsultantProfilePage = () => {
 
   if (error) {
     return (
-      <div className="container mx-auto px-4 py-24 flex flex-col items-center justify-center min-h-screen">
-        <div className="w-full max-w-4xl border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white p-8 rounded-md">
+      <div className="container mx-auto px-4 py-12 md:py-24 flex flex-col items-center justify-center min-h-screen">
+        <div className="w-full max-w-4xl border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white p-6 md:p-8 rounded-md">
           <div className="text-center">
-            <h1 className="text-3xl font-bold mb-4">Error</h1>
+            <div className="flex items-center justify-center mb-4">
+              <AlertCircle className="h-8 w-8 text-red-500 mr-2" />
+              <h1 className="text-2xl md:text-3xl font-bold">Error</h1>
+            </div>
             <p className="text-red-500 mb-6">{error}</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button 
@@ -151,10 +200,10 @@ const ConsultantProfilePage = () => {
   // If consultant data doesn't exist, show a message to create profile
   if (!consultantData) {
     return (
-      <div className="container mx-auto px-4 py-24 flex flex-col items-center justify-center min-h-screen">
-        <div className="w-full max-w-4xl border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white p-8 rounded-md">
+      <div className="container mx-auto px-4 py-12 md:py-24 flex flex-col items-center justify-center min-h-screen">
+        <div className="w-full max-w-4xl border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white p-6 md:p-8 rounded-md">
           <div className="text-center">
-            <h1 className="text-3xl font-bold mb-4">Complete Your Mentor Profile</h1>
+            <h1 className="text-2xl md:text-3xl font-bold mb-4">Complete Your Mentor Profile</h1>
             <p className="text-gray-600 mb-6">You haven't set up your mentor profile yet. Create one to start connecting with students.</p>
             <Link href="/profile/consultant/edit">
               <Button className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
@@ -167,12 +216,36 @@ const ConsultantProfilePage = () => {
     );
   }
 
+  // Check if profile is in "coming soon" state (default state)
+  const isComingSoon = consultantData.headline === 'Mentor Profile (Coming Soon)';
+
+  if (isComingSoon) {
+    return (
+      <div className="container mx-auto px-4 py-12 md:py-24 flex flex-col items-center justify-center min-h-screen">
+        <div className="w-full max-w-4xl border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white p-6 md:p-8 rounded-md">
+          <div className="text-center">
+            <h1 className="text-2xl md:text-3xl font-bold mb-4">Your Mentor Profile</h1>
+            <div className="p-6 mb-6 bg-yellow-50 border-2 border-yellow-400 rounded-md inline-block">
+              <p className="text-lg font-medium">Your profile is currently in "Coming Soon" mode</p>
+              <p className="text-gray-600 mt-2">Complete your profile to make it visible to students</p>
+            </div>
+            <Link href="/profile/consultant/edit">
+              <Button className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                Complete Your Profile
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="container mx-auto px-4 py-24">
+    <div className="container mx-auto px-4 py-12 md:py-24">
       <div className="w-full max-w-4xl mx-auto">
         {/* Profile Header */}
         <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
-          <div className="w-32 h-32 relative rounded-full overflow-hidden border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+          <div className="w-24 h-24 md:w-32 md:h-32 relative rounded-full overflow-hidden border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
             {consultantData.image_url ? (
               <Image 
                 src={consultantData.image_url} 
@@ -182,17 +255,17 @@ const ConsultantProfilePage = () => {
               />
             ) : (
               <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                <User className="w-16 h-16 text-gray-400" />
+                <User className="w-12 h-12 md:w-16 md:h-16 text-gray-400" />
               </div>
             )}
           </div>
           
           <div className="flex-1 text-center md:text-left">
-            <h1 className="text-3xl font-bold">
+            <h1 className="text-2xl md:text-3xl font-bold">
               {consultantData.profiles?.first_name} {consultantData.profiles?.last_name}
             </h1>
-            <p className="text-xl text-gray-600 mt-1">{consultantData.headline}</p>
-            <p className="mt-2">{consultantData.university} • {consultantData.major?.join(', ')}</p>
+            <p className="text-lg md:text-xl text-gray-600 mt-1">{consultantData.headline}</p>
+            <p className="mt-2">{consultantData.university} {consultantData.major?.length > 0 ? `• ${consultantData.major?.join(', ')}` : ''}</p>
             
             <div className="mt-4">
               <Link href="/profile/consultant/edit">
@@ -223,21 +296,25 @@ const ConsultantProfilePage = () => {
           </TabsList>
           
           <TabsContent value="basic-info">
-            <Card className="p-6 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white rounded-md">
+            <Card className="p-4 md:p-6 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white rounded-md">
               <h2 className="text-xl font-bold mb-4">About Me</h2>
-              <div className="whitespace-pre-wrap">{consultantData.bio}</div>
+              <div className="whitespace-pre-wrap">
+                {isComingSoon ? 
+                  "This mentor profile is currently being set up. Check back soon for more information!" : 
+                  consultantData.description || "No information available yet. Edit your profile to add more details about yourself."}
+              </div>
             </Card>
           </TabsContent>
           
           <TabsContent value="education">
-            <Card className="p-6 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white rounded-md">
+            <Card className="p-4 md:p-6 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white rounded-md">
               <div className="space-y-8">
                 {/* Education */}
                 <div>
                   <h2 className="text-xl font-bold mb-4">Education</h2>
                   <div className="p-4 border border-gray-200 rounded-md">
-                    <h3 className="font-bold text-lg">{consultantData.university}</h3>
-                    <p className="text-gray-600">{consultantData.major?.join(', ')}</p>
+                    <h3 className="font-bold text-lg">{consultantData.university || 'University not specified'}</h3>
+                    <p className="text-gray-600">{consultantData.major?.join(', ') || 'Major not specified'}</p>
                     
                     {consultantData.gpa_score && (
                       <p className="mt-2">
@@ -277,7 +354,9 @@ const ConsultantProfilePage = () => {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-500 italic">No awards listed</p>
+                    <div className="p-4 border border-gray-200 rounded-md text-gray-500 italic">
+                      No awards listed
+                    </div>
                   )}
                 </div>
                 
@@ -306,7 +385,9 @@ const ConsultantProfilePage = () => {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-500 italic">No activities listed</p>
+                    <div className="p-4 border border-gray-200 rounded-md text-gray-500 italic">
+                      No activities listed
+                    </div>
                   )}
                 </div>
                 
@@ -326,7 +407,9 @@ const ConsultantProfilePage = () => {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-500 italic">No AP scores listed</p>
+                    <div className="p-4 border border-gray-200 rounded-md text-gray-500 italic">
+                      No AP scores listed
+                    </div>
                   )}
                 </div>
               </div>
@@ -334,7 +417,7 @@ const ConsultantProfilePage = () => {
           </TabsContent>
           
           <TabsContent value="services">
-            <Card className="p-6 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white rounded-md">
+            <Card className="p-4 md:p-6 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white rounded-md">
               <h2 className="text-xl font-bold mb-4">Services & Packages</h2>
               
               {consultantData.packages && consultantData.packages.length > 0 ? (
@@ -345,7 +428,7 @@ const ConsultantProfilePage = () => {
                     .map((pkg: any) => (
                       <Card 
                         key={pkg.id} 
-                        className="p-6 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white rounded-md flex flex-col h-full"
+                        className="p-4 md:p-6 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white rounded-md flex flex-col h-full"
                       >
                         <div className="mb-4">
                           <h3 className="text-lg font-bold">{pkg.title}</h3>

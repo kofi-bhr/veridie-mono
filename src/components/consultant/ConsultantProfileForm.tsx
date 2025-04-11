@@ -18,73 +18,77 @@ import ServicesSection from './form-sections/ServicesSection';
 const consultantProfileSchema = z.object({
   // Basic Info
   headline: z.string().min(1, "Headline is required"),
-  bio: z.string().min(1, "Bio is required"),
+  description: z.string().optional(),
   image_url: z.string().optional(),
   slug: z.string().min(1, "Profile URL is required"),
   
   // Education
   university: z.string().min(1, "University is required"),
   major: z.array(z.string()).min(1, "At least one major is required"),
-  gpa_score: z.coerce.number().min(0).max(5).optional().nullable(),
-  gpa_scale: z.coerce.number().min(1).max(5).optional().nullable(),
+  gpa_score: z.number().nullable().optional(),
+  gpa_scale: z.number().nullable().optional(),
   is_weighted: z.boolean().optional(),
-  sat_reading: z.coerce.number().min(200).max(800).optional().nullable(),
-  sat_math: z.coerce.number().min(200).max(800).optional().nullable(),
-  act_composite: z.coerce.number().min(1).max(36).optional().nullable(),
+  sat_reading: z.number().nullable().optional(),
+  sat_math: z.number().nullable().optional(),
+  act_composite: z.number().nullable().optional(),
   accepted_university_ids: z.array(z.string()).optional(),
   
-  // Achievements
-  awards: z.array(
-    z.object({
-      id: z.string().optional(),
-      title: z.string().min(1, "Award title is required"),
-      description: z.string().optional(),
-      year: z.string().optional()
-    })
-  ).optional(),
-  
-  extracurriculars: z.array(
-    z.object({
-      id: z.string().optional(),
-      title: z.string().min(1, "Activity title is required"),
-      role: z.string().optional(),
-      institution: z.string().optional(),
-      description: z.string().optional(),
-      years: z.array(z.string()).optional()
-    })
-  ).optional(),
-  
+  // Essays
   essays: z.array(
     z.object({
+      prompt: z.string(),
+      content: z.string(),
+      is_visible: z.boolean().default(true),
       id: z.string().optional(),
-      prompt: z.string().min(1, "Essay prompt is required"),
-      content: z.string().min(1, "Essay content is required"),
-      is_visible: z.boolean().default(true)
     })
   ).optional(),
   
+  // Extracurriculars
+  extracurriculars: z.array(
+    z.object({
+      name: z.string(),
+      position: z.string(),
+      description: z.string(),
+      start_year: z.number(),
+      end_year: z.number().nullable(),
+      is_current: z.boolean(),
+      id: z.string().optional(),
+    })
+  ).optional(),
+  
+  // Awards
+  awards: z.array(
+    z.object({
+      name: z.string(),
+      year: z.number(),
+      description: z.string(),
+      id: z.string().optional(),
+    })
+  ).optional(),
+  
+  // AP Scores
   ap_scores: z.array(
     z.object({
+      subject: z.string(),
+      score: z.number(),
       id: z.string().optional(),
-      subject: z.string().min(1, "Subject is required"),
-      score: z.coerce.number().min(1).max(5)
     })
   ).optional(),
   
-  // Services
+  // Packages
   packages: z.array(
     z.object({
+      name: z.string(),
+      description: z.string(),
+      price: z.number(),
+      duration: z.string(),
+      is_featured: z.boolean().default(false),
       id: z.string().optional(),
-      title: z.string().min(1, "Package title is required"),
-      description: z.string().min(1, "Package description is required"),
-      price: z.coerce.number().min(0, "Price must be a positive number"),
-      features: z.array(z.string()),
-      billing_frequency: z.string().default("one-time"),
-      is_visible: z.boolean().default(true)
     })
-  ).optional()
+  ).optional(),
 });
 
+// Define the form values type from the schema
 type ConsultantProfileFormValues = z.infer<typeof consultantProfileSchema>;
 
 type ConsultantProfileFormProps = {
@@ -92,9 +96,10 @@ type ConsultantProfileFormProps = {
   universities: any[];
   userId: string;
   initialTab?: string;
+  onSubmit?: (values: ConsultantProfileFormValues) => void;
 };
 
-const ConsultantProfileForm = ({ initialData, universities, userId, initialTab }: ConsultantProfileFormProps) => {
+const ConsultantProfileForm = ({ initialData, universities, userId, initialTab, onSubmit }: ConsultantProfileFormProps) => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(initialTab || "basic-info");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -103,7 +108,7 @@ const ConsultantProfileForm = ({ initialData, universities, userId, initialTab }
   // Format initial data for the form
   const defaultValues = {
     headline: initialData?.headline || '',
-    bio: initialData?.bio || '',
+    description: initialData?.description || '',
     image_url: initialData?.image_url || '',
     slug: initialData?.slug || '',
     university: initialData?.university || '',
@@ -115,19 +120,19 @@ const ConsultantProfileForm = ({ initialData, universities, userId, initialTab }
     sat_math: initialData?.sat_math || null,
     act_composite: initialData?.act_composite || null,
     accepted_university_ids: initialData?.accepted_university_ids || [],
-    awards: initialData?.awards || [],
-    extracurriculars: initialData?.extracurriculars || [],
     essays: initialData?.essays || [],
+    extracurriculars: initialData?.extracurriculars || [],
+    awards: initialData?.awards || [],
     ap_scores: initialData?.ap_scores || [],
     packages: initialData?.packages || []
   };
   
   const form = useForm<ConsultantProfileFormValues>({
-    resolver: zodResolver(consultantProfileSchema),
+    resolver: zodResolver(consultantProfileSchema) as any, // Use type assertion to fix resolver type mismatch
     defaultValues
   });
   
-  const onSubmit = async (values: ConsultantProfileFormValues) => {
+  const handleSubmit = async (values: ConsultantProfileFormValues) => {
     try {
       setIsSubmitting(true);
       setError(null);
@@ -137,9 +142,12 @@ const ConsultantProfileForm = ({ initialData, universities, userId, initialTab }
       // Update consultant profile
       const { error } = await supabase
         .from('consultants')
-        .update({
+        .upsert({
+          id: initialData.id,
+          user_id: userId,
           headline: values.headline,
-          bio: values.bio,
+          description: values.description,
+          image_url: values.image_url,
           slug: values.slug,
           university: values.university,
           major: values.major,
@@ -149,108 +157,13 @@ const ConsultantProfileForm = ({ initialData, universities, userId, initialTab }
           sat_reading: values.sat_reading,
           sat_math: values.sat_math,
           act_composite: values.act_composite,
-          accepted_university_ids: values.accepted_university_ids
-        })
-        .eq('user_id', userId);
+          accepted_university_ids: values.accepted_university_ids,
+        });
       
-      if (error) throw error;
-      
-      // Handle awards
-      if (values.awards && values.awards.length > 0) {
-        // First delete any removed awards
-        const awardIds = values.awards.map(award => award.id).filter(Boolean);
-        if (awardIds.length > 0) {
-          await supabase
-            .from('awards')
-            .delete()
-            .eq('consultant_id', initialData.id)
-            .not('id', 'in', awardIds);
-        } else {
-          // If no awards with IDs, delete all existing awards
-          await supabase
-            .from('awards')
-            .delete()
-            .eq('consultant_id', initialData.id);
-        }
-        
-        // Then upsert all current awards
-        for (const award of values.awards) {
-          if (award.id) {
-            // Update existing award
-            await supabase
-              .from('awards')
-              .update({
-                title: award.title,
-                description: award.description,
-                year: award.year
-              })
-              .eq('id', award.id);
-          } else {
-            // Insert new award
-            await supabase
-              .from('awards')
-              .insert({
-                consultant_id: initialData.id,
-                title: award.title,
-                description: award.description,
-                year: award.year
-              });
-          }
-        }
-      } else {
-        // If no awards in form, delete all existing awards
-        await supabase
-          .from('awards')
-          .delete()
-          .eq('consultant_id', initialData.id);
-      }
-      
-      // Handle extracurriculars
-      if (values.extracurriculars && values.extracurriculars.length > 0) {
-        const ecIds = values.extracurriculars.map(ec => ec.id).filter(Boolean);
-        if (ecIds.length > 0) {
-          await supabase
-            .from('extracurriculars')
-            .delete()
-            .eq('consultant_id', initialData.id)
-            .not('id', 'in', ecIds);
-        } else {
-          await supabase
-            .from('extracurriculars')
-            .delete()
-            .eq('consultant_id', initialData.id);
-        }
-        
-        for (const ec of values.extracurriculars) {
-          if (ec.id) {
-            await supabase
-              .from('extracurriculars')
-              .update({
-                title: ec.title,
-                role: ec.role,
-                institution: ec.institution,
-                description: ec.description,
-                years: ec.years
-              })
-              .eq('id', ec.id);
-          } else {
-            await supabase
-              .from('extracurriculars')
-              .insert({
-                consultant_id: initialData.id,
-                title: ec.title,
-                role: ec.role,
-                institution: ec.institution,
-                description: ec.description,
-                years: ec.years
-              });
-          }
-        }
-      } else {
-        await supabase
-          .from('extracurriculars')
-          .delete()
-          .eq('consultant_id', initialData.id);
+      if (error) {
+        console.error('Error updating consultant profile:', error);
+        setError(`Error updating profile: ${error.message}`);
+        return;
       }
       
       // Handle essays
@@ -297,6 +210,100 @@ const ConsultantProfileForm = ({ initialData, universities, userId, initialTab }
           .eq('consultant_id', initialData.id);
       }
       
+      // Handle extracurriculars
+      if (values.extracurriculars && values.extracurriculars.length > 0) {
+        const ecIds = values.extracurriculars.map(ec => ec.id).filter(Boolean);
+        if (ecIds.length > 0) {
+          await supabase
+            .from('extracurriculars')
+            .delete()
+            .eq('consultant_id', initialData.id)
+            .not('id', 'in', ecIds);
+        } else {
+          await supabase
+            .from('extracurriculars')
+            .delete()
+            .eq('consultant_id', initialData.id);
+        }
+        
+        for (const ec of values.extracurriculars) {
+          if (ec.id) {
+            await supabase
+              .from('extracurriculars')
+              .update({
+                name: ec.name,
+                position: ec.position,
+                description: ec.description,
+                start_year: ec.start_year,
+                end_year: ec.end_year,
+                is_current: ec.is_current
+              })
+              .eq('id', ec.id);
+          } else {
+            await supabase
+              .from('extracurriculars')
+              .insert({
+                consultant_id: initialData.id,
+                name: ec.name,
+                position: ec.position,
+                description: ec.description,
+                start_year: ec.start_year,
+                end_year: ec.end_year,
+                is_current: ec.is_current
+              });
+          }
+        }
+      } else {
+        await supabase
+          .from('extracurriculars')
+          .delete()
+          .eq('consultant_id', initialData.id);
+      }
+      
+      // Handle awards
+      if (values.awards && values.awards.length > 0) {
+        const awardIds = values.awards.map(award => award.id).filter(Boolean);
+        if (awardIds.length > 0) {
+          await supabase
+            .from('awards')
+            .delete()
+            .eq('consultant_id', initialData.id)
+            .not('id', 'in', awardIds);
+        } else {
+          await supabase
+            .from('awards')
+            .delete()
+            .eq('consultant_id', initialData.id);
+        }
+        
+        for (const award of values.awards) {
+          if (award.id) {
+            await supabase
+              .from('awards')
+              .update({
+                name: award.name,
+                year: award.year,
+                description: award.description
+              })
+              .eq('id', award.id);
+          } else {
+            await supabase
+              .from('awards')
+              .insert({
+                consultant_id: initialData.id,
+                name: award.name,
+                year: award.year,
+                description: award.description
+              });
+          }
+        }
+      } else {
+        await supabase
+          .from('awards')
+          .delete()
+          .eq('consultant_id', initialData.id);
+      }
+      
       // Handle AP scores
       if (values.ap_scores && values.ap_scores.length > 0) {
         const apIds = values.ap_scores.map(ap => ap.id).filter(Boolean);
@@ -339,7 +346,7 @@ const ConsultantProfileForm = ({ initialData, universities, userId, initialTab }
           .eq('consultant_id', initialData.id);
       }
       
-      // Handle packages (placeholder for Stripe integration)
+      // Handle packages
       if (values.packages && values.packages.length > 0) {
         const packageIds = values.packages.map(pkg => pkg.id).filter(Boolean);
         if (packageIds.length > 0) {
@@ -355,19 +362,17 @@ const ConsultantProfileForm = ({ initialData, universities, userId, initialTab }
             .eq('consultant_id', initialData.id);
         }
         
-        for (let i = 0; i < values.packages.length; i++) {
-          const pkg = values.packages[i];
+        for (const [i, pkg] of values.packages.entries()) {
           if (pkg.id) {
             await supabase
               .from('packages')
               .update({
-                title: pkg.title,
+                name: pkg.name,
                 description: pkg.description,
                 price: pkg.price,
-                features: pkg.features,
-                position: i,
-                billing_frequency: pkg.billing_frequency || 'one-time',
-                is_visible: pkg.is_visible
+                duration: pkg.duration,
+                is_featured: pkg.is_featured,
+                position: i
               })
               .eq('id', pkg.id);
           } else {
@@ -375,13 +380,12 @@ const ConsultantProfileForm = ({ initialData, universities, userId, initialTab }
               .from('packages')
               .insert({
                 consultant_id: initialData.id,
-                title: pkg.title,
+                name: pkg.name,
                 description: pkg.description,
                 price: pkg.price,
-                features: pkg.features,
-                position: i,
-                billing_frequency: pkg.billing_frequency || 'one-time',
-                is_visible: pkg.is_visible
+                duration: pkg.duration,
+                is_featured: pkg.is_featured,
+                position: i
               });
           }
         }
@@ -392,12 +396,17 @@ const ConsultantProfileForm = ({ initialData, universities, userId, initialTab }
           .eq('consultant_id', initialData.id);
       }
       
-      // Redirect to the consultant's profile page
-      router.push('/profile/consultant');
-      router.refresh();
-    } catch (err: any) {
-      console.error('ConsultantProfileForm: Error updating profile:', err);
-      setError(err.message || 'Failed to save profile data');
+      // Call the onSubmit callback if provided
+      if (onSubmit) {
+        onSubmit(values);
+      } else {
+        // Default behavior: redirect to the consultant profile page
+        router.push('/profile/consultant');
+        router.refresh();
+      }
+    } catch (error: any) {
+      console.error('Error in form submission:', error);
+      setError(`Error submitting form: ${error.message || 'Unknown error'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -405,7 +414,7 @@ const ConsultantProfileForm = ({ initialData, universities, userId, initialTab }
   
   return (
     <div>
-      <form onSubmit={form.handleSubmit(onSubmit)}>
+      <form onSubmit={form.handleSubmit(handleSubmit as any)}>
         {error && (
           <div className="p-4 mb-6 border-2 border-red-500 bg-red-50 rounded-md flex items-center gap-2">
             <AlertCircle className="h-5 w-5 text-red-600" />

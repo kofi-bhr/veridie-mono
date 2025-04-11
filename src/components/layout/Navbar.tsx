@@ -10,15 +10,16 @@ import {
   SheetTrigger,
   SheetTitle 
 } from "@/components/ui/sheet";
-import { Menu, X, User, Settings, LogOut, ExternalLink } from "lucide-react";
+import { Menu, X, User, Settings, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { supabase } from "@/lib/supabase/client";
 
 const Navbar = () => {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
-  const { user, signOut } = useAuth();
-  const [profileData, setProfileData] = useState<{ first_name: string; last_name: string; role: string } | null>(null);
+  const { user, signOut, isConsultant } = useAuth();
+  const [profileData, setProfileData] = useState<{ first_name: string; last_name: string; role: string; id: string } | null>(null);
+  const [consultantData, setConsultantData] = useState<{ slug: string } | null>(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
@@ -28,12 +29,25 @@ const Navbar = () => {
       
       const { data, error } = await supabase
         .from('profiles')
-        .select('first_name, last_name, role')
+        .select('first_name, last_name, role, id')
         .eq('id', user.id)
         .single();
       
       if (!error && data) {
         setProfileData(data);
+        
+        // If user is a consultant, get their slug
+        if (data.role === 'consultant') {
+          const { data: consultantData, error: consultantError } = await supabase
+            .from('consultants')
+            .select('slug')
+            .eq('user_id', user.id)
+            .maybeSingle();
+          
+          if (!consultantError && consultantData) {
+            setConsultantData(consultantData);
+          }
+        }
       }
     };
     
@@ -64,6 +78,10 @@ const Navbar = () => {
   const handleSignOut = async () => {
     await signOut();
     setIsOpen(false);
+  };
+
+  const handleLinkClick = () => {
+    setShowProfileMenu(false);
   };
 
   return (
@@ -107,84 +125,59 @@ const Navbar = () => {
               >
                 <User className="h-5 w-5" />
                 {profileData && (
-                  <span>{profileData.first_name}</span>
+                  <span>{profileData.first_name || 'Profile'}</span>
                 )}
               </Button>
               
               {showProfileMenu && (
                 <div className="absolute right-0 mt-2 w-56 bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-md z-50">
                   <div className="p-3 border-b-2 border-black">
-                    <p className="font-bold">{profileData?.first_name} {profileData?.last_name}</p>
-                    <p className="text-sm text-gray-600 capitalize">{profileData?.role}</p>
+                    <p className="font-bold">{profileData?.first_name || ''} {profileData?.last_name || ''}</p>
+                    <p className="text-sm text-gray-600 capitalize">{profileData?.role || 'User'}</p>
                   </div>
                   
-                  <div className="py-1">
-                    <Link 
-                      href="/profile" 
-                      className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 transition-colors"
-                      onClick={() => setShowProfileMenu(false)}
-                      tabIndex={0}
-                      aria-label="View profile"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          setShowProfileMenu(false);
-                        }
-                      }}
-                    >
-                      <User className="h-4 w-4" />
-                      <span>View Profile</span>
-                    </Link>
-                    
-                    <Link 
-                      href="/profile/edit" 
-                      className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 transition-colors"
-                      onClick={() => setShowProfileMenu(false)}
-                      tabIndex={0}
-                      aria-label="Edit profile"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          setShowProfileMenu(false);
-                        }
-                      }}
-                    >
-                      <Settings className="h-4 w-4" />
-                      <span>Edit Profile</span>
-                    </Link>
-                    
-                    {profileData?.role === 'consultant' && (
-                      <Link 
-                        href="/profile/consultant" 
-                        className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 transition-colors"
-                        onClick={() => setShowProfileMenu(false)}
-                        tabIndex={0}
-                        aria-label="Mentor dashboard"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            setShowProfileMenu(false);
-                          }
-                        }}
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                        <span>Mentor Dashboard</span>
-                      </Link>
+                  <div className="p-2">
+                    {user && (
+                      <div className="flex flex-col space-y-2 py-2">
+                        {isConsultant && (
+                          <>
+                            <Link
+                              href={`/mentors/${consultantData?.slug || ''}`}
+                              onClick={handleLinkClick}
+                              className="flex items-center px-4 py-2 text-sm hover:bg-gray-100 rounded-md"
+                            >
+                              <User className="mr-2 h-4 w-4" />
+                              View Your Profile
+                            </Link>
+                            <Link
+                              href="/profile/consultant/edit"
+                              onClick={handleLinkClick}
+                              className="flex items-center px-4 py-2 text-sm hover:bg-gray-100 rounded-md"
+                            >
+                              <Settings className="mr-2 h-4 w-4" />
+                              Edit Your Profile
+                            </Link>
+                          </>
+                        )}
+                        {!isConsultant && (
+                          <Link
+                            href="/profile"
+                            onClick={handleLinkClick}
+                            className="flex items-center px-4 py-2 text-sm hover:bg-gray-100 rounded-md"
+                          >
+                            <User className="mr-2 h-4 w-4" />
+                            Your Profile
+                          </Link>
+                        )}
+                        <button
+                          onClick={handleSignOut}
+                          className="flex items-center px-4 py-2 text-sm hover:bg-gray-100 rounded-md text-left"
+                        >
+                          <LogOut className="mr-2 h-4 w-4" />
+                          Sign Out
+                        </button>
+                      </div>
                     )}
-                  </div>
-                  
-                  <div className="py-1 border-t-2 border-black">
-                    <button 
-                      className="flex items-center gap-2 px-4 py-2 w-full text-left hover:bg-gray-100 transition-colors text-red-600"
-                      onClick={handleSignOut}
-                      tabIndex={0}
-                      aria-label="Sign out"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          handleSignOut();
-                        }
-                      }}
-                    >
-                      <LogOut className="h-4 w-4" />
-                      <span>Sign Out</span>
-                    </button>
                   </div>
                 </div>
               )}
@@ -204,16 +197,15 @@ const Navbar = () => {
         {/* Mobile Menu Button */}
         <Sheet open={isOpen} onOpenChange={setIsOpen}>
           <SheetTrigger asChild className="md:hidden">
-            <Button variant="neutral" size="icon">
+            <Button variant="neutral" size="icon" className="md:hidden">
               <Menu className="h-6 w-6" />
-              <span className="sr-only">Toggle menu</span>
+              <span className="sr-only">Open menu</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="border-l-2 border-black">
-            <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-            <div className="flex flex-col h-full">
-              <div className="flex items-center justify-between mb-6">
-                <span className="text-xl font-bold">Menu</span>
+          <SheetContent side="left" className="w-full max-w-xs p-0 border-r-2 border-black">
+            <div className="flex flex-col h-full p-6">
+              <div className="flex items-center justify-between mb-8">
+                <SheetTitle className="text-2xl font-bold">Veridie</SheetTitle>
                 <Button
                   variant="neutral"
                   size="icon"
@@ -237,59 +229,62 @@ const Navbar = () => {
                   </Link>
                 ))}
               </nav>
-              <div className="mt-auto flex flex-col space-y-4 pt-6">
-                {user ? (
-                  <>
-                    <div className="p-3 border-2 border-black rounded-md mb-2">
-                      <p className="font-bold">{profileData?.first_name} {profileData?.last_name}</p>
-                      <p className="text-sm text-gray-600 capitalize">{profileData?.role}</p>
-                    </div>
-                    
-                    <Link 
-                      href="/profile" 
-                      onClick={() => setIsOpen(false)}
-                      className="flex items-center gap-2 p-3 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white hover:bg-gray-50 transition-colors"
-                    >
-                      <User className="h-5 w-5" />
-                      <span>View Profile</span>
-                    </Link>
-                    
-                    <Link 
-                      href="/profile/edit" 
-                      onClick={() => setIsOpen(false)}
-                      className="flex items-center gap-2 p-3 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white hover:bg-gray-50 transition-colors"
-                    >
-                      <Settings className="h-5 w-5" />
-                      <span>Edit Profile</span>
-                    </Link>
-                    
-                    {profileData?.role === 'consultant' && (
-                      <Link 
-                        href="/profile/consultant" 
+              
+              <div className="mt-auto flex flex-col p-6 space-y-5 border-t-2 border-black">
+                {user && isConsultant ? (
+                  <div className="flex flex-col space-y-2 py-2">
+                    <>
+                      <Link
+                        href={`/mentors/${consultantData?.slug || ''}`}
                         onClick={() => setIsOpen(false)}
-                        className="flex items-center gap-2 p-3 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white hover:bg-gray-50 transition-colors"
+                        className="flex items-center gap-3 p-5 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white hover:bg-gray-50 transition-colors"
                       >
-                        <ExternalLink className="h-5 w-5" />
-                        <span>Mentor Dashboard</span>
+                        <User className="h-5 w-5" />
+                        <span>View Your Profile</span>
                       </Link>
-                    )}
-                    
-                    <button 
+                      <Link
+                        href="/profile/consultant/edit"
+                        onClick={() => setIsOpen(false)}
+                        className="flex items-center gap-3 p-5 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white hover:bg-gray-50 transition-colors"
+                      >
+                        <Settings className="h-5 w-5" />
+                        <span>Edit Your Profile</span>
+                      </Link>
+                    </>
+                    <button
                       onClick={handleSignOut}
-                      className="flex items-center gap-2 p-3 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white hover:bg-gray-50 transition-colors text-red-600 w-full"
+                      className="flex items-center gap-3 p-5 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white hover:bg-gray-50 transition-colors text-red-600 w-full mt-4"
                     >
                       <LogOut className="h-5 w-5" />
                       <span>Sign Out</span>
                     </button>
-                  </>
+                  </div>
+                ) : user ? (
+                  <div className="flex flex-col space-y-2 py-2">
+                    <Link
+                      href="/profile"
+                      onClick={() => setIsOpen(false)}
+                      className="flex items-center gap-3 p-5 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white hover:bg-gray-50 transition-colors"
+                    >
+                      <User className="h-5 w-5" />
+                      <span>Your Profile</span>
+                    </Link>
+                    <button
+                      onClick={handleSignOut}
+                      className="flex items-center gap-3 p-5 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white hover:bg-gray-50 transition-colors text-red-600 w-full mt-4"
+                    >
+                      <LogOut className="h-5 w-5" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
                 ) : (
                   <>
-                    <Button variant="reverse" asChild className="w-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                    <Button variant="reverse" asChild className="w-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-5 h-auto">
                       <Link href="/auth/signin" onClick={() => setIsOpen(false)}>
                         Sign In
                       </Link>
                     </Button>
-                    <Button variant="default" asChild className="w-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                    <Button variant="default" asChild className="w-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-5 h-auto">
                       <Link href="/auth/signup" onClick={() => setIsOpen(false)}>
                         Sign Up
                       </Link>

@@ -78,27 +78,6 @@ const BasicInfoSection = ({ form }: BasicInfoSectionProps) => {
       
       <FormField
         control={form.control}
-        name="bio"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel className="text-base">Bio</FormLabel>
-            <FormControl>
-              <Textarea 
-                {...field} 
-                placeholder="Tell students about yourself, your background, and how you can help them" 
-                className="min-h-32 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6 text-base"
-              />
-            </FormControl>
-            <FormDescription>
-              A detailed description of your background, expertise, and how you can help students
-            </FormDescription>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      
-      <FormField
-        control={form.control}
         name="image_url"
         render={({ field }) => (
           <FormItem>
@@ -140,6 +119,27 @@ const BasicInfoSection = ({ form }: BasicInfoSectionProps) => {
                 )}
               </div>
             </div>
+          </FormItem>
+        )}
+      />
+      
+      <FormField
+        control={form.control}
+        name="description"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel className="text-base">About Me</FormLabel>
+            <FormControl>
+              <Textarea 
+                {...field} 
+                placeholder="Tell students about yourself, your background, and how you can help them" 
+                className="min-h-32 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6 text-base"
+              />
+            </FormControl>
+            <FormDescription>
+              A detailed description of your background, expertise, and how you can help students
+            </FormDescription>
+            <FormMessage />
           </FormItem>
         )}
       />
