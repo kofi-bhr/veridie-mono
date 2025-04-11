@@ -129,7 +129,7 @@ const MentorCard = ({ mentor, universities }: MentorProps) => {
         onClick={() => {}}
         onKeyDown={handleKeyDown}
       >
-        <div className="p-4 flex flex-col h-full">
+        <div className="pt-0 px-4 pb-0 flex flex-col h-full">
           <div className="flex flex-row gap-4">
             {/* Mentor Image with Verification Badge */}
             <div className="relative w-24 h-24 shrink-0 overflow-hidden border-2 border-black">
