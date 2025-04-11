@@ -132,7 +132,7 @@ const MentorCard = ({ mentor, universities }: MentorProps) => {
         <div className="p-4 flex flex-col h-full">
           <div className="flex flex-row gap-4">
             {/* Mentor Image with Verification Badge */}
-            <div className="relative w-24 h-24 shrink-0 rounded-full overflow-hidden border-2 border-black">
+            <div className="relative w-24 h-24 shrink-0 overflow-hidden border-2 border-black">
               {isVerified && (
                 <div className="absolute top-0 right-0 z-10">
                   <Image 
@@ -159,8 +159,8 @@ const MentorCard = ({ mentor, universities }: MentorProps) => {
               
               {/* Top Award */}
               {top_award && (
-                <div className="mt-1 bg-main/10 inline-block px-2 py-1 rounded-md text-sm">
-                  🏆 {top_award}
+                <div className="mt-1 bg-[#ff8188] inline-block px-2 py-1 text-sm border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-bold">
+                  {top_award}
                 </div>
               )}
             </div>
@@ -188,7 +188,7 @@ const MentorCard = ({ mentor, universities }: MentorProps) => {
                     {[...major, ...major].map((item, index) => (
                       <div 
                         key={`${item}-${index}`} 
-                        className="bg-gray-100 px-2 py-1 rounded text-xs whitespace-nowrap flex-shrink-0"
+                        className="bg-white px-2 py-1 text-xs border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-bold whitespace-nowrap flex-shrink-0"
                       >
                         {item}
                       </div>
