@@ -16,6 +16,14 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Trash, Plus, DollarSign, Check } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import { Switch } from '@/components/ui/switch';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
 
 type ServicesSectionProps = {
   form: UseFormReturn<any>;
@@ -34,7 +42,9 @@ const ServicesSection = ({ form }: ServicesSectionProps) => {
         title: '', 
         description: '', 
         price: 0,
-        features: []
+        features: [],
+        billing_frequency: 'one-time',
+        is_visible: true
       }
     ]);
     
@@ -155,24 +165,109 @@ const ServicesSection = ({ form }: ServicesSectionProps) => {
                         <h3 className="font-bold text-lg mb-4">Edit Package</h3>
                         
                         <div className="space-y-4">
-                          <FormField
-                            control={form.control}
-                            name={`packages.${activePackageIndex}.title`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel className="text-base">Package Title</FormLabel>
-                                <FormControl>
-                                  <Input 
-                                    {...field} 
-                                    placeholder="e.g., Essay Review Basic" 
-                                    className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6 text-base"
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <FormField
+                              control={form.control}
+                              name={`packages.${activePackageIndex}.title`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-sm">Package Title</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      {...field} 
+                                      placeholder="e.g., Basic Consultation" 
+                                      className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-4 text-sm"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            
+                            <FormField
+                              control={form.control}
+                              name={`packages.${activePackageIndex}.price`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-sm">Price ($)</FormLabel>
+                                  <FormControl>
+                                    <div className="relative">
+                                      <div className="absolute left-0 top-0 h-full flex items-center pl-6">
+                                        <DollarSign className="h-5 w-5 text-gray-500" />
+                                      </div>
+                                      <Input 
+                                        {...field} 
+                                        type="number" 
+                                        min="0" 
+                                        step="0.01" 
+                                        placeholder="e.g., 49.99" 
+                                        className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-4 pl-12 text-sm"
+                                        value={field.value === 0 ? '' : field.value}
+                                        onChange={(e) => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                                      />
+                                    </div>
+                                  </FormControl>
+                                  <FormDescription className="text-xs">
+                                    Set the price for this package. Use whole numbers for clean pricing.
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <FormField
+                              control={form.control}
+                              name={`packages.${activePackageIndex}.billing_frequency`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-sm">Billing Frequency</FormLabel>
+                                  <Select
+                                    value={field.value}
+                                    onValueChange={field.onChange}
+                                  >
+                                    <FormControl>
+                                      <SelectTrigger className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-4 text-sm">
+                                        <SelectValue placeholder="Select frequency" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      <SelectItem value="one-time">One-time Payment</SelectItem>
+                                      <SelectItem value="monthly">Monthly</SelectItem>
+                                      <SelectItem value="yearly">Yearly</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <FormDescription className="text-xs">
+                                    How often the customer will be billed for this package
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            
+                            <FormField
+                              control={form.control}
+                              name={`packages.${activePackageIndex}.is_visible`}
+                              render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-black p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                                  <div className="space-y-0.5">
+                                    <FormLabel className="text-sm">Visible on Profile</FormLabel>
+                                    <FormDescription>
+                                      Toggle to show or hide this package on your public profile
+                                    </FormDescription>
+                                  </div>
+                                  <FormControl>
+                                    <Switch
+                                      checked={field.value}
+                                      onCheckedChange={field.onChange}
+                                    />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+
                           <FormField
                             control={form.control}
                             name={`packages.${activePackageIndex}.description`}
@@ -186,37 +281,6 @@ const ServicesSection = ({ form }: ServicesSectionProps) => {
                                     className="min-h-32 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6 text-base"
                                   />
                                 </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name={`packages.${activePackageIndex}.price`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel className="text-base">Price (USD)</FormLabel>
-                                <FormControl>
-                                  <div className="relative">
-                                    <div className="absolute left-0 top-0 h-full flex items-center pl-6">
-                                      <DollarSign className="h-5 w-5 text-gray-500" />
-                                    </div>
-                                    <Input 
-                                      {...field} 
-                                      type="number"
-                                      min="0"
-                                      step="0.01"
-                                      placeholder="0.00" 
-                                      className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6 pl-12 text-base"
-                                      value={field.value === 0 ? '' : field.value}
-                                      onChange={(e) => field.onChange(e.target.value === '' ? 0 : parseFloat(e.target.value))}
-                                    />
-                                  </div>
-                                </FormControl>
-                                <FormDescription>
-                                  Set the price for this package. Use whole numbers for clean pricing.
-                                </FormDescription>
                                 <FormMessage />
                               </FormItem>
                             )}

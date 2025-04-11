@@ -23,6 +23,7 @@ import {
 import { Trash, Plus } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { v4 as uuidv4 } from 'uuid';
+import { Switch } from '@/components/ui/switch';
 
 type AchievementsSectionProps = {
   form: UseFormReturn<any>;
@@ -80,6 +81,20 @@ const AchievementsSection = ({ form }: AchievementsSectionProps) => {
   const handleRemoveAPScore = (index: number) => {
     const currentAPScores = form.getValues('ap_scores') || [];
     form.setValue('ap_scores', currentAPScores.filter((apScore: any, i: number) => i !== index));
+  };
+
+  // Essays
+  const handleAddEssay = () => {
+    const currentEssays = form.getValues('essays') || [];
+    form.setValue('essays', [
+      ...currentEssays, 
+      { id: uuidv4(), prompt: '', content: '', is_visible: true }
+    ]);
+  };
+  
+  const handleRemoveEssay = (index: number) => {
+    const currentEssays = form.getValues('essays') || [];
+    form.setValue('essays', currentEssays.filter((essay: any, i: number) => i !== index));
   };
   
   return (
@@ -357,6 +372,115 @@ const AchievementsSection = ({ form }: AchievementsSectionProps) => {
                 
                 {(!form.getValues('extracurriculars') || form.getValues('extracurriculars').length === 0) && (
                   <p className="text-muted-foreground italic">No activities added yet. Click "Add Activity" to get started.</p>
+                )}
+              </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
+      
+      {/* Essays Section */}
+      <div className="space-y-4 pt-6 border-t-2 border-gray-200">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">College Essays</h3>
+          <Button
+            type="button"
+            onClick={handleAddEssay}
+            variant="default"
+            className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Essay
+          </Button>
+        </div>
+        
+        <FormField
+          control={form.control}
+          name="essays"
+          render={() => (
+            <FormItem>
+              <FormDescription>
+                Share your college application essays to help prospective students understand your writing style and approach.
+              </FormDescription>
+              <div className="space-y-4 mt-4">
+                {(form.getValues('essays') || []).map((essay: any, index: number) => (
+                  <Card key={essay.id || index} className="p-4 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                    <div className="flex justify-between items-start mb-4">
+                      <h4 className="font-medium">Essay #{index + 1}</h4>
+                      <Button
+                        type="button"
+                        variant="neutral"
+                        onClick={() => handleRemoveEssay(index)}
+                        className="h-8 w-8 p-0 text-red-500"
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <FormField
+                        control={form.control}
+                        name={`essays.${index}.prompt`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-sm">Essay Prompt</FormLabel>
+                            <FormControl>
+                              <Input 
+                                {...field} 
+                                placeholder="e.g., Describe a challenge you've faced and how you overcame it" 
+                                className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-4 text-sm"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name={`essays.${index}.content`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-sm">Essay Content</FormLabel>
+                            <FormControl>
+                              <Textarea 
+                                {...field} 
+                                placeholder="Enter your essay here..." 
+                                className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-4 text-sm min-h-[200px]"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name={`essays.${index}.is_visible`}
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-black p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-sm">Visible on Profile</FormLabel>
+                              <FormDescription>
+                                Toggle to show or hide this essay on your public profile
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </Card>
+                ))}
+                
+                {(!form.getValues('essays') || form.getValues('essays').length === 0) && (
+                  <p className="text-muted-foreground italic">No essays added yet. Click "Add Essay" to get started.</p>
                 )}
               </div>
               <FormMessage />

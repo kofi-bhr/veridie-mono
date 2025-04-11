@@ -1,25 +1,33 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { supabase } from '@/lib/supabase/client';
 import ConsultantProfileForm from '@/components/consultant/ConsultantProfileForm';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { Button } from '@/components/ui/button';
 
 const ConsultantProfileEditPage = () => {
-  const { user } = useAuth();
+  const { user, isConsultant } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [consultantData, setConsultantData] = useState<any>(null);
   const [universities, setUniversities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!user) return;
+      if (!user) {
+        console.log('ConsultantProfileEditPage: No user, skipping data fetch');
+        return;
+      }
 
       try {
+        console.log('ConsultantProfileEditPage: Fetching profile data for user:', user.id);
+        
         // First check if user has a consultant profile
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
@@ -27,9 +35,13 @@ const ConsultantProfileEditPage = () => {
           .eq('id', user.id)
           .single();
           
-        if (profileError) throw profileError;
+        if (profileError) {
+          console.error('ConsultantProfileEditPage: Error fetching profile:', profileError);
+          throw profileError;
+        }
         
         if (profileData.role !== 'consultant') {
+          console.log('ConsultantProfileEditPage: User is not a consultant, redirecting to profile');
           router.push('/profile');
           return;
         }
@@ -55,7 +67,13 @@ const ConsultantProfileEditPage = () => {
           .eq('user_id', user.id)
           .single();
 
-        if (consultantError) throw consultantError;
+        // If consultant data doesn't exist, it's okay - we'll create a new one
+        if (consultantError && consultantError.code !== 'PGRST116') {
+          console.error('ConsultantProfileEditPage: Error fetching consultant data:', consultantError);
+          throw consultantError;
+        }
+        
+        console.log('ConsultantProfileEditPage: Consultant data fetched successfully');
         
         // Fetch universities for dropdown
         const { data: universitiesData, error: universitiesError } = await supabase
@@ -63,20 +81,37 @@ const ConsultantProfileEditPage = () => {
           .select('*')
           .order('name');
 
-        if (universitiesError) throw universitiesError;
+        if (universitiesError) {
+          console.error('ConsultantProfileEditPage: Error fetching universities:', universitiesError);
+          throw universitiesError;
+        }
 
-        setConsultantData(consultantData);
+        // Set the active tab from URL if provided
+        const tabParam = searchParams.get('tab');
+        if (tabParam) {
+          console.log('ConsultantProfileEditPage: Setting active tab from URL:', tabParam);
+          // We'll pass this to the form component
+        }
+
+        setConsultantData(consultantData || { user_id: user.id });
         setUniversities(universitiesData || []);
       } catch (err: any) {
-        console.error('Error fetching data:', err);
-        setError(err.message);
+        console.error('ConsultantProfileEditPage: Error fetching data:', err);
+        setError(err.message || 'Failed to load profile data');
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [user]);
+  }, [user, router, searchParams, retryCount]);
+
+  const handleRetry = () => {
+    console.log('ConsultantProfileEditPage: Retrying data fetch');
+    setError(null);
+    setLoading(true);
+    setRetryCount(prev => prev + 1);
+  };
 
   return (
     <ProtectedRoute requiredRole="consultant">
@@ -93,18 +128,28 @@ const ConsultantProfileEditPage = () => {
           ) : error ? (
             <div className="text-center py-8">
               <p className="text-red-500 mb-6">{error}</p>
-              <button 
-                onClick={() => router.push('/')}
-                className="px-6 py-3 bg-main text-black border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] font-medium rounded-md"
-              >
-                Return to Home
-              </button>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button 
+                  onClick={handleRetry}
+                  className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                >
+                  Try Again
+                </Button>
+                <Button 
+                  onClick={() => router.push('/profile')}
+                  variant="reverse"
+                  className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                >
+                  Return to Profile
+                </Button>
+              </div>
             </div>
           ) : (
             <ConsultantProfileForm 
               initialData={consultantData} 
               universities={universities}
               userId={user?.id || ""}
+              initialTab={searchParams.get('tab') || undefined}
             />
           )}
         </div>

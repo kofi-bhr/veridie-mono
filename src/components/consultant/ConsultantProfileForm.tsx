@@ -54,6 +54,15 @@ const consultantProfileSchema = z.object({
     })
   ).optional(),
   
+  essays: z.array(
+    z.object({
+      id: z.string().optional(),
+      prompt: z.string().min(1, "Essay prompt is required"),
+      content: z.string().min(1, "Essay content is required"),
+      is_visible: z.boolean().default(true)
+    })
+  ).optional(),
+  
   ap_scores: z.array(
     z.object({
       id: z.string().optional(),
@@ -69,7 +78,9 @@ const consultantProfileSchema = z.object({
       title: z.string().min(1, "Package title is required"),
       description: z.string().min(1, "Package description is required"),
       price: z.coerce.number().min(0, "Price must be a positive number"),
-      features: z.array(z.string())
+      features: z.array(z.string()),
+      billing_frequency: z.string().default("one-time"),
+      is_visible: z.boolean().default(true)
     })
   ).optional()
 });
@@ -80,11 +91,12 @@ type ConsultantProfileFormProps = {
   initialData: any;
   universities: any[];
   userId: string;
+  initialTab?: string;
 };
 
-const ConsultantProfileForm = ({ initialData, universities, userId }: ConsultantProfileFormProps) => {
+const ConsultantProfileForm = ({ initialData, universities, userId, initialTab }: ConsultantProfileFormProps) => {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("basic-info");
+  const [activeTab, setActiveTab] = useState(initialTab || "basic-info");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -105,6 +117,7 @@ const ConsultantProfileForm = ({ initialData, universities, userId }: Consultant
     accepted_university_ids: initialData?.accepted_university_ids || [],
     awards: initialData?.awards || [],
     extracurriculars: initialData?.extracurriculars || [],
+    essays: initialData?.essays || [],
     ap_scores: initialData?.ap_scores || [],
     packages: initialData?.packages || []
   };
@@ -119,13 +132,14 @@ const ConsultantProfileForm = ({ initialData, universities, userId }: Consultant
       setIsSubmitting(true);
       setError(null);
       
+      console.log('ConsultantProfileForm: Submitting form data');
+      
       // Update consultant profile
       const { error } = await supabase
         .from('consultants')
         .update({
           headline: values.headline,
           bio: values.bio,
-          image_url: values.image_url,
           slug: values.slug,
           university: values.university,
           major: values.major,
@@ -151,6 +165,12 @@ const ConsultantProfileForm = ({ initialData, universities, userId }: Consultant
             .delete()
             .eq('consultant_id', initialData.id)
             .not('id', 'in', awardIds);
+        } else {
+          // If no awards with IDs, delete all existing awards
+          await supabase
+            .from('awards')
+            .delete()
+            .eq('consultant_id', initialData.id);
         }
         
         // Then upsert all current awards
@@ -177,16 +197,207 @@ const ConsultantProfileForm = ({ initialData, universities, userId }: Consultant
               });
           }
         }
+      } else {
+        // If no awards in form, delete all existing awards
+        await supabase
+          .from('awards')
+          .delete()
+          .eq('consultant_id', initialData.id);
       }
       
-      // Similar logic would be applied for extracurriculars, ap_scores, and packages
+      // Handle extracurriculars
+      if (values.extracurriculars && values.extracurriculars.length > 0) {
+        const ecIds = values.extracurriculars.map(ec => ec.id).filter(Boolean);
+        if (ecIds.length > 0) {
+          await supabase
+            .from('extracurriculars')
+            .delete()
+            .eq('consultant_id', initialData.id)
+            .not('id', 'in', ecIds);
+        } else {
+          await supabase
+            .from('extracurriculars')
+            .delete()
+            .eq('consultant_id', initialData.id);
+        }
+        
+        for (const ec of values.extracurriculars) {
+          if (ec.id) {
+            await supabase
+              .from('extracurriculars')
+              .update({
+                title: ec.title,
+                role: ec.role,
+                institution: ec.institution,
+                description: ec.description,
+                years: ec.years
+              })
+              .eq('id', ec.id);
+          } else {
+            await supabase
+              .from('extracurriculars')
+              .insert({
+                consultant_id: initialData.id,
+                title: ec.title,
+                role: ec.role,
+                institution: ec.institution,
+                description: ec.description,
+                years: ec.years
+              });
+          }
+        }
+      } else {
+        await supabase
+          .from('extracurriculars')
+          .delete()
+          .eq('consultant_id', initialData.id);
+      }
       
-      // Redirect to the consultant's public profile page
-      router.push(`/mentors/${values.slug}`);
+      // Handle essays
+      if (values.essays && values.essays.length > 0) {
+        const essayIds = values.essays.map(essay => essay.id).filter(Boolean);
+        if (essayIds.length > 0) {
+          await supabase
+            .from('essays')
+            .delete()
+            .eq('consultant_id', initialData.id)
+            .not('id', 'in', essayIds);
+        } else {
+          await supabase
+            .from('essays')
+            .delete()
+            .eq('consultant_id', initialData.id);
+        }
+        
+        for (const essay of values.essays) {
+          if (essay.id) {
+            await supabase
+              .from('essays')
+              .update({
+                prompt: essay.prompt,
+                content: essay.content,
+                is_visible: essay.is_visible
+              })
+              .eq('id', essay.id);
+          } else {
+            await supabase
+              .from('essays')
+              .insert({
+                consultant_id: initialData.id,
+                prompt: essay.prompt,
+                content: essay.content,
+                is_visible: essay.is_visible
+              });
+          }
+        }
+      } else {
+        await supabase
+          .from('essays')
+          .delete()
+          .eq('consultant_id', initialData.id);
+      }
+      
+      // Handle AP scores
+      if (values.ap_scores && values.ap_scores.length > 0) {
+        const apIds = values.ap_scores.map(ap => ap.id).filter(Boolean);
+        if (apIds.length > 0) {
+          await supabase
+            .from('ap_scores')
+            .delete()
+            .eq('consultant_id', initialData.id)
+            .not('id', 'in', apIds);
+        } else {
+          await supabase
+            .from('ap_scores')
+            .delete()
+            .eq('consultant_id', initialData.id);
+        }
+        
+        for (const ap of values.ap_scores) {
+          if (ap.id) {
+            await supabase
+              .from('ap_scores')
+              .update({
+                subject: ap.subject,
+                score: ap.score
+              })
+              .eq('id', ap.id);
+          } else {
+            await supabase
+              .from('ap_scores')
+              .insert({
+                consultant_id: initialData.id,
+                subject: ap.subject,
+                score: ap.score
+              });
+          }
+        }
+      } else {
+        await supabase
+          .from('ap_scores')
+          .delete()
+          .eq('consultant_id', initialData.id);
+      }
+      
+      // Handle packages (placeholder for Stripe integration)
+      if (values.packages && values.packages.length > 0) {
+        const packageIds = values.packages.map(pkg => pkg.id).filter(Boolean);
+        if (packageIds.length > 0) {
+          await supabase
+            .from('packages')
+            .delete()
+            .eq('consultant_id', initialData.id)
+            .not('id', 'in', packageIds);
+        } else {
+          await supabase
+            .from('packages')
+            .delete()
+            .eq('consultant_id', initialData.id);
+        }
+        
+        for (let i = 0; i < values.packages.length; i++) {
+          const pkg = values.packages[i];
+          if (pkg.id) {
+            await supabase
+              .from('packages')
+              .update({
+                title: pkg.title,
+                description: pkg.description,
+                price: pkg.price,
+                features: pkg.features,
+                position: i,
+                billing_frequency: pkg.billing_frequency || 'one-time',
+                is_visible: pkg.is_visible
+              })
+              .eq('id', pkg.id);
+          } else {
+            await supabase
+              .from('packages')
+              .insert({
+                consultant_id: initialData.id,
+                title: pkg.title,
+                description: pkg.description,
+                price: pkg.price,
+                features: pkg.features,
+                position: i,
+                billing_frequency: pkg.billing_frequency || 'one-time',
+                is_visible: pkg.is_visible
+              });
+          }
+        }
+      } else {
+        await supabase
+          .from('packages')
+          .delete()
+          .eq('consultant_id', initialData.id);
+      }
+      
+      // Redirect to the consultant's profile page
+      router.push('/profile/consultant');
       router.refresh();
     } catch (err: any) {
-      console.error('Error updating profile:', err);
-      setError(err.message);
+      console.error('ConsultantProfileForm: Error updating profile:', err);
+      setError(err.message || 'Failed to save profile data');
     } finally {
       setIsSubmitting(false);
     }
