@@ -118,7 +118,7 @@ const Hero = () => {
           >
             <div className="mb-4">
               <motion.h1 
-                className="text-4xl font-bold"
+                className="text-3xl md:text-5xl font-bold"
                 variants={container}
                 initial="hidden"
                 animate="visible"
