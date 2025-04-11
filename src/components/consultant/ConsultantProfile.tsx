@@ -154,7 +154,7 @@ export default function ConsultantProfile({ consultant, universities }: Consulta
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden max-h-[80vh] overflow-y-auto scrollbar-hide">
+              <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden max-h-[80vh] overflow-y-auto scrollbar-hide rounded-none">
                 <div className="p-6">
                   {/* Profile Image with Verification Badge */}
                   <div className="relative w-32 h-32 mx-auto mb-4">
@@ -219,11 +219,23 @@ export default function ConsultantProfile({ consultant, universities }: Consulta
                         {consultant.major.map((item, index) => (
                           <div 
                             key={index}
-                            className="bg-main/10 px-3 py-1 rounded-full text-sm font-medium"
+                            className="bg-main/10 px-3 py-1 text-sm font-medium border-2 border-black"
                           >
                             {item}
                           </div>
                         ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Top Award */}
+                  {consultant.awards && consultant.awards.length > 0 && (
+                    <div className="mb-5">
+                      <h2 className="text-sm font-medium mb-2 text-center text-foreground/60">Top Award</h2>
+                      <div className="flex justify-center">
+                        <div className="bg-[#ff8188] px-3 py-1 text-sm font-bold border-2 border-black">
+                          {consultant.awards[0].title}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -320,7 +332,7 @@ export default function ConsultantProfile({ consultant, universities }: Consulta
               transition={{ duration: 0.5, delay: 0.1 }}
             >
               {/* Packages Section with Horizontal Scroll on Mobile */}
-              <section className="mb-12">
+              <section className="mb-12 pt-4">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-2xl font-bold">Services & Packages</h2>
                   <div className="flex gap-2">
@@ -358,7 +370,7 @@ export default function ConsultantProfile({ consultant, universities }: Consulta
                         transition={{ duration: 0.3 }}
                         className="w-[280px] md:w-auto flex-shrink-0"
                       >
-                        <Card className="h-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden transition-all hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+                        <Card className="h-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden transition-all hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-none">
                           <div className="p-6 flex flex-col h-full">
                             <div className="mb-4">
                               <h3 className="text-xl font-bold mb-1">{pkg.title}</h3>
@@ -422,7 +434,7 @@ export default function ConsultantProfile({ consultant, universities }: Consulta
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.3 }}
                           >
-                            <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden transition-all hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+                            <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden transition-all hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-none">
                               <div className="p-6">
                                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                                   <div>
@@ -492,7 +504,7 @@ export default function ConsultantProfile({ consultant, universities }: Consulta
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.3 }}
                           >
-                            <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden transition-all hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+                            <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden transition-all hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] rounded-none">
                               <div className="p-6">
                                 <div className="flex items-center gap-3 mb-2">
                                   <div className="w-10 h-10 rounded-full bg-main/10 flex items-center justify-center">
@@ -548,7 +560,7 @@ export default function ConsultantProfile({ consultant, universities }: Consulta
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.3 }}
                           >
-                            <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden">
+                            <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden rounded-none">
                               <div className="p-6">
                                 <div className="flex items-center gap-3 mb-2">
                                   <div className="w-10 h-10 rounded-full bg-main/10 flex items-center justify-center">
@@ -647,7 +659,7 @@ function LockedContent({ title, message }: { title: string, message: string }) {
       <div className="blur-sm opacity-40 p-6">
         <div className="space-y-4">
           {/* First dummy card */}
-          <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden">
+          <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden rounded-none">
             <div className="p-6">
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div>
@@ -667,7 +679,7 @@ function LockedContent({ title, message }: { title: string, message: string }) {
           </Card>
           
           {/* Second dummy card */}
-          <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden">
+          <Card className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden rounded-none">
             <div className="p-6">
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div>

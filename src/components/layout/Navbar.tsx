@@ -171,6 +171,16 @@ const Navbar = () => {
                   </div>
                   
                   <div className="py-1 border-t-2 border-black">
+                    <Link 
+                      href="/about" 
+                      className="flex items-center gap-3 p-3 hover:bg-gray-100 rounded-md transition-colors w-full text-left"
+                      onClick={() => setShowProfileMenu(false)}
+                    >
+                      <span>About</span>
+                    </Link>
+                  </div>
+                  
+                  <div className="py-1 border-t-2 border-black">
                     <button 
                       className="flex items-center gap-2 px-4 py-2 w-full text-left hover:bg-gray-100 transition-colors text-red-600"
                       onClick={handleSignOut}
@@ -273,6 +283,14 @@ const Navbar = () => {
                         <span>Mentor Dashboard</span>
                       </Link>
                     )}
+                    
+                    <Link 
+                      href="/about" 
+                      className="flex items-center gap-3 p-3 hover:bg-gray-100 rounded-md transition-colors w-full text-left"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <span>About</span>
+                    </Link>
                     
                     <button 
                       onClick={handleSignOut}

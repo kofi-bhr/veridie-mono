@@ -123,7 +123,7 @@ const MentorCard = ({ mentor, universities }: MentorProps) => {
       whileHover={{ y: -5 }}
     >
       <Card 
-        className="h-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden transition-all hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+        className="h-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden transition-all hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-none"
         tabIndex={0}
         aria-label={`View profile of ${first_name} ${last_name}, ${headline}`}
         onClick={() => {}}
@@ -252,7 +252,7 @@ const MentorCard = ({ mentor, universities }: MentorProps) => {
           {/* CTA */}
           <div className="mt-auto">
             <Button asChild className="w-full rounded-none">
-              <Link href={`/mentors/${slug}`}>View Profile</Link>
+              <Link href={`/mentors/${slug}`} className="font-bold">View Profile</Link>
             </Button>
           </div>
         </div>
