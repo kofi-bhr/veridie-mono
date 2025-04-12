@@ -150,6 +150,13 @@ export default function ConsultantEditDirectPage() {
     checkAuth();
   }, [isLoading, isAuthenticated, isConsultant, user]);
 
+  // Fetch universities on component mount
+  useEffect(() => {
+    if (!loading && user) {
+      fetchUniversities();
+    }
+  }, [loading, user]);
+
   // Fetch the consultant profile
   const fetchConsultantProfile = async () => {
     try {
@@ -205,9 +212,6 @@ export default function ConsultantEditDirectPage() {
       // Set test score toggles
       setSatEnabled(consultant.sat_score !== null);
       setActEnabled(consultant.act_composite !== null);
-      
-      // Fetch universities list
-      await fetchUniversities();
       
       setLoading(false);
     } catch (error) {
