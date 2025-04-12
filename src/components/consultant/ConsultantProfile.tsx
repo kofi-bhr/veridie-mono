@@ -330,9 +330,9 @@ export default function ConsultantProfile({ consultant, universities }: Consulta
               transition={{ duration: 0.5, delay: 0.1 }}
             >
               {/* Packages Section with Horizontal Scroll on Mobile */}
-              <section className="mb-12 pt-4">
+              <section className="mb-12 pt-4 md:pt-0">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold">Services & Packages</h2>
+                  <h2 className="text-2xl font-bold md:hidden">Services & Packages</h2>
                   <div className="flex gap-2">
                     <div className="md:hidden flex gap-2">
                       <Button 

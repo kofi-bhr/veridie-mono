@@ -5,11 +5,44 @@ import Image from 'next/image';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase/client';
 
 export default function AboutPage() {
+  const [secondConsultant, setSecondConsultant] = useState(null);
+
+  useEffect(() => {
+    const fetchSecondConsultant = async () => {
+      const { data, error } = await supabase
+        .from('consultants')
+        .select(`
+          id,
+          slug,
+          profiles(first_name, last_name),
+          university,
+          headline,
+          image_url,
+          accepted_schools
+        `)
+        .order('id', { ascending: true })
+        .limit(2);
+
+      if (error) {
+        console.error('Error fetching consultants:', error);
+        return;
+      }
+
+      if (data && data.length > 1) {
+        setSecondConsultant(data[1]);
+      }
+    };
+
+    fetchSecondConsultant();
+  }, []);
+
   return (
     <main className="min-h-screen bg-background pt-24 pb-16">
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto px-6 md:px-8">
         {/* Hero Section */}
         <section className="mb-16">
           <motion.div
@@ -61,14 +94,87 @@ export default function AboutPage() {
               viewport={{ once: true }}
               className="relative"
             >
-              <div className="relative h-[400px] border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-                <Image
-                  src="/images/about-story.jpg"
-                  alt="Students celebrating college acceptance"
-                  fill
-                  className="object-cover"
-                />
-              </div>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                whileHover={{ y: -5 }}
+              >
+                <Card 
+                  className="h-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden transition-all hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-none"
+                  tabIndex={0}
+                  aria-label="View profile of Sebastian Tan, College Consultant"
+                >
+                  <div className="pt-0 px-4 pb-0 flex flex-col h-full">
+                    <div className="flex flex-row gap-4">
+                      {/* Mentor Image with Verification Badge */}
+                      <div className="relative w-24 h-24 shrink-0 overflow-hidden border-2 border-black">
+                        <Image
+                          src="/images/sebastian-tan-new-photo.jpg" // Replace with actual path
+                          alt="Sebastian Tan"
+                          width={96}
+                          height={96}
+                          className="object-cover w-full h-full"
+                        />
+                      </div>
+
+                      {/* Mentor Info */}
+                      <div className="flex-1">
+                        <h3 className="text-xl font-bold">Sebastian Tan</h3>
+                        <p className="text-foreground/80 text-sm">Founder @ Veridie</p>
+                        <div className="mt-1 bg-[#ff8188] inline-block px-2 py-1 text-sm border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-bold">
+                          Coca-Cola Scholar
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Majors - Scrolling List */}
+                    <div className="mt-3 mb-2">
+                      <span className="text-xs text-foreground/60 block mb-1">Interests:</span>
+                      <div className="flex gap-2 overflow-x-auto scrollbar-hide relative">
+                        <div className="bg-white px-2 py-1 text-xs border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-bold whitespace-nowrap flex-shrink-0">
+                          Computer Science
+                        </div>
+                        <div className="bg-white px-2 py-1 text-xs border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-bold whitespace-nowrap flex-shrink-0">
+                          Mathematics
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Accepted Schools */}
+                    {/* <div className="mt-2 mb-3">
+                      <span className="text-xs text-foreground/60 block mb-1">Accepted at:</span>
+                      <div className="flex gap-3 overflow-x-auto scrollbar-hide relative">
+                        <div className="h-8 flex-shrink-0" title="Harvard University">
+                          <Image
+                            src="/path/to/harvard-logo.jpg" // Replace with actual path
+                            alt="Harvard University"
+                            width={32}
+                            height={32}
+                            className="object-contain h-full"
+                          />
+                        </div>
+                        <div className="h-8 flex-shrink-0" title="Stanford University">
+                          <Image
+                            src="/path/to/stanford-logo.jpg" // Replace with actual path
+                            alt="Stanford University"
+                            width={32}
+                            height={32}
+                            className="object-contain h-full"
+                          />
+                        </div>
+                      </div>
+                    </div> */}
+
+                    {/* CTA */}
+                    <div className="mt-auto">
+                      <Button asChild className="w-full rounded-none">
+                        <Link href="#" className="font-bold">View Profile</Link>
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              </motion.div>
             </motion.div>
           </div>
         </section>
@@ -93,7 +199,7 @@ export default function AboutPage() {
               transition={{ duration: 0.5, delay: 0 }}
               viewport={{ once: true }}
             >
-              <Card className="p-6 h-full bg-[#FFEDDF] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform hover:translate-y-[-4px]">
+              <Card className="p-6 h-full bg-[#FFEDDF] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform hover:translate-y-[-4px] rounded-none">
                 <h3 className="text-xl font-bold mb-4">Fresh Perspectives</h3>
                 <p className="mb-4">
                   Our consultants aren't career advisors—they're successful students who just navigated 
@@ -113,7 +219,7 @@ export default function AboutPage() {
               transition={{ duration: 0.5, delay: 0.1 }}
               viewport={{ once: true }}
             >
-              <Card className="p-6 h-full bg-[#E5DEFF] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform hover:translate-y-[-4px]">
+              <Card className="p-6 h-full bg-[#E5DEFF] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform hover:translate-y-[-4px] rounded-none">
                 <h3 className="text-xl font-bold mb-4">No BS Approach</h3>
                 <p className="mb-4">
                   We cut through the noise and deliver straight talk. No corporate jargon, no vague promises—just 
@@ -133,7 +239,7 @@ export default function AboutPage() {
               transition={{ duration: 0.5, delay: 0.2 }}
               viewport={{ once: true }}
             >
-              <Card className="p-6 h-full bg-[#DEFFEF] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform hover:translate-y-[-4px]">
+              <Card className="p-6 h-full bg-[#DEFFEF] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform hover:translate-y-[-4px] rounded-none">
                 <h3 className="text-xl font-bold mb-4">Accessible Excellence</h3>
                 <p className="mb-4">
                   Elite consulting shouldn't cost more than tuition. We've created a platform where top-tier 
