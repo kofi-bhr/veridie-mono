@@ -55,7 +55,7 @@ export default function ContactPage() {
               <div className="p-8">
                 <h1 className="text-3xl font-bold mb-2">Contact Us</h1>
                 <p className="text-foreground/80 mb-8">
-                  Have questions or feedback? We'd love to hear from you. Fill out the form below and we'll get back to you as soon as possible.
+                  Have questions or feedback? We&apos;d love to hear from you. Fill out the form below and we&apos;ll get back to you as soon as possible.
                 </p>
                 
                 {isSubmitted ? (
@@ -65,7 +65,7 @@ export default function ContactPage() {
                     </div>
                     <h3 className="text-xl font-bold mb-2">Message Sent!</h3>
                     <p className="text-green-700 mb-4">
-                      Thank you for reaching out. We'll get back to you as soon as possible.
+                      Thank you for reaching out. We&apos;ll get back to you as soon as possible.
                     </p>
                     <Button 
                       onClick={() => setIsSubmitted(false)}
@@ -137,7 +137,7 @@ export default function ContactPage() {
                         required
                         rows={5}
                         className="w-full px-4 py-3 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-main resize-none"
-                        placeholder="Tell us what's on your mind..."
+                        placeholder="Tell us what&apos;s on your mind..."
                       />
                     </div>
                     

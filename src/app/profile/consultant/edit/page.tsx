@@ -8,15 +8,28 @@ import ConsultantProfileForm from '@/components/consultant/ConsultantProfileForm
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
 
+// Define types
+interface ConsultantData {
+  user_id: string;
+  // Add other fields as needed
+}
+
+interface University {
+  id: string;
+  name: string;
+  // Add other fields as needed
+}
+
 const ConsultantProfileEditPage = () => {
   const { user, isConsultant } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [consultantData, setConsultantData] = useState<any>(null);
-  const [universities, setUniversities] = useState<any[]>([]);
+  const [consultantData, setConsultantData] = useState<ConsultantData | null>(null);
+  const [universities, setUniversities] = useState<University[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const tabParam = searchParams ? searchParams.get('tab') || undefined : undefined;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -86,13 +99,6 @@ const ConsultantProfileEditPage = () => {
           throw universitiesError;
         }
 
-        // Set the active tab from URL if provided
-        const tabParam = searchParams.get('tab');
-        if (tabParam) {
-          console.log('ConsultantProfileEditPage: Setting active tab from URL:', tabParam);
-          // We'll pass this to the form component
-        }
-
         setConsultantData(consultantData || { user_id: user.id });
         setUniversities(universitiesData || []);
       } catch (err: any) {
@@ -149,7 +155,7 @@ const ConsultantProfileEditPage = () => {
               initialData={consultantData} 
               universities={universities}
               userId={user?.id || ""}
-              initialTab={searchParams.get('tab') || undefined}
+              initialTab={tabParam}
             />
           )}
         </div>

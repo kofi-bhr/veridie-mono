@@ -296,7 +296,6 @@ export default async function ConsultantProfilePage({ params }: { params: { slug
     return notFound();
   }
 }
-
 // Helper function to safely extract values from an object using multiple possible keys
 function extractValue(obj: any, possibleKeys: string[]): string | null {
   if (!obj) return null;
@@ -309,3 +308,4 @@ function extractValue(obj: any, possibleKeys: string[]): string | null {
   
   return null;
 }
+
