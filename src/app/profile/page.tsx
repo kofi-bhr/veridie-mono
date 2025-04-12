@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { Button } from '@/components/ui/button';
 import ProfileForm from '@/components/auth/ProfileForm';
-import ProtectedRoute from '@/components/auth/ProtectedRoute';
 
 const ProfilePage = () => {
   const { user, profile, isLoading, isAuthenticated, isConsultant, signOut, refreshProfile } = useAuth();

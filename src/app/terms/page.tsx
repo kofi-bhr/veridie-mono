@@ -21,12 +21,12 @@ export default function TermsPage() {
                 <p className="mb-4">Last Updated: April 9, 2025</p>
                 
                 <h2 className="text-xl font-bold mt-8 mb-4">1. Introduction</h2>
-                <p>Welcome to Veridie! These Terms of Service ("Terms") govern your use of the Veridie website, platform, and services (collectively, the "Service"). By accessing or using our Service, you agree to be bound by these Terms. If you disagree with any part of the Terms, you may not access the Service.</p>
+                <p>Welcome to Veridie! These Terms of Service (&quot;Terms&quot;) govern your use of the Veridie website, platform, and services (collectively, the &quot;Service&quot;). By accessing or using our Service, you agree to be bound by these Terms. If you disagree with any part of the Terms, you may not access the Service.</p>
                 
                 <h2 className="text-xl font-bold mt-8 mb-4">2. Definitions</h2>
-                <p><strong>"Veridie"</strong> refers to our company, our website, and our platform.</p>
-                <p><strong>"Users"</strong> refers to individuals who access or use our Service, including consultants and students.</p>
-                <p><strong>"Content"</strong> refers to information, text, graphics, photos, designs, or other materials uploaded, posted, or otherwise made available through our Service.</p>
+                <p><strong>&quot;Veridie&quot;</strong> refers to our company, our website, and our platform.</p>
+                <p><strong>&quot;Users&quot;</strong> refers to individuals who access or use our Service, including consultants and students.</p>
+                <p><strong>&quot;Content&quot;</strong> refers to information, text, graphics, photos, designs, or other materials uploaded, posted, or otherwise made available through our Service.</p>
                 
                 <h2 className="text-xl font-bold mt-8 mb-4">3. User Accounts</h2>
                 <p>When you create an account with us, you must provide accurate and complete information. You are responsible for safeguarding the password you use to access the Service and for any activities or actions under your password. We encourage you to use a strong password unique to our Service.</p>

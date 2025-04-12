@@ -65,7 +65,7 @@ export default function PrivacyPage() {
                   <li>The right to restrict or object to processing of your personal information</li>
                   <li>The right to data portability</li>
                 </ul>
-                <p>To exercise these rights, please contact us using the information provided in the "Contact Us" section.</p>
+                <p>To exercise these rights, please contact us using the information provided in the &quot;Contact Us&quot; section.</p>
                 
                 <h2 className="text-xl font-bold mt-8 mb-4">7. Cookies and Tracking Technologies</h2>
                 <p>We use cookies and similar tracking technologies to enhance your experience on our website. You can set your browser to refuse all or some browser cookies, but this may affect certain features of our website.</p>

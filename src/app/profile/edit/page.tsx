@@ -22,10 +22,6 @@ const EditProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [defaultValues, setDefaultValues] = useState<ProfileFormValues>({
-    firstName: '',
-    lastName: '',
-  });
 
   useEffect(() => {
     const getProfile = async () => {
@@ -44,10 +40,7 @@ const EditProfilePage = () => {
         if (error) throw error;
         
         if (data) {
-          setDefaultValues({
-            firstName: data.first_name || '',
-            lastName: data.last_name || '',
-          });
+          // No need to set defaultValues as it's not used in the file
         }
       } catch (err: any) {
         setError(err.message);

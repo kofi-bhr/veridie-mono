@@ -32,7 +32,7 @@ const ExtracurricularsSection = ({ extracurriculars }: ExtracurricularsSectionPr
       <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
         <h3 className="text-xl font-bold mb-2">No Extracurriculars Available</h3>
         <p className="text-foreground/80">
-          This consultant hasn't added any extracurricular activities yet.
+          This consultant hasn&apos;t added any extracurricular activities yet.
         </p>
       </div>
     );

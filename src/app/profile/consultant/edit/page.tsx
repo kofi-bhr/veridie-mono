@@ -101,9 +101,9 @@ const ConsultantProfileEditPage = () => {
 
         setConsultantData(consultantData || { user_id: user.id });
         setUniversities(universitiesData || []);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('ConsultantProfileEditPage: Error fetching data:', err);
-        setError(err.message || 'Failed to load profile data');
+        setError(err instanceof Error ? err.message : 'Failed to load profile data');
       } finally {
         setLoading(false);
       }

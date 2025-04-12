@@ -9,8 +9,6 @@ import {
   Check, 
   Trophy, 
   FileText, 
-  Star, 
-  BookOpen, 
   ChevronLeft, 
   ChevronRight,
   ChevronDown,
@@ -603,23 +601,6 @@ export default function ConsultantProfile({ consultant, universities }: Consulta
       </div>
     </div>
   );
-}
-
-// Helper function to determine text color based on background color
-function getContrastColor(hexColor: string): string {
-  // Remove the hash if it exists
-  hexColor = hexColor.replace('#', '');
-  
-  // Convert to RGB
-  const r = parseInt(hexColor.substr(0, 2), 16);
-  const g = parseInt(hexColor.substr(2, 2), 16);
-  const b = parseInt(hexColor.substr(4, 2), 16);
-  
-  // Calculate luminance
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  
-  // Return black for light colors and white for dark colors
-  return luminance > 0.5 ? 'black' : 'white';
 }
 
 // Get score color based on AP score (1-5)

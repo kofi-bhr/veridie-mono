@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Edit, Award, Briefcase, GraduationCap, User } from 'lucide-react';
+import { Edit, Briefcase, GraduationCap, User } from 'lucide-react';
 import Image from 'next/image';
 
 const ConsultantProfilePage = () => {
@@ -74,9 +74,9 @@ const ConsultantProfilePage = () => {
         }
 
         setUniversities(universitiesData || []);
-      } catch (err: any) {
-        console.error('ConsultantProfilePage: Error fetching data:', err.message || 'Unknown error');
-        setError(err.message || 'Failed to load profile data');
+      } catch (err: unknown) {
+        console.error('ConsultantProfilePage: Error fetching data:', err instanceof Error ? err.message : 'Unknown error');
+        setError(err instanceof Error ? err.message : 'Failed to load profile data');
       } finally {
         setLoading(false);
       }

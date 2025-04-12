@@ -51,7 +51,7 @@ const PackageSection = ({ packages }: PackageSectionProps) => {
       <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
         <h3 className="text-xl font-bold mb-2">No Packages Available</h3>
         <p className="text-foreground/80">
-          This consultant hasn't created any service packages yet.
+          This consultant hasn&apos;t created any service packages yet.
         </p>
       </div>
     );
