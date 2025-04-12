@@ -77,7 +77,7 @@ export default function PrivacyPage() {
                 <p>Children&apos;s Privacy is important to us. Our services are not intended for individuals under the age of 13. We do not knowingly collect personal information from children under 13. If we learn we have collected personal information from a child under 13, we will delete that information promptly.</p>
                 
                 <h2 className="text-xl font-bold mt-8 mb-4">10. Changes to This Privacy Policy</h2>
-                <p>We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last Updated" date. You are advised to review this Privacy Policy periodically for any changes.</p>
+                <p>We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the &quot;Last Updated&quot; date. You are advised to review this Privacy Policy periodically for any changes.</p>
                 
                 <h2 className="text-xl font-bold mt-8 mb-4">11. Contact Us</h2>
                 <p>If you have any questions about this Privacy Policy, please contact us at <a href="mailto:privacy@veridie.com" className="text-main underline">privacy@veridie.com</a>.</p>

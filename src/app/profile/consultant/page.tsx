@@ -11,11 +11,68 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Edit, Briefcase, GraduationCap, User } from 'lucide-react';
 import Image from 'next/image';
 
+// Define types for consultant data
+interface ConsultantProfile {
+  image_url?: string;
+  profiles?: {
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+  };
+  headline?: string;
+  university?: string;
+  major?: string[];
+  bio?: string;
+  awards?: Award[];
+  extracurriculars?: Extracurricular[];
+  ap_scores?: APScore[];
+  packages?: Package[];
+  gpa_score?: number;
+  gpa_scale?: number;
+  is_weighted?: boolean;
+  sat_reading?: number;
+  sat_math?: number;
+  act_composite?: number;
+}
+
+interface Award {
+  id: string;
+  title: string;
+  year?: string;
+  description?: string;
+}
+
+interface Extracurricular {
+  id: string;
+  title: string;
+  role?: string;
+  institution?: string;
+  years?: string[];
+  description?: string;
+}
+
+interface APScore {
+  id: string;
+  subject: string;
+  score: number;
+}
+
+interface Package {
+  id: string;
+  title: string;
+  price: number;
+  billing_frequency?: string;
+  description?: string;
+  features?: string[];
+  is_visible?: boolean;
+  position?: number;
+}
+
 const ConsultantProfilePage = () => {
   const { user, profile, isLoading, isConsultant } = useAuth();
   const router = useRouter();
-  const [consultantData, setConsultantData] = useState<any>(null);
-  const [universities, setUniversities] = useState<any[]>([]);
+  const [consultantData, setConsultantData] = useState<ConsultantProfile | null>(null);
+  const [universities, setUniversities] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('basic-info');
@@ -50,7 +107,7 @@ const ConsultantProfilePage = () => {
 
         if (consultantError) {
           console.error('ConsultantProfilePage: Error fetching consultant data:', consultantError.message || 'Unknown error');
-          // Don't throw if it's just a "not found" error (PGRST116)
+          // Don't throw if it's just a &quot;not found&quot; error (PGRST116)
           if (consultantError.code === 'PGRST116') {
             console.log('ConsultantProfilePage: No consultant profile found, will show creation prompt');
             setConsultantData(null);
@@ -73,7 +130,7 @@ const ConsultantProfilePage = () => {
           throw universitiesError;
         }
 
-        setUniversities(universitiesData || []);
+        setUniversities(universitiesData?.map((university: any) => university.name) || []);
       } catch (err: unknown) {
         console.error('ConsultantProfilePage: Error fetching data:', err instanceof Error ? err.message : 'Unknown error');
         setError(err instanceof Error ? err.message : 'Failed to load profile data');
@@ -266,7 +323,7 @@ const ConsultantProfilePage = () => {
                   
                   {consultantData.awards && consultantData.awards.length > 0 ? (
                     <div className="space-y-4">
-                      {consultantData.awards.map((award: any) => (
+                      {consultantData.awards.map((award: Award) => (
                         <div key={award.id} className="p-4 border border-gray-200 rounded-md">
                           <div className="flex justify-between items-start">
                             <h4 className="font-medium">{award.title}</h4>
@@ -287,7 +344,7 @@ const ConsultantProfilePage = () => {
                   
                   {consultantData.extracurriculars && consultantData.extracurriculars.length > 0 ? (
                     <div className="space-y-4">
-                      {consultantData.extracurriculars.map((activity: any) => (
+                      {consultantData.extracurriculars.map((activity: Extracurricular) => (
                         <div key={activity.id} className="p-4 border border-gray-200 rounded-md">
                           <div className="flex flex-col md:flex-row md:justify-between md:items-start">
                             <div>
@@ -316,7 +373,7 @@ const ConsultantProfilePage = () => {
                   
                   {consultantData.ap_scores && consultantData.ap_scores.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {consultantData.ap_scores.map((ap: any) => (
+                      {consultantData.ap_scores.map((ap: APScore) => (
                         <div key={ap.id} className="p-4 border border-gray-200 rounded-md">
                           <div className="flex justify-between items-center">
                             <span>{ap.subject}</span>
@@ -340,9 +397,9 @@ const ConsultantProfilePage = () => {
               {consultantData.packages && consultantData.packages.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {consultantData.packages
-                    .filter((pkg: any) => pkg.is_visible !== false)
-                    .sort((a: any, b: any) => (a.position || 0) - (b.position || 0))
-                    .map((pkg: any) => (
+                    .filter((pkg: Package) => pkg.is_visible !== false)
+                    .sort((a: Package, b: Package) => (a.position || 0) - (b.position || 0))
+                    .map((pkg: Package) => (
                       <Card 
                         key={pkg.id} 
                         className="p-6 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white rounded-md flex flex-col h-full"
