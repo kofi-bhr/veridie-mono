@@ -1,513 +1,382 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Upload, X, Plus, ChevronDown, ChevronUp } from 'lucide-react';
-import Image from 'next/image';
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
-import { 
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Edit, Award, Briefcase, GraduationCap, User, AlertCircle } from 'lucide-react';
+import Image from 'next/image';
 
-// This is a special page that bypasses middleware authentication
-// It handles authentication directly on the client side
-export default function ConsultantEditDirectPage() {
+// Define types for consultant data
+interface ConsultantProfile {
+  id?: string;
+  user_id?: string;
+  image_url?: string;
+  profiles?: {
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+  }[];
+  headline?: string;
+  university?: string;
+  major?: string[];
+  awards?: Award[];
+  extracurriculars?: Extracurricular[];
+  ap_scores?: APScore[];
+  packages?: Package[];
+  gpa_score?: number;
+  gpa_scale?: number;
+  is_weighted?: boolean;
+  sat_reading?: number;
+  sat_math?: number;
+  act_composite?: number;
+  act_english?: number;
+  act_math?: number;
+  act_reading?: number;
+  act_science?: number;
+  slug?: string;
+  accepted_university_ids?: string[];
+  accepted_schools?: string[];
+  stripe_account_id?: string;
+  stripe_charges_enabled?: boolean;
+  stripe_onboarding_complete?: boolean;
+}
+
+// Define types for awards, activities, and other objects
+interface Award {
+  id: string;
+  title: string;
+  year?: string;
+  description?: string;
+}
+
+interface Extracurricular {
+  id: string;
+  title: string;
+  role?: string;
+  institution?: string;
+  years?: string[];
+  description?: string;
+}
+
+interface APScore {
+  id: string;
+  subject: string;
+  score: number;
+}
+
+interface Package {
+  id: string;
+  title: string;
+  price: number;
+  billing_frequency?: string;
+  description?: string;
+  features?: string[];
+  is_visible?: boolean;
+  position?: number;
+}
+
+const ConsultantProfilePage = () => {
+  const { user, profile, isLoading, isConsultant } = useAuth();
   const router = useRouter();
-  const { user, profile, isAuthenticated, isConsultant, isLoading } = useAuth();
-  const [consultantProfile, setConsultantProfile] = useState<any>(null);
+  const [consultantData, setConsultantData] = useState<ConsultantProfile | null>(null);
+  const [universities, setUniversities] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState("basic-info");
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [satEnabled, setSatEnabled] = useState(true);
-  const [actEnabled, setActEnabled] = useState(false);
-  const [newInterest, setNewInterest] = useState('');
-  const [universities, setUniversities] = useState<any[]>([]);
-  
-  // AP Scores state
-  const [apScores, setApScores] = useState<Array<{subject: string, score: number, id?: string}>>([]);
-  const [selectedApCourse, setSelectedApCourse] = useState('');
-  const [selectedApScore, setSelectedApScore] = useState<number | null>(null);
-  
-  const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: '',
-    headline: '',
-    university: '',
-    interests: [] as string[],
-    sat_score: 1200,
-    act_composite: 24,
-    accepted_university_ids: [] as string[],
-    image_url: '',
-  });
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('basic-info');
 
-  // Fetch universities list
-  const fetchUniversities = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('universities')
-        .select('*')
-        .order('name');
-        
-      if (error) throw error;
-      setUniversities(data || []);
-    } catch (error) {
-      console.error('Error fetching universities:', error);
-    }
-  };
-
-  // List of AP courses
-  const AP_COURSES = [
-    "Art History",
-    "Biology",
-    "Calculus AB",
-    "Calculus BC",
-    "Chemistry",
-    "Chinese Language and Culture",
-    "Computer Science A",
-    "Computer Science Principles",
-    "English Language",
-    "English Literature",
-    "Environmental Science",
-    "European History",
-    "French Language and Culture",
-    "German Language and Culture",
-    "Government and Politics (Comparative)",
-    "Government and Politics (US)",
-    "Human Geography",
-    "Italian Language and Culture",
-    "Japanese Language and Culture",
-    "Latin",
-    "Macroeconomics",
-    "Microeconomics",
-    "Music Theory",
-    "Physics 1",
-    "Physics 2",
-    "Physics C: Electricity and Magnetism",
-    "Physics C: Mechanics",
-    "Psychology",
-    "Research",
-    "Seminar",
-    "Spanish Language and Culture",
-    "Spanish Literature and Culture",
-    "Statistics",
-    "Studio Art: 2-D Design",
-    "Studio Art: 3-D Design",
-    "Studio Art: Drawing",
-    "US History",
-    "World History"
-  ];
-
-  // Filter out courses that have already been selected
-  const availableApCourses = AP_COURSES.filter(course => {
-    return !apScores.some(score => score.subject === course);
-  });
-
-  // Check authentication on the client side
   useEffect(() => {
-    const checkAuth = async () => {
+    const fetchData = async () => {
+      if (!user) {
+        console.log('ConsultantProfilePage: No user, skipping data fetch');
+        setLoading(false); // Make sure to set loading to false when there's no user
+        return;
+      }
+
+      if (!isConsultant) {
+        console.log('ConsultantProfilePage: User is not a consultant, skipping data fetch');
+        setLoading(false); // Set loading to false for non-consultants
+        return;
+      }
+
       try {
-        // Wait for auth to initialize
-        if (isLoading) return;
+        console.log('ConsultantProfilePage: Fetching consultant data for user:', user.id);
+        
+        // Fetch consultant profile
+        const { data: consultantData, error: consultantError } = await supabase
+          .from('consultants')
+          .select(`
+            id,
+            user_id,
+            headline,
+            image_url,
+            slug,
+            university,
+            major,
+            gpa_score,
+            gpa_scale,
+            is_weighted,
+            sat_reading,
+            sat_math,
+            act_composite,
+            act_english,
+            act_math,
+            act_reading,
+            act_science,
+            accepted_university_ids,
+            accepted_schools,
+            profiles!consultants_user_id_fkey(
+              first_name,
+              last_name,
+              email
+            )
+          `)
+          .eq('user_id', user.id)
+          .maybeSingle();
 
-        console.log('Auth state:', { isAuthenticated, isConsultant, user });
+        if (consultantError) {
+          console.error('ConsultantProfilePage: Error fetching consultant data:', consultantError.message);
+          setError(`Error fetching consultant data: ${consultantError.message}`);
+          setLoading(false); // Ensure loading is set to false on error
+          // Don't throw if it's just a "not found" error (PGRST116)
+          if (consultantError.code === 'PGRST116') {
+            console.log('ConsultantProfilePage: No consultant profile found, will show creation prompt');
+            setConsultantData(null);
+          } else {
+            // Don't throw, just set the error state
+            setError(`Error fetching consultant data: ${consultantError.message}`);
+            setLoading(false);
+            return;
+          }
+        } else {
+          console.log('ConsultantProfilePage: Successfully fetched consultant data');
+          
+          // Now fetch related data separately
+          if (consultantData) {
+            try {
+              // Fetch awards
+              const { data: awardsData, error: awardsError } = await supabase
+                .from('awards')
+                .select('*')
+                .eq('consultant_id', consultantData.id);
+                
+              if (awardsError) {
+                console.error('Error fetching awards:', awardsError.message);
+              }
+                
+              // Fetch extracurriculars
+              const { data: extracurricularsData, error: extracurricularsError } = await supabase
+                .from('extracurriculars')
+                .select('*')
+                .eq('consultant_id', consultantData.id);
+                
+              if (extracurricularsError) {
+                console.error('Error fetching extracurriculars:', extracurricularsError.message);
+              }
+                
+              // Fetch AP scores
+              const { data: apScoresData, error: apScoresError } = await supabase
+                .from('ap_scores')
+                .select('*')
+                .eq('consultant_id', consultantData.id);
+                
+              if (apScoresError) {
+                console.error('Error fetching AP scores:', apScoresError.message);
+              }
+                
+              // Fetch packages
+              const { data: packagesData, error: packagesError } = await supabase
+                .from('packages')
+                .select('*')
+                .eq('consultant_id', consultantData.id);
+                
+              if (packagesError) {
+                console.error('Error fetching packages:', packagesError.message);
+              }
+                
+              // Combine all data
+              const formattedData: ConsultantProfile = {
+                ...consultantData,
+                awards: awardsData || [],
+                extracurriculars: extracurricularsData || [],
+                ap_scores: apScoresData || [],
+                packages: packagesData || []
+              };
+              
+              setConsultantData(formattedData);
+            } catch (fetchRelatedError) {
+              console.error('ConsultantProfilePage: Error fetching related data:', fetchRelatedError);
+              setError('Error fetching related data. Please try again.');
+              setLoading(false);
+              return;
+            }
+          } else {
+            setConsultantData(null);
+          }
+        }
+        
+        // Fetch universities for accepted schools
+        const { data: universitiesData, error: universitiesError } = await supabase
+          .from('universities')
+          .select('*')
+          .order('name');
 
-        // If not authenticated or not a consultant, redirect to login
-        if (!isAuthenticated) {
-          console.log('Not authenticated, redirecting to login');
-          toast.error('You must be signed in to access this page');
-          router.push('/auth/signin?redirect=/profile/consultant/edit-direct');
+        if (universitiesError) {
+          console.error('ConsultantProfilePage: Error fetching universities:', universitiesError.message);
+          setError('Error fetching universities. Please try again.');
+          setLoading(false);
           return;
         }
 
-        // Fetch the consultant profile
-        await fetchConsultantProfile();
-      } catch (error) {
-        console.error('Error checking authentication:', error);
-        toast.error('Authentication error. Please try again.');
-        setLoading(false); // Ensure loading is set to false even on error
+        setUniversities(universitiesData?.map((university: any) => university.name) || []);
+      } catch (err: unknown) {
+        console.error('ConsultantProfilePage: Error fetching data:', err instanceof Error ? err.message : 'Unknown error');
+        setError(err instanceof Error ? err.message : 'Failed to load profile data');
+        setLoading(false); // Ensure loading is set to false on error
+      } finally {
+        setLoading(false); // Always set loading to false when done
+        console.log('ConsultantProfilePage: Data fetch complete, loading set to false');
       }
     };
 
-    checkAuth();
-  }, [isLoading, isAuthenticated, isConsultant, user]);
+    // Only fetch data if authentication check is complete
+    if (!isLoading) {
+      console.log('ConsultantProfilePage: Auth check complete, starting data fetch');
+      fetchData();
+    } else {
+      console.log('ConsultantProfilePage: Auth still loading, waiting to fetch data');
+    }
+  }, [user, isLoading, isConsultant]);
 
-  // Fetch universities on component mount
   useEffect(() => {
-    if (!loading && user) {
-      fetchUniversities();
-    }
-  }, [loading, user]);
+    console.log('ConsultantProfilePage: Loading state changed to:', loading);
+  }, [loading]);
 
-  // Fetch the consultant profile
-  const fetchConsultantProfile = async () => {
-    try {
+  // Redirect if not authenticated or not a consultant
+  useEffect(() => {
+    if (!isLoading) {
       if (!user) {
-        console.log('No user found, cannot fetch profile');
-        setLoading(false);
-        return;
+        console.log('ConsultantProfilePage: Not authenticated, redirecting to signin');
+        router.push('/auth/signin');
+      } else if (!isConsultant) {
+        console.log('ConsultantProfilePage: User is not a consultant, redirecting to profile');
+        router.push('/profile');
       }
-
-      console.log('Fetching consultant profile for user:', user.id);
-      
-      // First, check if the user has a consultant profile
-      const { data: consultant, error: consultantError } = await supabase
-        .from('consultants')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-      
-      if (consultantError && consultantError.code !== 'PGRST116') {
-        console.error('Error fetching consultant profile:', consultantError);
-        toast.error('Failed to load profile data');
-        setLoading(false);
-        return;
-      }
-      
-      if (!consultant) {
-        console.log('No consultant profile found, creating default');
-        await createDefaultProfile();
-        return;
-      }
-      
-      console.log('Consultant profile found:', consultant);
-      setConsultantProfile(consultant);
-      
-      // Load form data from the profile
-      setFormData({
-        first_name: profile?.first_name || '',
-        last_name: profile?.last_name || '',
-        headline: consultant.headline || '',
-        university: consultant.university_id || '',
-        interests: consultant.interests || [],
-        sat_score: consultant.sat_score || 1200,
-        act_composite: consultant.act_composite || 24,
-        accepted_university_ids: consultant.accepted_university_ids || [],
-        image_url: profile ? (profile as any).avatar_url || '' : '',
-      });
-      
-      // Load AP scores
-      if (consultant.ap_scores && consultant.ap_scores.length > 0) {
-        setApScores(consultant.ap_scores);
-      }
-      
-      // Set test score toggles
-      setSatEnabled(consultant.sat_score !== null);
-      setActEnabled(consultant.act_composite !== null);
-      
-      setLoading(false);
-    } catch (error) {
-      console.error('Error in fetchConsultantProfile:', error);
-      toast.error('Failed to load profile data');
-      setLoading(false);
     }
+  }, [user, isLoading, router, isConsultant]);
+
+  const handleRetry = () => {
+    console.log('ConsultantProfilePage: Retrying data fetch');
+    setError(null);
+    setLoading(true);
+    // Force re-fetch by changing the state
+    setConsultantData(null);
+    setUniversities([]);
   };
 
-  // Create a default profile if none exists
-  const createDefaultProfile = async () => {
-    try {
-      if (!user?.id) {
-        console.error('No user ID available');
-        toast.error('User information is missing');
-        return;
-      }
-
-      // Create a unique slug
-      const slug = `mentor-${user.id.substring(0, 8)}-${Math.random().toString(36).substring(2, 7)}`;
-      
-      // Create a default consultant profile
-      const defaultProfile = {
-        user_id: user.id,
-        first_name: 'First Name',
-        last_name: 'Last Name',
-        headline: 'Coming Soon',
-        image_url: 'https://placehold.co/300x300',
-        slug: slug,
-        university: 'Not specified',
-        interests: ['Undecided'],
-        sat_score: 1200,
-        act_composite: 24,
-        accepted_university_ids: [],
-      };
-      
-      console.log('Creating default profile:', defaultProfile);
-      const { data, error } = await supabase
-        .from('consultants')
-        .insert(defaultProfile)
-        .select()
-        .single();
-      
-      if (error) {
-        console.error('Error creating default profile:', error);
-        toast.error('Failed to create your profile');
-        return;
-      }
-      
-      console.log('Default profile created:', data);
-      setConsultantProfile(data);
-      setFormData({
-        first_name: data.first_name || '',
-        last_name: data.last_name || '',
-        headline: data.headline || '',
-        university: data.university || '',
-        interests: data.interests || [],
-        sat_score: data.sat_score || 1200,
-        act_composite: data.act_composite || 24,
-        accepted_university_ids: data.accepted_university_ids || [],
-        image_url: data.image_url || 'https://placehold.co/300x300',
-      });
-      
-      toast.success('Default profile created. You can now customize it.');
-    } catch (error) {
-      console.error('Error in createDefaultProfile:', error);
-      toast.error('Failed to create your profile');
-    } finally {
-      setLoading(false);
-    }
+  const handleCreateProfile = () => {
+    router.push('/profile/consultant/create');
   };
 
-  // Handle form input changes
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'sat_score' || name === 'act_composite' ? parseInt(value) || 0 : value,
-    }));
-  };
-
-  // Handle major checkbox changes
-  const handleMajorChange = (major: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      interests: checked
-        ? [...prev.interests, major]
-        : prev.interests.filter(m => m !== major),
-    }));
-  };
-
-  // Handle file upload for profile image
-  const handleFileUpload = async (file: File) => {
-    if (!file || !user) return null;
-    
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-      const filePath = `profile-images/${fileName}`;
-      
-      // Upload file to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('profiles')
-        .upload(filePath, file);
-        
-      if (uploadError) throw uploadError;
-      
-      // Get public URL
-      const { data } = supabase.storage
-        .from('profiles')
-        .getPublicUrl(filePath);
-        
-      // Update form data with new image URL
-      setFormData(prev => ({
-        ...prev,
-        image_url: data.publicUrl
-      }));
-      
-      return data.publicUrl;
-    } catch (error: any) {
-      console.error('Error uploading file:', error);
-      toast.error('Failed to upload image');
-      return null;
-    }
-  };
-
-  // Handle adding a new interest
-  const handleAddInterest = () => {
-    if (!newInterest.trim()) return;
-    
-    if (!formData.interests.includes(newInterest)) {
-      setFormData(prev => ({
-        ...prev,
-        interests: [...prev.interests, newInterest]
-      }));
-      setNewInterest('');
-    }
-  };
-
-  // Handle removing an interest
-  const handleRemoveInterest = (interest: string) => {
-    setFormData(prev => ({
-      ...prev,
-      interests: prev.interests.filter(i => i !== interest)
-    }));
-  };
-
-  // Handle adding an AP score
-  const handleAddAPScore = () => {
-    if (!selectedApCourse || selectedApScore === null) return;
-    
-    // Check if this course already exists
-    const courseExists = apScores.some(score => score.subject === selectedApCourse);
-    
-    if (!courseExists) {
-      setApScores([
-        ...apScores, 
-        { subject: selectedApCourse, score: selectedApScore }
-      ]);
-      
-      // Reset selections
-      setSelectedApCourse('');
-      setSelectedApScore(null);
-    }
-  };
-
-  // Handle removing an AP score
-  const handleRemoveAPScore = (index: number) => {
-    setApScores(apScores.filter((_, i) => i !== index));
-  };
-
-  // Save the profile
-  const handleSave = async () => {
-    try {
-      setSaving(true);
-      
-      if (!user?.id) {
-        toast.error('User information is missing');
-        return;
-      }
-      
-      if (!consultantProfile?.id) {
-        toast.error('Consultant profile not found');
-        return;
-      }
-      
-      console.log('Saving profile:', formData);
-      
-      // Update profile with first and last name
-      await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          first_name: formData.first_name,
-          last_name: formData.last_name,
-        });
-      
-      // Update consultant profile
-      const { error } = await supabase
-        .from('consultants')
-        .update({
-          headline: formData.headline,
-          university: formData.university,
-          image_url: formData.image_url,
-          sat_score: formData.sat_score,
-          act_composite: formData.act_composite,
-          interests: formData.interests,
-          accepted_university_ids: formData.accepted_university_ids,
-          num_aps: apScores.length
-        })
-        .eq('id', consultantProfile.id);
-        
-      if (error) throw error;
-      
-      // Handle AP Scores
-      if (apScores.length > 0) {
-        // Get existing AP scores to determine which to update/delete
-        const { data: existingScores } = await supabase
-          .from('ap_scores')
-          .select('id, subject')
-          .eq('consultant_id', consultantProfile.id);
-          
-        const existingScoreIds = existingScores?.map(score => score.id) || [];
-        const newScoreIds = apScores.filter(score => score.id).map(score => score.id as string);
-        
-        // Delete scores that are no longer present
-        if (existingScoreIds.length > 0) {
-          const scoreIdsToDelete = existingScoreIds.filter(id => !newScoreIds.includes(id));
-          if (scoreIdsToDelete.length > 0) {
-            await supabase
-              .from('ap_scores')
-              .delete()
-              .in('id', scoreIdsToDelete);
-          }
-        }
-        
-        // Update or insert scores
-        for (const score of apScores) {
-          if (score.id) {
-            // Update existing score
-            await supabase
-              .from('ap_scores')
-              .update({
-                subject: score.subject,
-                score: score.score
-              })
-              .eq('id', score.id);
-          } else {
-            // Insert new score
-            await supabase
-              .from('ap_scores')
-              .insert({
-                consultant_id: consultantProfile.id,
-                subject: score.subject,
-                score: score.score
-              });
-          }
-        }
-      }
-      
-      toast.success('Profile saved successfully');
-      
-      // Refresh the profile data
-      await fetchConsultantProfile();
-    } catch (error: any) {
-      console.error('Error saving profile:', error);
-      toast.error(`Failed to save profile: ${error.message}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Available majors
-  const availableMajors = [
-    'Computer Science',
-    'Engineering',
-    'Business',
-    'Mathematics',
-    'Biology',
-    'Chemistry',
-    'Physics',
-    'Economics',
-    'Psychology',
-    'English',
-    'History',
-    'Political Science',
-    'Undecided',
-  ];
-
-  if (loading) {
+  if (isLoading || loading) {
     return (
-      <div className="container mx-auto px-4 py-24 flex flex-col items-center justify-center min-h-screen">
-        <div className="w-full max-w-4xl border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white p-8 rounded-md">
-          <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-            <p>Loading profile data...</p>
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex flex-col items-center justify-center min-h-[50vh]">
+          <div className="animate-pulse mb-4">
+            <div className="h-12 w-12 rounded-full border-4 border-t-main border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+          </div>
+          <h2 className="text-xl font-bold">Loading profile data...</h2>
+          <p className="text-gray-500 mt-2">This may take a few moments</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex flex-col items-center justify-center min-h-[50vh] max-w-md mx-auto">
+          <div className="bg-white p-6 rounded-md border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] w-full">
+            <div className="flex items-center gap-2 mb-4">
+              <AlertCircle className="h-5 w-5 text-yellow-500" />
+              <span>
+                {isLoading ? 'Checking authentication...' : 
+                 !user ? 'You need to sign in to view this page.' : 
+                 !isConsultant ? 'This page is only available to consultants.' : 
+                 'An error occurred while loading your profile.'}
+              </span>
+            </div>
+            <div className="flex flex-col gap-4">
+              {!user && (
+                <Link href="/signin">
+                  <Button className="w-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                    Sign In
+                  </Button>
+                </Link>
+              )}
+              {user && !isConsultant && (
+                <Link href="/profile">
+                  <Button className="w-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                    Go to Profile
+                  </Button>
+                </Link>
+              )}
+              {user && isConsultant && error && (
+                <Button 
+                  onClick={handleRetry} 
+                  className="w-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                >
+                  Retry
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!consultantData) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex flex-col items-center justify-center min-h-[50vh] max-w-md mx-auto">
+          <div className="bg-white p-6 rounded-md border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] w-full">
+            <h2 className="text-xl font-bold mb-4">Create Your Mentor Profile</h2>
+            <p className="mb-6">You don't have a mentor profile yet. Create one to start mentoring students!</p>
+            <Button 
+              onClick={handleCreateProfile}
+              className="w-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+            >
+              Create Profile
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if profile is in "coming soon" state (default state)
+  const isComingSoon = consultantData.headline === 'Mentor Profile (Coming Soon)';
+
+  if (isComingSoon) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex flex-col items-center justify-center min-h-[50vh] max-w-md mx-auto">
+          <div className="bg-white p-6 rounded-md border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] w-full">
+            <h2 className="text-xl font-bold mb-4">Your Mentor Profile</h2>
+            <div className="p-6 mb-6 bg-yellow-50 border-2 border-yellow-400 rounded-md inline-block">
+              <p className="text-lg font-medium">Your profile is currently in "Coming Soon" mode</p>
+              <p className="text-gray-600 mt-2">Complete your profile to make it visible to students</p>
+            </div>
+            <Link href="/profile/consultant/edit">
+              <Button className="w-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                Complete Your Profile
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
@@ -515,506 +384,241 @@ export default function ConsultantEditDirectPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 mt-20 flex flex-col items-center justify-center">
-      <div className="w-full max-w-4xl border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white p-8 rounded-md">
-        <h1 className="text-3xl font-bold mb-6 text-center">Edit Your Mentor Profile</h1>
+    <div className="container mx-auto px-4 py-8">
+      <div className="w-full max-w-4xl mx-auto">
+        {/* Profile Header */}
+        <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
+          <div className="w-24 h-24 md:w-32 md:h-32 relative rounded-full overflow-hidden border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            {consultantData.image_url ? (
+              <Image 
+                src={consultantData.image_url} 
+                alt={`${consultantData.profiles?.[0].first_name || 'Mentor'} profile`}
+                fill
+                style={{ objectFit: 'cover' }}
+              />
+            ) : (
+              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                <User className="w-12 h-12 md:w-16 md:h-16 text-gray-400" />
+              </div>
+            )}
+          </div>
+          
+          <div className="flex-1 text-center md:text-left">
+            <h1 className="text-2xl md:text-3xl font-bold">
+              {consultantData.profiles?.[0].first_name} {consultantData.profiles?.[0].last_name}
+            </h1>
+            <p className="text-lg md:text-xl text-gray-600 mt-1">{consultantData.headline}</p>
+            <p className="mt-2">{consultantData.university} {consultantData.major?.length > 0 ? `• ${consultantData.major?.join(', ')}` : ''}</p>
+            
+            <div className="mt-4">
+              <Link href="/profile/consultant/edit">
+                <Button className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center gap-2">
+                  <Edit className="h-4 w-4" />
+                  <span>Edit Profile</span>
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
         
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        {/* Tabs */}
+        <Tabs defaultValue="basic-info" value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="w-full grid grid-cols-3 mb-8 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-            <TabsTrigger value="basic-info" className="data-[state=active]:bg-main">Basic Info</TabsTrigger>
-            <TabsTrigger value="education" className="data-[state=active]:bg-main">Education</TabsTrigger>
-            <TabsTrigger value="achievements" className="data-[state=active]:bg-main">Achievements</TabsTrigger>
+            <TabsTrigger value="basic-info" className="data-[state=active]:bg-main">
+              <User className="h-4 w-4 mr-2 hidden md:inline" />
+              About
+            </TabsTrigger>
+            <TabsTrigger value="education" className="data-[state=active]:bg-main">
+              <GraduationCap className="h-4 w-4 mr-2 hidden md:inline" />
+              Education
+            </TabsTrigger>
+            <TabsTrigger value="services" className="data-[state=active]:bg-main">
+              <Briefcase className="h-4 w-4 mr-2 hidden md:inline" />
+              Services
+            </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="basic-info" className="space-y-6">
-            {/* Profile Image Upload */}
-            <div className="flex flex-col items-center mb-8">
-              <div 
-                className="relative w-32 h-32 rounded-full overflow-hidden border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] cursor-pointer mb-4"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {formData.image_url ? (
-                  <Image
-                    src={formData.image_url}
-                    alt="Profile preview"
-                    fill
-                    className="object-cover"
-                    onError={(e) => {
-                      e.currentTarget.src = 'https://placehold.co/300x300';
-                    }}
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                    <Upload className="h-8 w-8 text-gray-500" />
-                  </div>
-                )}
+          <TabsContent value="basic-info">
+            <Card className="p-4 md:p-6 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white rounded-md">
+              <h2 className="text-xl font-bold mb-4">About Me</h2>
+              <div className="whitespace-pre-wrap">
+                {isComingSoon ? 
+                  "This mentor profile is currently being set up. Check back soon for more information!" : 
+                  "No information available yet. Edit your profile to add more details about yourself."}
               </div>
-              <Button 
-                type="button" 
-                variant="default" 
-                size="sm"
-                className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                Upload Profile Image
-              </Button>
-              <p className="text-sm text-gray-500 mt-2">
-                Upload a professional profile photo
-              </p>
-              
-              {/* Hidden file input */}
-              <input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                accept="image/*"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    await handleFileUpload(file);
-                  }
-                }}
-              />
-            </div>
-            
-            {/* First Name and Last Name */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <Label htmlFor="first_name" className="text-base font-medium mb-2 block">
-                  First Name
-                </Label>
-                <Input
-                  id="first_name"
-                  name="first_name"
-                  value={formData.first_name}
-                  onChange={handleInputChange}
-                  placeholder="Your first name"
-                  className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6 text-base"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="last_name" className="text-base font-medium mb-2 block">
-                  Last Name
-                </Label>
-                <Input
-                  id="last_name"
-                  name="last_name"
-                  value={formData.last_name}
-                  onChange={handleInputChange}
-                  placeholder="Your last name"
-                  className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6 text-base"
-                />
-              </div>
-            </div>
-            
-            {/* Headline */}
-            <div>
-              <Label htmlFor="headline" className="text-base font-medium mb-2 block">
-                Headline
-              </Label>
-              <Input
-                id="headline"
-                name="headline"
-                value={formData.headline}
-                onChange={handleInputChange}
-                placeholder="e.g., Harvard Student helping with college applications"
-                className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6 text-base"
-              />
-              <p className="text-sm text-gray-500 mt-1">
-                A short headline that appears at the top of your profile
-              </p>
-            </div>
+            </Card>
           </TabsContent>
           
-          <TabsContent value="education" className="space-y-6">
-            {/* University */}
-            <div>
-              <Label htmlFor="university" className="text-base font-medium mb-2 block">
-                Attending University
-              </Label>
-              <Select
-                value={formData.university}
-                onValueChange={(value) => {
-                  setFormData(prev => ({
-                    ...prev,
-                    university: value
-                  }));
-                  
-                  // Find the university object
-                  const uni = universities.find(u => u.name === value);
-                  if (uni) {
-                    // Add to accepted universities if not already there
-                    if (!formData.accepted_university_ids.includes(uni.id)) {
-                      setFormData(prev => ({
-                        ...prev,
-                        accepted_university_ids: [...prev.accepted_university_ids, uni.id]
-                      }));
-                    }
-                  }
-                }}
-              >
-                <SelectTrigger className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6 text-base">
-                  <SelectValue placeholder="Select your university" />
-                </SelectTrigger>
-                <SelectContent>
-                  {universities.map((university) => (
-                    <SelectItem key={university.id} value={university.name}>
-                      {university.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-sm text-gray-500 mt-1">
-                Your current university
-              </p>
-            </div>
-            
-            {/* Accepted Universities */}
-            <div>
-              <Label className="text-base font-medium mb-2 block">
-                Accepted Universities
-              </Label>
-              <p className="text-sm text-gray-500 mb-2">
-                Select all universities that accepted you
-              </p>
-              
-              <div className="flex flex-wrap gap-2 mb-4">
-                {formData.accepted_university_ids.map((id) => {
-                  const uni = universities.find(u => u.id === id);
-                  if (!uni) return null;
-                  
-                  return (
-                    <div 
-                      key={id}
-                      className="flex items-center gap-2 bg-main/10 px-3 py-1 rounded-full"
-                    >
-                      <span>{uni.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          // Don't allow removing the current university
-                          if (uni.name === formData.university) return;
-                          
-                          setFormData(prev => ({
-                            ...prev,
-                            accepted_university_ids: prev.accepted_university_ids.filter(uniId => uniId !== id)
-                          }));
-                        }}
-                        className="text-black/70 hover:text-black"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-              
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {universities.map((university) => {
-                  // Skip if already in the list
-                  if (formData.accepted_university_ids.includes(university.id)) return null;
-                  
-                  return (
-                    <div key={university.id} className="flex items-start space-x-2">
-                      <Checkbox
-                        id={university.id}
-                        checked={formData.accepted_university_ids.includes(university.id)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setFormData(prev => ({
-                              ...prev,
-                              accepted_university_ids: [...prev.accepted_university_ids, university.id]
-                            }));
-                          } else {
-                            setFormData(prev => ({
-                              ...prev,
-                              accepted_university_ids: prev.accepted_university_ids.filter(id => id !== university.id)
-                            }));
-                          }
-                        }}
-                        className="border-2 border-black data-[state=checked]:bg-main"
-                      />
-                      <label
-                        htmlFor={university.id}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        {university.name}
-                      </label>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            
-            {/* Interests */}
-            <div className="space-y-4">
-              <Label className="text-base font-medium mb-2 block">
-                Interests
-              </Label>
-              <p className="text-sm text-gray-500">
-                What were you into in high school? Include anything related to your current major or application spike.
-              </p>
-              
-              <div className="flex flex-wrap gap-2 mb-4">
-                {formData.interests.map((interest, index) => (
-                  <div 
-                    key={index}
-                    className="flex items-center gap-2 bg-main/10 px-3 py-1 rounded-full"
-                  >
-                    <span>{interest}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveInterest(interest)}
-                      className="text-black/70 hover:text-black"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
+          <TabsContent value="education">
+            <Card className="p-4 md:p-6 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white rounded-md">
+              <div className="space-y-8">
+                {/* Education */}
+                <div>
+                  <h2 className="text-xl font-bold mb-4">Education</h2>
+                  <div className="p-4 border border-gray-200 rounded-md">
+                    <h3 className="font-bold text-lg">{consultantData.university || 'University not specified'}</h3>
+                    <p className="text-gray-600">{consultantData.major?.join(', ') || 'Major not specified'}</p>
+                    
+                    {consultantData.gpa_score && (
+                      <p className="mt-2">
+                        <span className="font-medium">GPA:</span> {consultantData.gpa_score}/{consultantData.gpa_scale || 4.0} 
+                        {consultantData.is_weighted && ' (weighted)'}
+                      </p>
+                    )}
+                    
+                    {(consultantData.sat_reading || consultantData.sat_math) && (
+                      <p className="mt-1">
+                        <span className="font-medium">SAT:</span> {consultantData.sat_reading || '—'} Reading, {consultantData.sat_math || '—'} Math
+                      </p>
+                    )}
+                    
+                    {consultantData.act_composite && (
+                      <p className="mt-1">
+                        <span className="font-medium">ACT:</span> {consultantData.act_composite}
+                      </p>
+                    )}
                   </div>
-                ))}
-              </div>
-              
-              <div className="flex gap-2">
-                <Input
-                  value={newInterest}
-                  onChange={(e) => setNewInterest(e.target.value)}
-                  placeholder="Add an interest"
-                  className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6 text-base"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddInterest();
-                    }
-                  }}
-                />
-                <Button
-                  type="button"
-                  onClick={handleAddInterest}
-                  variant="default"
-                  className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add
-                </Button>
-              </div>
-            </div>
-            
-            {/* SAT Score Slider */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-medium">SAT Score</Label>
-                <Checkbox 
-                  checked={satEnabled}
-                  onCheckedChange={(checked) => {
-                    setSatEnabled(!!checked);
-                    if (!checked) {
-                      setFormData(prev => ({
-                        ...prev,
-                        sat_score: 0
-                      }));
-                    } else {
-                      setFormData(prev => ({
-                        ...prev,
-                        sat_score: 1200
-                      }));
-                    }
-                  }}
-                  className="border-2 border-black data-[state=checked]:bg-main"
-                />
-              </div>
-              
-              <div className={`space-y-4 ${!satEnabled ? 'opacity-50' : ''}`}>
-                <Slider
-                  disabled={!satEnabled}
-                  min={400}
-                  max={1600}
-                  step={10}
-                  value={[formData.sat_score]}
-                  onValueChange={(values) => {
-                    setFormData(prev => ({
-                      ...prev,
-                      sat_score: values[0]
-                    }));
-                  }}
-                  className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6"
-                />
-                <div className="flex justify-between">
-                  <span>400</span>
-                  <span className="font-bold">{formData.sat_score}</span>
-                  <span>1600</span>
                 </div>
-              </div>
-            </div>
-            
-            {/* ACT Score Slider */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-medium">ACT Composite Score</Label>
-                <Checkbox 
-                  checked={actEnabled}
-                  onCheckedChange={(checked) => {
-                    setActEnabled(!!checked);
-                    if (!checked) {
-                      setFormData(prev => ({
-                        ...prev,
-                        act_composite: 0
-                      }));
-                    } else {
-                      setFormData(prev => ({
-                        ...prev,
-                        act_composite: 24
-                      }));
-                    }
-                  }}
-                  className="border-2 border-black data-[state=checked]:bg-main"
-                />
-              </div>
-              
-              <div className={`space-y-4 ${!actEnabled ? 'opacity-50' : ''}`}>
-                <Slider
-                  disabled={!actEnabled}
-                  min={1}
-                  max={36}
-                  step={1}
-                  value={[formData.act_composite]}
-                  onValueChange={(values) => {
-                    setFormData(prev => ({
-                      ...prev,
-                      act_composite: values[0]
-                    }));
-                  }}
-                  className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6"
-                />
-                <div className="flex justify-between">
-                  <span>1</span>
-                  <span className="font-bold">{formData.act_composite}</span>
-                  <span>36</span>
-                </div>
-              </div>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="achievements" className="space-y-8">
-            {/* AP Scores */}
-            <Collapsible className="w-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6 rounded-md">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">AP Scores</h3>
-                <CollapsibleTrigger asChild>
-                  <Button variant="reverse" size="sm" className="p-2">
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </CollapsibleTrigger>
-              </div>
-              
-              <CollapsibleContent className="mt-4 space-y-4">
-                <p className="text-sm text-gray-500">
-                  Add your AP courses and scores. These will be displayed on your profile.
-                </p>
                 
-                {/* Display current AP scores */}
-                {apScores.length > 0 && (
-                  <div className="space-y-2 mb-4">
-                    <div className="grid grid-cols-3 gap-2 font-semibold text-sm">
-                      <div>AP Course</div>
-                      <div>Score</div>
-                      <div></div>
-                    </div>
-                    {apScores.map((score, index) => (
-                      <div key={index} className="grid grid-cols-3 gap-2 items-center">
-                        <div>{score.subject}</div>
-                        <div>{score.score}</div>
-                        <div>
-                          <Button
-                            type="button"
-                            variant="reverse"
-                            size="sm"
-                            className="p-1"
-                            onClick={() => handleRemoveAPScore(index)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
+                {/* Awards */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Awards & Honors</h3>
+                  
+                  {consultantData.awards && consultantData.awards.length > 0 ? (
+                    <div className="space-y-4">
+                      {consultantData.awards.map((award: Award) => (
+                        <div key={award.id} className="p-4 border border-gray-200 rounded-md">
+                          <div className="flex justify-between items-start">
+                            <h4 className="font-medium">{award.title}</h4>
+                            {award.year && <span className="text-gray-500">{award.year}</span>}
+                          </div>
+                          {award.description && <p className="mt-2 text-gray-600">{award.description}</p>}
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                {/* Add new AP score */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label className="text-sm">AP Course</Label>
-                    <Select
-                      value={selectedApCourse}
-                      onValueChange={setSelectedApCourse}
-                    >
-                      <SelectTrigger className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-4 text-sm">
-                        <SelectValue placeholder="Select course" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableApCourses.map((course) => (
-                          <SelectItem key={course} value={course}>
-                            {course}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-sm">Score</Label>
-                    <Select
-                      value={selectedApScore?.toString() || ''}
-                      onValueChange={(value) => setSelectedApScore(parseInt(value))}
-                    >
-                      <SelectTrigger className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-4 text-sm">
-                        <SelectValue placeholder="Select score" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[1, 2, 3, 4, 5].map((score) => (
-                          <SelectItem key={score} value={score.toString()}>
-                            {score}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="flex items-end">
-                    <Button
-                      type="button"
-                      onClick={handleAddAPScore}
-                      variant="default"
-                      disabled={!selectedApCourse || selectedApScore === null}
-                      className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] w-full"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add AP Score
-                    </Button>
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 border border-gray-200 rounded-md text-gray-500 italic">
+                      No awards listed
+                    </div>
+                  )}
                 </div>
-              </CollapsibleContent>
-            </Collapsible>
+                
+                {/* Extracurriculars */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Extracurricular Activities</h3>
+                  
+                  {consultantData.extracurriculars && consultantData.extracurriculars.length > 0 ? (
+                    <div className="space-y-4">
+                      {consultantData.extracurriculars.map((activity: Extracurricular) => (
+                        <div key={activity.id} className="p-4 border border-gray-200 rounded-md">
+                          <div className="flex flex-col md:flex-row md:justify-between md:items-start">
+                            <div>
+                              <h4 className="font-medium">{activity.title}</h4>
+                              {activity.role && <p className="text-gray-600">{activity.role}</p>}
+                              {activity.institution && <p className="text-gray-500">{activity.institution}</p>}
+                            </div>
+                            {activity.years && activity.years.length > 0 && (
+                              <div className="mt-2 md:mt-0 text-gray-500">
+                                {activity.years.sort().join(', ')}
+                              </div>
+                            )}
+                          </div>
+                          {activity.description && <p className="mt-2 text-gray-600">{activity.description}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 border border-gray-200 rounded-md text-gray-500 italic">
+                      No activities listed
+                    </div>
+                  )}
+                </div>
+                
+                {/* AP Scores */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">AP Exam Scores</h3>
+                  
+                  {consultantData.ap_scores && consultantData.ap_scores.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {consultantData.ap_scores.map((ap: APScore) => (
+                        <div key={ap.id} className="p-4 border border-gray-200 rounded-md">
+                          <div className="flex justify-between items-center">
+                            <span>{ap.subject}</span>
+                            <span className="font-bold">{ap.score}/5</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 border border-gray-200 rounded-md text-gray-500 italic">
+                      No AP scores listed
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="services">
+            <Card className="p-4 md:p-6 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white rounded-md">
+              <h2 className="text-xl font-bold mb-4">Services & Packages</h2>
+              
+              {consultantData.packages && consultantData.packages.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {consultantData.packages
+                    .filter((pkg: Package) => pkg.is_visible !== false)
+                    .sort((a: Package, b: Package) => (a.position || 0) - (b.position || 0))
+                    .map((pkg: Package) => (
+                      <Card 
+                        key={pkg.id} 
+                        className="p-4 md:p-6 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white rounded-md flex flex-col h-full"
+                      >
+                        <div className="mb-4">
+                          <h3 className="text-lg font-bold">{pkg.title}</h3>
+                          <p className="text-2xl font-bold mt-2">${pkg.price}</p>
+                          {pkg.billing_frequency && pkg.billing_frequency !== 'one-time' && (
+                            <p className="text-sm text-gray-500">
+                              {pkg.billing_frequency === 'hourly' ? 'per hour' : 
+                               pkg.billing_frequency === 'monthly' ? 'per month' :
+                               pkg.billing_frequency === 'yearly' ? 'per year' : ''}
+                            </p>
+                          )}
+                        </div>
+                        
+                        <p className="text-gray-600 mb-4 flex-grow">{pkg.description}</p>
+                        
+                        {pkg.features && pkg.features.length > 0 && (
+                          <div className="mt-auto">
+                            <h4 className="font-medium mb-2">What's included:</h4>
+                            <ul className="space-y-2">
+                              {pkg.features.map((feature: string, index: number) => (
+                                <li key={index} className="flex items-start gap-2">
+                                  <span className="text-main">✓</span>
+                                  <span>{feature}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </Card>
+                    ))}
+                </div>
+              ) : (
+                <div className="text-center p-8">
+                  <p className="text-gray-500 italic mb-4">No services or packages listed yet</p>
+                  <Link href="/profile/consultant/edit?tab=services">
+                    <Button className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                      Add Services
+                    </Button>
+                  </Link>
+                </div>
+              )}
+            </Card>
           </TabsContent>
         </Tabs>
-        
-        {/* Save Button */}
-        <div className="flex justify-end mt-8">
-          <Button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-8 py-3 text-lg border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-main hover:bg-main/90 text-white"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              'Save Profile'
-            )}
-          </Button>
-        </div>
       </div>
     </div>
   );
-}
+};
+
+export default ConsultantProfilePage;

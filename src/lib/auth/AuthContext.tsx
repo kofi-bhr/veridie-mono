@@ -130,11 +130,13 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (session?.user) {
           console.log('Found existing session, setting user:', session.user.id);
           const userProfile = await fetchProfile(session.user.id);
+          console.log('Fetched user profile:', userProfile);
           setProfile(userProfile);
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
       } finally {
+        console.log('Auth initialization complete, setting loading to false');
         setInitialLoading(false); // End loading regardless of outcome
       }
     };
@@ -155,16 +157,14 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (newSession?.user) {
             console.log('User signed in or token refreshed:', newSession.user.id);
             const userProfile = await fetchProfile(newSession.user.id);
+            console.log('Fetched user profile after auth change:', userProfile);
             setProfile(userProfile);
+            setInitialLoading(false); // Ensure loading is set to false
           }
         } else if (event === 'SIGNED_OUT') {
           console.log('User signed out, clearing profile');
           setProfile(null);
-          
-          // Force a refresh of the page to clear any cached data
-          if (typeof window !== 'undefined') {
-            window.location.reload();
-          }
+          setInitialLoading(false); // Ensure loading is set to false
         }
       }
     );

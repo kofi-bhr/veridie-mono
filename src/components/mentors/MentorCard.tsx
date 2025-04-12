@@ -112,8 +112,12 @@ const MentorCard = ({ mentor, universities }: MentorProps) => {
 
   // Find accepted schools
   const acceptedSchools = universities.filter(uni => 
-    Array.isArray(accepted_schools) && accepted_schools.includes(uni.id)
+    accepted_schools && Array.isArray(accepted_schools) && accepted_schools.includes(uni.id)
   );
+
+  // Find university object for the mentor's primary university
+  const universityObj = universities.find(uni => uni.name === university);
+  const universityColor = universityObj ? universityObj.color_hex : '#6366f1'; // Default to indigo if not found
 
   return (
     <motion.div
@@ -134,21 +138,23 @@ const MentorCard = ({ mentor, universities }: MentorProps) => {
             {/* Mentor Image with Verification Badge */}
             <div className="relative w-24 h-24 shrink-0 overflow-hidden border-2 border-black">
               {isVerified && (
-                <div className="absolute top-0 right-0 z-10">
-                  <Image 
-                    src="/images/verified-check.png" 
-                    alt="Verified" 
-                    width={24} 
-                    height={24}
-                  />
+                <div className="absolute top-0 right-0 z-10 bg-white border-2 border-black p-1 rounded-full">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M21.5 12C21.5 17.2467 17.2467 21.5 12 21.5C6.75329 21.5 2.5 17.2467 2.5 12C2.5 6.75329 6.75329 2.5 12 2.5C17.2467 2.5 21.5 6.75329 21.5 12Z" fill="#ffffff" stroke="black" strokeWidth="2"/>
+                    <path d="M8 12L10.5 14.5L16 9" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
                 </div>
               )}
               <Image
-                src={image_url && image_url.startsWith('http') ? image_url : '/placeholder.svg'}
+                src={image_url || '/placeholder-profile.png'}
                 alt={`${first_name} ${last_name}`}
                 width={96}
                 height={96}
-                className="object-cover"
+                className="object-cover w-full h-full"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = '/placeholder-profile.png';
+                }}
               />
             </div>
 

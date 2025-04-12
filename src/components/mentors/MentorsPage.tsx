@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { motion } from 'framer-motion';
 import { X, ChevronDown, ChevronUp, Filter, AlertCircle } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import MentorCard from './MentorCard';
@@ -32,25 +31,6 @@ type Mentor = {
   is_verified: boolean;
 };
 
-// Define the structure of the consultant data from Supabase
-type ConsultantData = {
-  id: string;
-  slug: string | null;
-  user_id: string;
-  university: string | null;
-  headline: string | null;
-  image_url: string | null;
-  major: string[] | string | null;
-  accepted_schools: string[] | string | null;
-  profiles: {
-    first_name: string | null;
-    last_name: string | null;
-  } | {
-    first_name: string | null;
-    last_name: string | null;
-  }[] | null;
-};
-
 const MentorsPage = () => {
   const [mentors, setMentors] = useState<Mentor[]>([]);
   const [universities, setUniversities] = useState<University[]>([]);
@@ -68,7 +48,8 @@ const MentorsPage = () => {
   useEffect(() => {
     const fetchUniversities = async () => {
       try {
-        console.log('Fetching universities...');
+        setIsLoading(true);
+        
         const { data, error } = await supabase
           .from('universities')
           .select('id, name, logo_url, color_hex');
@@ -80,31 +61,24 @@ const MentorsPage = () => {
         }
 
         if (data && data.length > 0) {
-          console.log(`Fetched ${data.length} universities`);
           setUniversities(data);
+          // After universities are loaded, fetch mentors
+          fetchMentors();
         } else {
-          console.warn('No universities found in Supabase');
           setUniversities([]);
+          setError('No universities found. Please try again later.');
+          setIsLoading(false);
         }
       } catch (error: any) {
         console.error('Exception in fetchUniversities:', error?.message || 'Unknown error');
         setError(`Error fetching universities: ${error?.message || 'Unknown error'}`);
-        setUniversities([]);
+        setIsLoading(false);
       }
     };
 
-    fetchUniversities();
-  }, []);
-
-  // Fetch mentors from Supabase
-  useEffect(() => {
     const fetchMentors = async () => {
-      setIsLoading(true);
-      setError(null);
-      
       try {
-        console.log('Fetching consultants...');
-        // Fetch all consultants with their profiles
+        // Simple query to get consultants with their profiles
         const { data, error } = await supabase
           .from('consultants')
           .select(`
@@ -115,10 +89,12 @@ const MentorsPage = () => {
             headline,
             image_url,
             major,
-            accepted_schools,
-            profiles(
+            accepted_university_ids,
+            profiles!user_id(
+              id,
               first_name,
-              last_name
+              last_name,
+              is_verified
             )
           `);
         
@@ -130,128 +106,118 @@ const MentorsPage = () => {
         }
         
         if (!data || data.length === 0) {
-          console.warn('No consultants found');
           setMentors([]);
           setFilteredMentors([]);
           setIsLoading(false);
           return;
         }
         
-        console.log(`Fetched ${data.length} consultants`);
+        // Process the consultants data
+        const processedMentors: Mentor[] = [];
+        const uniqueMajors: string[] = [];
         
-        // Transform the data to match the Mentor type
-        const transformedData: Mentor[] = data
-          .filter((consultant: ConsultantData) => {
-            // Filter out consultants without required data
-            return (
-              consultant.slug && 
-              consultant.profiles && 
-              (Array.isArray(consultant.profiles) 
-                ? consultant.profiles.length > 0 
-                : true)
-            );
-          })
-          .map((consultant: ConsultantData) => {
-            // Extract profile data
-            const profile = Array.isArray(consultant.profiles)
-              ? consultant.profiles[0]
+        for (const consultant of data) {
+          try {
+            // Get profile data
+            const profile = Array.isArray(consultant.profiles) 
+              ? consultant.profiles[0] 
               : consultant.profiles;
             
-            // Handle arrays or strings for major and accepted_schools
-            const majorArray = Array.isArray(consultant.major)
-              ? consultant.major
-              : consultant.major
-              ? [consultant.major as string]
-              : ['Undecided'];
+            // Get university name
+            const universityName = consultant.university || 'Unknown University';
             
-            const acceptedSchools = Array.isArray(consultant.accepted_schools)
-              ? consultant.accepted_schools
-              : consultant.accepted_schools
-              ? [consultant.accepted_schools as string]
-              : [];
+            // Process majors
+            let majors: string[] = [];
+            if (consultant.major) {
+              if (typeof consultant.major === 'string') {
+                try {
+                  majors = JSON.parse(consultant.major);
+                } catch {
+                  majors = [consultant.major];
+                }
+              } else if (Array.isArray(consultant.major)) {
+                majors = consultant.major;
+              }
+              
+              // Add unique majors to the filter list
+              majors.forEach(major => {
+                if (!uniqueMajors.includes(major)) {
+                  uniqueMajors.push(major);
+                }
+              });
+            }
             
-            // Extract first award if available
-            const awards: any[] = []; // We would fetch awards here in a more complete implementation
-            const topAward = awards && awards.length > 0 ? awards[0].title : null;
+            // Process accepted schools
+            let acceptedSchools: string[] = [];
+            if (consultant.accepted_university_ids) {
+              if (typeof consultant.accepted_university_ids === 'string') {
+                try {
+                  acceptedSchools = JSON.parse(consultant.accepted_university_ids);
+                } catch {
+                  acceptedSchools = [consultant.accepted_university_ids];
+                }
+              } else if (Array.isArray(consultant.accepted_university_ids)) {
+                acceptedSchools = consultant.accepted_university_ids;
+              }
+            }
             
-            return {
+            // Create mentor object
+            const mentorItem: Mentor = {
               id: consultant.id,
-              slug: consultant.slug || '',
+              slug: consultant.slug || `mentor-${consultant.id.substring(0, 8)}`,
               first_name: profile?.first_name || 'Anonymous',
               last_name: profile?.last_name || 'Mentor',
-              university: consultant.university || 'Not specified',
-              headline: consultant.headline || 'Mentor Profile',
-              image_url: consultant.image_url || 'https://via.placeholder.com/300',
-              top_award: topAward,
-              major: majorArray,
+              university: universityName,
+              headline: consultant.headline || 'College Mentor',
+              image_url: consultant.image_url || '/placeholder-profile.png',
+              top_award: null,
+              major: majors,
               accepted_schools: acceptedSchools,
-              is_verified: true // Default to true for now
+              is_verified: profile?.is_verified || false
             };
-          });
+            
+            processedMentors.push(mentorItem);
+          } catch (error) {
+            console.error('Error processing consultant:', error);
+          }
+        }
         
-        console.log(`Transformed ${transformedData.length} consultants`);
-        
-        // Extract all unique majors for filtering
-        const allMajorsSet = new Set<string>();
-        transformedData.forEach((mentor) => {
-          mentor.major.forEach((major) => {
-            allMajorsSet.add(major);
-          });
-        });
-        
-        setAllMajors(Array.from(allMajorsSet));
-        setMentors(transformedData);
-        setFilteredMentors(transformedData);
+        setAllMajors(uniqueMajors);
+        setMentors(processedMentors);
+        setFilteredMentors(processedMentors);
       } catch (error: any) {
         console.error('Exception in fetchMentors:', error?.message || 'Unknown error');
-        setError(`Error loading mentors: ${error?.message || 'Unknown error'}`);
-        
-        // If we have a retry count left, try again
-        if (retryCount < 2) {
-          console.log(`Retrying fetch (attempt ${retryCount + 1})...`);
-          setTimeout(() => {
-            setRetryCount(prev => prev + 1);
-          }, 2000);
-        }
+        setError(`Error processing mentor data: ${error?.message || 'Unknown error'}`);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchMentors();
+    fetchUniversities();
   }, [retryCount]);
 
-  // Filter mentors based on selected filters
+  // Apply filters when filter selections change
   useEffect(() => {
     if (mentors.length === 0) return;
 
-    try {
-      const filtered = mentors.filter((mentor) => {
-        // Filter by university
-        const universityMatch =
-          selectedUniversities.length === 0 ||
-          selectedUniversities.includes(mentor.university);
+    let filtered = [...mentors];
 
-        // Filter by major
-        const majorMatch =
-          selectedMajors.length === 0 ||
-          mentor.major.some((major) => selectedMajors.includes(major));
-
-        return universityMatch && majorMatch;
-      });
-
-      setFilteredMentors(filtered);
-    } catch (error) {
-      console.error('Error filtering mentors:', error);
-      // Fallback to showing all mentors if filtering fails
-      setFilteredMentors(mentors);
+    // Filter by university
+    if (selectedUniversities.length > 0) {
+      filtered = filtered.filter(mentor => 
+        selectedUniversities.includes(mentor.university)
+      );
     }
-  }, [mentors, selectedUniversities, selectedMajors]);
 
-  // Compute whether any filters are active
-  const hasActiveFilters = useMemo(() => {
-    return selectedUniversities.length > 0 || selectedMajors.length > 0;
-  }, [selectedUniversities, selectedMajors]);
+    // Filter by major
+    if (selectedMajors.length > 0) {
+      filtered = filtered.filter(mentor => 
+        mentor.major.some(major => selectedMajors.includes(major))
+      );
+    }
+
+    setFilteredMentors(filtered);
+  }, [mentors, selectedUniversities, selectedMajors]);
 
   // Handle university filter change
   const handleUniversityFilter = (universities: string[]) => {
@@ -277,48 +243,43 @@ const MentorsPage = () => {
   // Handle retry when there's an error
   const handleRetry = () => {
     setError(null);
-    setRetryCount(0);
+    setRetryCount(prev => prev + 1);
   };
 
+  // Compute if there are any active filters
+  const hasActiveFilters = selectedUniversities.length > 0 || selectedMajors.length > 0;
+
   return (
-    <div className="container mx-auto px-4 py-24">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold mb-4">Find Your Mentor</h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Connect with mentors who have successfully navigated the college admissions process at top universities.
-          </p>
-        </div>
+    <div className="bg-[#f5f5f5] min-h-screen">
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-3xl sm:text-4xl font-bold mb-2">Find Your Mentor</h1>
+        <p className="text-foreground/80 mb-8 max-w-2xl">
+          Connect with elite college consultants who are current students at top universities.
+          Get personalized guidance on applications, essays, and more.
+        </p>
 
-        {/* Desktop Filter */}
+        {/* Filter Section - Desktop */}
         <div className="hidden md:block mb-8">
-          <motion.div
-            initial={false}
-            animate={isFilterCardCollapsed ? { height: 'auto' } : { height: 'auto' }}
-            className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white rounded-lg overflow-hidden"
-          >
-            <div className="flex justify-between items-center p-4 border-b border-gray-200">
-              <div className="flex items-center gap-2">
-                <Filter className="h-5 w-5" />
-                <h3 className="font-semibold">Filter Mentors</h3>
+          {universities.length > 0 && (
+            <div className="bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-4 relative">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Filter Mentors</h2>
+                <Button 
+                  variant="neutral" 
+                  size="icon"
+                  onClick={toggleFilterCard}
+                  aria-label={isFilterCardCollapsed ? "Expand filters" : "Collapse filters"}
+                >
+                  {isFilterCardCollapsed ? (
+                    <ChevronDown className="h-5 w-5" />
+                  ) : (
+                    <ChevronUp className="h-5 w-5" />
+                  )}
+                </Button>
               </div>
-              <Button
-                variant="neutral"
-                size="sm"
-                onClick={toggleFilterCard}
-                className="p-1 h-auto"
-              >
-                {isFilterCardCollapsed ? (
-                  <ChevronDown className="h-5 w-5" />
-                ) : (
-                  <ChevronUp className="h-5 w-5" />
-                )}
-              </Button>
-            </div>
-
-            {!isFilterCardCollapsed && (
-              <div className="p-4">
-                {universities.length > 0 ? (
+              
+              {!isFilterCardCollapsed && (
+                <>
                   <FilterBar
                     variant="pill"
                     onUniversityChange={handleUniversityFilter}
@@ -327,48 +288,46 @@ const MentorsPage = () => {
                     selectedMajors={selectedMajors}
                     universities={universities}
                     majors={allMajors}
-                    isMobile={false}
                   />
-                ) : (
-                  <div className="text-center py-4">
-                    <p className="text-gray-500">Loading filters...</p>
-                  </div>
-                )}
-
-                {hasActiveFilters && (
-                  <div className="mt-4 flex justify-end">
-                    <Button
-                      variant="neutral"
-                      onClick={clearFilters}
-                      className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-                    >
-                      Clear Filters
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
-          </motion.div>
+                  
+                  {hasActiveFilters && (
+                    <div className="mt-4">
+                      <Button 
+                        variant="reverse" 
+                        onClick={clearFilters}
+                        className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                      >
+                        Clear All Filters
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Mobile Filter Button */}
+        {/* Filter Button - Mobile */}
         <div className="md:hidden mb-6">
-          <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+          <Sheet>
             <SheetTrigger asChild>
-              <Button variant="reverse" className="w-full gap-2 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                <Filter className="h-5 w-5" />
-                <span>Filter</span>
+              <Button 
+                variant="reverse" 
+                className="w-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                onClick={() => setIsFilterOpen(true)}
+              >
+                <Filter className="h-5 w-5 mr-2" />
+                Filter Mentors
                 {hasActiveFilters && (
-                  <span className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-main text-xs text-white">
+                  <span className="ml-2 bg-black text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">
                     {selectedUniversities.length + selectedMajors.length}
                   </span>
                 )}
               </Button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="h-[80vh] border-t-2 border-black rounded-t-2xl">
-              <SheetTitle className="sr-only">Filter Options</SheetTitle>
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold">Filters</h3>
+            <SheetContent side="bottom" className="h-[80vh]">
+              <div className="flex justify-between items-center mb-4">
+                <SheetTitle className="text-xl font-bold">Filter Mentors</SheetTitle>
                 <Button
                   variant="neutral"
                   size="icon"

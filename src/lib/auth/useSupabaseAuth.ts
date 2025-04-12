@@ -36,16 +36,16 @@ const useSupabaseAuth = () => {
         return { success: false, error: error.message };
       }
       
-      console.log('Sign in successful, redirecting to home page');
+      console.log('Sign in successful:', data);
       toast.dismiss(toastId);
       toast.success('Signed in successfully!');
       
-      // Use window.location for more reliable redirect after authentication
-      if (typeof window !== 'undefined') {
-        window.location.href = '/';
-      } else {
+      // Instead of redirecting immediately, let the auth state update first
+      // and then use Next.js router for a smoother transition
+      setTimeout(() => {
         router.push('/');
-      }
+        router.refresh(); // Force a refresh of the Next.js router
+      }, 500);
       
       return { success: true, data };
     } catch (err) {
