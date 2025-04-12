@@ -21,7 +21,7 @@ export default function PrivacyPage() {
                 <p className="mb-4">Last Updated: April 9, 2025</p>
                 
                 <h2 className="text-xl font-bold mt-8 mb-4">1. Introduction</h2>
-                <p>Welcome to Veridie's Privacy Policy. At Veridie, we respect your privacy and are committed to protecting your personal data. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website and services.</p>
+                <p>Welcome to Veridie&apos;s Privacy Policy. At Veridie, we respect your privacy and are committed to protecting your personal data. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website and services.</p>
                 
                 <h2 className="text-xl font-bold mt-8 mb-4">2. Information We Collect</h2>
                 <p>We collect several types of information from and about users of our website, including:</p>
@@ -65,7 +65,7 @@ export default function PrivacyPage() {
                   <li>The right to restrict or object to processing of your personal information</li>
                   <li>The right to data portability</li>
                 </ul>
-                <p>To exercise these rights, please contact us using the information provided in the "Contact Us" section.</p>
+                <p>To exercise these rights, please contact us using the information provided in the &quot;Contact Us&quot; section.</p>
                 
                 <h2 className="text-xl font-bold mt-8 mb-4">7. Cookies and Tracking Technologies</h2>
                 <p>We use cookies and similar tracking technologies to enhance your experience on our website. You can set your browser to refuse all or some browser cookies, but this may affect certain features of our website.</p>
@@ -73,11 +73,11 @@ export default function PrivacyPage() {
                 <h2 className="text-xl font-bold mt-8 mb-4">8. Third-Party Links</h2>
                 <p>Our website may contain links to third-party websites or services that are not owned or controlled by Veridie. We have no control over and assume no responsibility for the content, privacy policies, or practices of any third-party websites or services.</p>
                 
-                <h2 className="text-xl font-bold mt-8 mb-4">9. Children's Privacy</h2>
-                <p>Our services are not intended for individuals under the age of 13. We do not knowingly collect personal information from children under 13. If we learn we have collected personal information from a child under 13, we will delete that information promptly.</p>
+                <h2 className="text-xl font-bold mt-8 mb-4">9. Children&apos;s Privacy</h2>
+                <p>Children&apos;s Privacy is important to us. Our services are not intended for individuals under the age of 13. We do not knowingly collect personal information from children under 13. If we learn we have collected personal information from a child under 13, we will delete that information promptly.</p>
                 
                 <h2 className="text-xl font-bold mt-8 mb-4">10. Changes to This Privacy Policy</h2>
-                <p>We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last Updated" date. You are advised to review this Privacy Policy periodically for any changes.</p>
+                <p>We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the &quot;Last Updated&quot; date. You are advised to review this Privacy Policy periodically for any changes.</p>
                 
                 <h2 className="text-xl font-bold mt-8 mb-4">11. Contact Us</h2>
                 <p>If you have any questions about this Privacy Policy, please contact us at <a href="mailto:privacy@veridie.com" className="text-main underline">privacy@veridie.com</a>.</p>

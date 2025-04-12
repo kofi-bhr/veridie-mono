@@ -6,7 +6,6 @@ import { z } from 'zod';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth/AuthContext';
 import AuthForm from './AuthForm';
-import { Button } from '@/components/ui/button';
 
 const profileSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -73,9 +72,9 @@ const ProfileForm = ({ initialRole = null, onSuccess }: ProfileFormProps) => {
       }
       
       router.refresh();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('ProfileForm: Error in onSubmit:', err);
-      setError(err.message || 'An error occurred while updating your profile');
+      setError(err instanceof Error ? err.message : 'An error occurred while updating your profile');
     } finally {
       setLoading(false);
     }

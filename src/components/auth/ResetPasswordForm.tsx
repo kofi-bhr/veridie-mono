@@ -43,7 +43,7 @@ const ResetPasswordForm = () => {
         <div className="p-6 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-green-50 rounded-md">
           <h2 className="text-2xl font-bold mb-4">Check your email</h2>
           <p className="mb-6">
-            We've sent you a password reset link. Please check your inbox and follow the instructions to reset your password.
+            We&apos;ve sent you a password reset link. Please check your inbox and follow the instructions to reset your password.
           </p>
           <Link href="/auth/signin">
             <Button variant="default" className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">

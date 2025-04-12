@@ -33,7 +33,7 @@ const EssaysSection = ({ essays }: EssaysSectionProps) => {
       <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
         <h3 className="text-xl font-bold mb-2">No Essays Available</h3>
         <p className="text-foreground/80">
-          This consultant hasn't added any essays yet.
+          This consultant hasn&apos;t added any essays yet.
         </p>
       </div>
     );
@@ -98,7 +98,7 @@ const EssaysSection = ({ essays }: EssaysSectionProps) => {
                           <p className="text-sm whitespace-pre-line">
                             {essay.content.substring(0, 50)}...
                             
-                            Nice try! If you're interested in becoming a dev, email kofibhairralston@gmail.com or sebby@stanford.edu — we might have a job for you.
+                            Nice try! If you&apos;re interested in becoming a dev, email kofibhairralston@gmail.com or sebby@stanford.edu — we might have a job for you.
                             
                             {essay.content.substring(essay.content.length - 100)}
                           </p>

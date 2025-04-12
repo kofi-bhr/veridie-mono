@@ -1,4 +1,4 @@
-import Navbar from '@/components/layout/Navbar';
+import NavbarUpdated from '@/components/layout/NavbarUpdated';
 import Hero from '@/components/home/Hero';
 import Features from '@/components/home/Features';
 import UniversityMarquee from '@/components/home/UniversityMarquee';
@@ -8,7 +8,7 @@ import CallToAction from '@/components/home/CallToAction';
 export default function Home() {
   return (
     <main className="min-h-screen bg-background">
-      <Navbar />
+      <NavbarUpdated />
       <div className="pt-20">
         <Hero />
         

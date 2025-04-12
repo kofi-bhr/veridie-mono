@@ -123,16 +123,16 @@ const MentorCard = ({ mentor, universities }: MentorProps) => {
       whileHover={{ y: -5 }}
     >
       <Card 
-        className="h-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden transition-all hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+        className="h-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden transition-all hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-none"
         tabIndex={0}
         aria-label={`View profile of ${first_name} ${last_name}, ${headline}`}
         onClick={() => {}}
         onKeyDown={handleKeyDown}
       >
-        <div className="p-4 flex flex-col h-full">
+        <div className="pt-0 px-4 pb-0 flex flex-col h-full">
           <div className="flex flex-row gap-4">
             {/* Mentor Image with Verification Badge */}
-            <div className="relative w-24 h-24 shrink-0 rounded-full overflow-hidden border-2 border-black">
+            <div className="relative w-24 h-24 shrink-0 overflow-hidden border-2 border-black">
               {isVerified && (
                 <div className="absolute top-0 right-0 z-10">
                   <Image 
@@ -159,8 +159,8 @@ const MentorCard = ({ mentor, universities }: MentorProps) => {
               
               {/* Top Award */}
               {top_award && (
-                <div className="mt-1 bg-main/10 inline-block px-2 py-1 rounded-md text-sm">
-                  🏆 {top_award}
+                <div className="mt-1 bg-[#ff8188] inline-block px-2 py-1 text-sm border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-bold">
+                  {top_award}
                 </div>
               )}
             </div>
@@ -169,7 +169,7 @@ const MentorCard = ({ mentor, universities }: MentorProps) => {
           {/* Majors - Scrolling List */}
           {major && major.length > 0 && (
             <div className="mt-3 mb-2">
-              <span className="text-xs text-foreground/60 block mb-1">Interest{major.length > 1 ? 's' : ''}:</span>
+              <span className="text-xs text-foreground/60 block mb-1">Interest{major.length > 1 ? "s" : ""}:</span>
               <div 
                 ref={majorScrollRef}
                 className="flex gap-2 overflow-x-auto scrollbar-hide relative"
@@ -188,7 +188,7 @@ const MentorCard = ({ mentor, universities }: MentorProps) => {
                     {[...major, ...major].map((item, index) => (
                       <div 
                         key={`${item}-${index}`} 
-                        className="bg-gray-100 px-2 py-1 rounded text-xs whitespace-nowrap flex-shrink-0"
+                        className="bg-white px-2 py-1 text-xs border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-bold whitespace-nowrap flex-shrink-0"
                       >
                         {item}
                       </div>
@@ -251,8 +251,8 @@ const MentorCard = ({ mentor, universities }: MentorProps) => {
 
           {/* CTA */}
           <div className="mt-auto">
-            <Button asChild className="w-full">
-              <Link href={`/mentors/${slug}`}>View Profile</Link>
+            <Button asChild className="w-full rounded-none">
+              <Link href={`/mentors/${slug}`} className="font-bold">View Profile</Link>
             </Button>
           </div>
         </div>

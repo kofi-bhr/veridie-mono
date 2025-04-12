@@ -299,15 +299,3 @@ export default async function ConsultantProfilePage({ params }: { params: { slug
   }
 }
 
-// Helper function to safely extract values from an object using multiple possible keys
-function extractValue(obj: any, possibleKeys: string[]): string | null {
-  if (!obj) return null;
-  
-  for (const key of possibleKeys) {
-    if (obj[key] !== undefined && obj[key] !== null) {
-      return obj[key];
-    }
-  }
-  
-  return null;
-}
