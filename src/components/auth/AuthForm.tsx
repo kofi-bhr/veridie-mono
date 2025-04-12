@@ -15,9 +15,15 @@ import {
 import { Input } from '@/components/ui/input';
 import { AlertCircle } from 'lucide-react';
 
+// Define specific types for form values
+interface AuthFormValues {
+  email: string;
+  password: string;
+}
+
 type AuthFormProps = {
-  onSubmit: (values: any) => Promise<void>;
-  formSchema: z.ZodType<any>;
+  onSubmit: (values: AuthFormValues) => Promise<void>;
+  formSchema: z.ZodType<AuthFormValues>;
   fields: {
     name: string;
     label: string;
@@ -49,6 +55,12 @@ const AuthForm = ({
     await onSubmit(values);
   };
 
+  // Ensure form fields are correctly typed
+  const authFields: { name: keyof AuthFormValues; label: string; type: string; placeholder: string }[] = [
+    { name: 'email', label: 'Email', type: 'email', placeholder: 'Enter your email' },
+    { name: 'password', label: 'Password', type: 'password', placeholder: 'Enter your password' },
+  ];
+
   return (
     <div className="w-full max-w-md mx-auto">
       <Form {...form}>
@@ -60,7 +72,7 @@ const AuthForm = ({
             </div>
           )}
 
-          {fields.map((field) => (
+          {authFields.map((field) => (
             <FormField
               key={field.name}
               control={form.control}

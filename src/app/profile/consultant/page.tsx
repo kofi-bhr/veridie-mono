@@ -35,6 +35,7 @@ interface ConsultantProfile {
   act_composite?: number;
 }
 
+// Define types for awards, activities, and other objects
 interface Award {
   id: string;
   title: string;

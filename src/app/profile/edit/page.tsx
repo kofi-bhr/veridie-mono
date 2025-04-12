@@ -22,6 +22,7 @@ const EditProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<unknown>(null);
 
   useEffect(() => {
     const getProfile = async () => {
@@ -42,8 +43,8 @@ const EditProfilePage = () => {
         if (data) {
           // No need to set defaultValues as it's not used in the file
         }
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
         setLoading(false);
       }
@@ -74,8 +75,8 @@ const EditProfilePage = () => {
       
       router.push('/profile');
       router.refresh();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setSubmitting(false);
     }
