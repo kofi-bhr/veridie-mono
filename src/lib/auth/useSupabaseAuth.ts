@@ -21,6 +21,8 @@ const useSupabaseAuth = () => {
       
       console.log('Attempting to sign in user:', email);
       
+      const toastId = toast.loading('Signing in...');
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -28,10 +30,15 @@ const useSupabaseAuth = () => {
 
       if (error) {
         console.error('Sign in error:', error);
+        toast.dismiss(toastId);
+        toast.error('Sign in failed: ' + error.message);
         throw error;
       }
       
       console.log('Sign in successful, redirecting to home page');
+      toast.dismiss(toastId);
+      toast.success('Signed in successfully!');
+      
       router.push('/');
       return { success: true, data };
     } catch (err) {
@@ -54,9 +61,8 @@ const useSupabaseAuth = () => {
       setError(null);
       
       console.log('Starting signup process for:', email, 'with role:', role);
-      toast.loading('Creating your account...');
+      const signupToastId = toast.loading('Creating your account...');
 
-      // Step 1: Create the auth user
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -70,20 +76,23 @@ const useSupabaseAuth = () => {
       if (error) {
         console.error('Supabase Auth signup error:', error);
         console.error('Error details:', JSON.stringify(error));
+        toast.dismiss(signupToastId);
         toast.error('Failed to create account: ' + error.message);
         throw error;
       }
       
       if (!data.user) {
         console.error('No user data returned after signup');
+        toast.dismiss(signupToastId);
         toast.error('Failed to create account: No user data returned');
         throw new Error('No user data returned after signup');
       }
       
       console.log('User created successfully with ID:', data.user.id);
+      toast.dismiss(signupToastId);
       toast.success('Account created successfully!');
       
-      // Step 2: Create the profile record
+      const profileToastId = toast.loading('Setting up your profile...');
       const { error: profileError } = await supabase.from('profiles').upsert({
         id: data.user.id,
         role: role,
@@ -93,21 +102,20 @@ const useSupabaseAuth = () => {
       if (profileError) {
         console.error("Profile creation error:", profileError);
         console.error("Error details:", JSON.stringify(profileError));
+        toast.dismiss(profileToastId);
         toast.error('Account created, but profile setup failed. Please contact support.');
         throw new Error(`Failed to create profile: ${profileError.message}`);
       }
       
       console.log('Profile created successfully');
+      toast.dismiss(profileToastId);
       
-      // Step 3: If the user is a consultant, create a consultant profile immediately
       if (role === 'consultant') {
         console.log('Creating consultant profile for new user');
-        toast.loading('Setting up your mentor profile...');
+        const consultantToastId = toast.loading('Setting up your mentor profile...');
         
-        // Create a unique slug
         const slug = `mentor-${data.user.id.substring(0, 8)}-${Math.random().toString(36).substring(2, 7)}`;
         
-        // Create a default consultant profile - NO description field
         const defaultProfile = {
           user_id: data.user.id,
           headline: 'Coming Soon',
@@ -119,7 +127,6 @@ const useSupabaseAuth = () => {
           num_aps: 0,
         };
         
-        // Insert the new profile
         const { data: consultantData, error: consultantError } = await supabase
           .from('consultants')
           .insert(defaultProfile)
@@ -129,17 +136,18 @@ const useSupabaseAuth = () => {
         if (consultantError) {
           console.error('Error creating consultant profile:', consultantError);
           console.error('Error details:', JSON.stringify(consultantError));
+          toast.dismiss(consultantToastId);
           toast.error('Your account was created, but we had trouble setting up your mentor profile. You can set it up later from your profile page.');
         } else {
           console.log('Consultant profile created successfully with slug:', consultantData.slug);
+          toast.dismiss(consultantToastId);
           toast.success('Your mentor profile has been created!');
           
-          // Redirect directly to the consultant profile after signup
-          console.log('Sign up successful, redirecting to consultant profile');
-          toast.success('Redirecting to your profile...');
+          const redirectToastId = toast.loading('Redirecting to your profile...');
           
-          // Use a slight delay to ensure toasts are seen
           setTimeout(() => {
+            toast.dismiss(redirectToastId);
+            
             if (typeof window !== 'undefined') {
               window.location.href = `/mentors/${consultantData.slug}`;
             } else {
@@ -151,15 +159,21 @@ const useSupabaseAuth = () => {
         }
       }
       
-      // For students or if consultant profile creation failed, redirect to signin
       console.log('Sign up successful, redirecting to sign in page');
-      toast.success('Please sign in with your new account');
-      router.push('/auth/signin');
+      const redirectToastId = toast.loading('Redirecting to sign in...');
+      
+      setTimeout(() => {
+        toast.dismiss(redirectToastId);
+        toast.success('Please sign in with your new account');
+        router.push('/auth/signin');
+      }, 1000);
+      
       return { success: true, data };
     } catch (err) {
       console.error('Signup Error:', err);
       const message = err instanceof Error ? err.message : 'An unknown error occurred during sign up.';
       setError(message);
+      toast.dismiss();
       toast.error(message);
       return { success: false, error: message };
     } finally {
@@ -171,21 +185,21 @@ const useSupabaseAuth = () => {
     try {
       setLoading(true);
       console.log('Attempting to sign out user');
-      toast.loading('Signing out...');
+      const toastId = toast.loading('Signing out...');
       
-      // Clear local state first
       const { error } = await supabase.auth.signOut();
       
       if (error) {
         console.error('Sign out error:', error);
+        toast.dismiss(toastId);
         toast.error('Failed to sign out: ' + error.message);
         throw error;
       }
       
       console.log('Sign out successful, redirecting to home page');
+      toast.dismiss(toastId);
       toast.success('Signed out successfully');
       
-      // Use window.location for a full page refresh to clear all state
       window.location.href = '/';
       return { success: true };
     } catch (err) {

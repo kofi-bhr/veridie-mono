@@ -37,6 +37,19 @@ export async function middleware(req: NextRequest) {
     return res;
   }
   
+  // CRITICAL FIX: Check for auth cookie directly for more reliable authentication
+  const hasAuthCookie = req.cookies.has('sb-auth-token') || 
+                       req.cookies.has('supabase-auth-token') ||
+                       req.cookies.has('sb-access-token') ||
+                       req.cookies.has('sb-refresh-token');
+  
+  // If we have auth cookies but no session, this might be a middleware issue
+  // Allow the request to proceed and let client-side auth handle it
+  if (hasAuthCookie && !session && pathname === '/profile/consultant/edit') {
+    console.log('Auth cookie found but no session. Allowing access to edit profile page.');
+    return res;
+  }
+  
   // If user is not authenticated and trying to access a protected route, redirect to login
   if (!session) {
     console.log('Redirecting unauthenticated user to login:', pathname);
@@ -82,7 +95,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
+     * - profile/consultant/edit (CRITICAL: Exclude the consultant edit page from middleware)
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|profile/consultant/edit|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

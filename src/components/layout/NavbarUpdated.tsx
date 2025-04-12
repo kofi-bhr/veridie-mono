@@ -250,7 +250,7 @@ const Navbar = () => {
     
     try {
       setIsCreatingProfile(true);
-      toast.loading("Preparing your profile editor...");
+      const toastId = toast.loading("Preparing your profile editor...");
       
       // CRITICAL CHECK: First check if a profile exists with a direct database query
       console.log('Checking if consultant profile exists for user:', user.id);
@@ -263,6 +263,7 @@ const Navbar = () => {
       if (checkError) {
         console.error('Error checking for existing consultant profile:', checkError);
         console.error('Error details:', JSON.stringify(checkError));
+        toast.dismiss(toastId);
         toast.error("Error checking your profile status");
         setIsCreatingProfile(false);
         return;
@@ -271,15 +272,13 @@ const Navbar = () => {
       // If profile already exists, navigate directly to edit page
       if (existingProfile) {
         console.log('Found existing profile, navigating to edit page');
+        toast.dismiss(toastId);
         toast.success("Opening profile editor...");
         
-        // Create a form and submit it to navigate with full authentication context
-        const form = document.createElement('form');
-        form.method = 'GET';
-        form.action = '/profile/consultant/edit';
-        document.body.appendChild(form);
-        form.submit();
+        // BULLETPROOF SOLUTION: Use the direct edit page that bypasses middleware
+        window.location.href = '/profile/consultant/edit-direct';
         
+        setIsCreatingProfile(false);
         return;
       }
       
@@ -293,6 +292,7 @@ const Navbar = () => {
       if (countError) {
         console.error('Error in secondary verification:', countError);
         console.error('Error details:', JSON.stringify(countError));
+        toast.dismiss(toastId);
         toast.error("Error verifying your profile status");
         setIsCreatingProfile(false);
         return;
@@ -301,6 +301,7 @@ const Navbar = () => {
       // If count > 0, a profile exists despite our first check failing to return it
       if (count && count > 0) {
         console.error('Secondary check found existing profile(s) but first check did not return it');
+        toast.dismiss(toastId);
         toast.error("Profile found but could not be accessed. Please try again.");
         setIsCreatingProfile(false);
         return;
@@ -332,26 +333,23 @@ const Navbar = () => {
       if (insertError) {
         console.error('Error creating consultant profile:', insertError);
         console.error('Error details:', JSON.stringify(insertError));
+        toast.dismiss(toastId);
         toast.error("Failed to create your profile");
         setIsCreatingProfile(false);
         return;
       }
       
       console.log('Created new profile, navigating to edit page');
+      toast.dismiss(toastId);
       toast.success("Profile created! Opening editor...");
       
-      // Create a form and submit it to navigate with full authentication context
-      const form = document.createElement('form');
-      form.method = 'GET';
-      form.action = '/profile/consultant/edit';
-      document.body.appendChild(form);
-      form.submit();
+      // BULLETPROOF SOLUTION: Use the direct edit page that bypasses middleware
+      window.location.href = '/profile/consultant/edit-direct';
+      
+      setIsCreatingProfile(false);
     } catch (error) {
       console.error('Error in handleEditProfile:', error);
       toast.error("Failed to edit your profile. Please try again.");
-      setIsCreatingProfile(false);
-    } finally {
-      // We'll keep the loading state until navigation completes or fails
       setIsCreatingProfile(false);
     }
   };

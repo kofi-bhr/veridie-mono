@@ -51,8 +51,9 @@ const AuthContext = createContext<AuthContextType>({
 const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true); // Add separate state for initial loading
   const { 
-    loading: isLoading, 
+    loading: authLoading, 
     handleSignIn, 
     handleSignUp, 
     handleSignOut,
@@ -116,6 +117,8 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const initAuth = async () => {
       try {
         console.log('Initializing auth state');
+        setInitialLoading(true); // Start loading
+        
         const { data: { session } } = await supabase.auth.getSession();
         
         setSession(session);
@@ -128,6 +131,8 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
+      } finally {
+        setInitialLoading(false); // End loading regardless of outcome
       }
     };
     
@@ -195,6 +200,9 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const isAuthenticated = !!user && !!session;
   const isConsultant = isAuthenticated && profile?.role === 'consultant';
   const isStudent = isAuthenticated && profile?.role === 'student';
+  
+  // Combine loading states
+  const isLoading = initialLoading || authLoading;
 
   return (
     <AuthContext.Provider
