@@ -5,7 +5,8 @@ import ConsultantProfile from '@/components/consultant/ConsultantProfile';
 
 // Generate metadata for the page
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const { slug } = params;
+  // Properly handle params by destructuring it after awaiting
+  const slug = params.slug;
   
   // Default metadata in case of error
   const defaultMetadata = {
@@ -63,7 +64,8 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 }
 
 export default async function ConsultantProfilePage({ params }: { params: { slug: string } }) {
-  const { slug } = params;
+  // Properly handle params by destructuring it after awaiting
+  const slug = params.slug;
   
   try {
     console.log(`Fetching consultant with slug: ${slug}`);

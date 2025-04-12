@@ -134,7 +134,8 @@ const Navbar = () => {
       setIsCreatingProfile(true);
       toast.loading("Preparing your profile...");
       
-      // First check if a profile exists
+      // CRITICAL CHECK: First check if a profile exists with a direct database query
+      console.log('Checking if consultant profile exists for user:', user.id);
       const { data: existingProfile, error: checkError } = await supabase
         .from('consultants')
         .select('slug')
@@ -145,6 +146,7 @@ const Navbar = () => {
         console.error('Error checking for existing consultant profile:', checkError);
         console.error('Error details:', JSON.stringify(checkError));
         toast.error("Error checking your profile status");
+        setIsCreatingProfile(false);
         return;
       }
       
@@ -156,8 +158,31 @@ const Navbar = () => {
         return;
       }
       
-      // Otherwise create a new profile
-      console.log('No profile found, creating a new one...');
+      // Double-check to ensure no profile exists before creating one
+      console.log('No profile found in initial check, performing secondary verification...');
+      const { count, error: countError } = await supabase
+        .from('consultants')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+      
+      if (countError) {
+        console.error('Error in secondary verification:', countError);
+        console.error('Error details:', JSON.stringify(countError));
+        toast.error("Error verifying your profile status");
+        setIsCreatingProfile(false);
+        return;
+      }
+      
+      // If count > 0, a profile exists despite our first check failing to return it
+      if (count && count > 0) {
+        console.error('Secondary check found existing profile(s) but first check did not return it');
+        toast.error("Profile found but could not be accessed. Please try again.");
+        setIsCreatingProfile(false);
+        return;
+      }
+      
+      // At this point, we're certain no profile exists, so create a new one
+      console.log('No profile found in both checks, creating a new one...');
       
       // Create a unique slug
       const slug = `mentor-${user.id.substring(0, 8)}-${Math.random().toString(36).substring(2, 7)}`;
@@ -166,7 +191,7 @@ const Navbar = () => {
       const defaultProfile = {
         user_id: user.id,
         headline: 'Coming Soon',
-        image_url: 'https://via.placeholder.com/300',
+        image_url: 'https://placehold.co/300x300',
         slug: slug,
         university: 'Not specified',
         major: ['Undecided'],
@@ -185,6 +210,7 @@ const Navbar = () => {
         console.error('Error creating consultant profile:', insertError);
         console.error('Error details:', JSON.stringify(insertError));
         toast.error("Failed to create your profile");
+        setIsCreatingProfile(false);
         return;
       }
       
@@ -196,8 +222,10 @@ const Navbar = () => {
     } catch (error) {
       console.error('Error in handleViewProfile:', error);
       toast.error("Failed to view your profile. Please try again.");
-    } finally {
       setIsCreatingProfile(false);
+    } finally {
+      // Note: We don't set isCreatingProfile to false here because we're navigating away
+      // and the component will unmount anyway
     }
   };
 
@@ -208,40 +236,114 @@ const Navbar = () => {
   const handleEditProfile = async (e: React.MouseEvent) => {
     e.preventDefault();
     
+    if (!isAuthenticated || !isConsultant) {
+      console.error('Cannot edit consultant profile: User is not authenticated or not a consultant');
+      toast.error("You must be signed in as a consultant to edit your profile");
+      return;
+    }
+    
+    if (!user?.id) {
+      console.error('Cannot edit consultant profile: User ID is undefined');
+      toast.error("User information is missing");
+      return;
+    }
+    
     try {
-      // First check if we're authenticated and a consultant
-      if (!isAuthenticated || !isConsultant) {
-        console.error('Cannot edit profile: User is not authenticated or not a consultant');
-        toast.error("You must be signed in as a consultant to edit your profile");
+      setIsCreatingProfile(true);
+      toast.loading("Preparing your profile editor...");
+      
+      // CRITICAL CHECK: First check if a profile exists with a direct database query
+      console.log('Checking if consultant profile exists for user:', user.id);
+      const { data: existingProfile, error: checkError } = await supabase
+        .from('consultants')
+        .select('id, slug')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (checkError) {
+        console.error('Error checking for existing consultant profile:', checkError);
+        console.error('Error details:', JSON.stringify(checkError));
+        toast.error("Error checking your profile status");
+        setIsCreatingProfile(false);
         return;
       }
       
-      if (!user?.id) {
-        console.error('Cannot edit profile: User ID is undefined');
-        toast.error("User information is missing");
+      // If profile already exists, navigate directly to edit page
+      if (existingProfile) {
+        console.log('Found existing profile, navigating to edit page');
+        toast.success("Opening profile editor...");
+        
+        // Use router.push instead of direct navigation to maintain auth context
+        router.push('/profile/consultant/edit');
         return;
       }
       
-      console.log('Handling edit profile request');
-      toast.loading("Preparing profile editor...");
+      // Double-check to ensure no profile exists before creating one
+      console.log('No profile found in initial check, performing secondary verification...');
+      const { count, error: countError } = await supabase
+        .from('consultants')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id);
       
-      // First ensure the consultant profile exists
-      const success = await navigateToConsultantProfile(user.id, { push: () => {} }); // Don't actually navigate
-      
-      if (!success) {
-        console.error('Failed to create or verify consultant profile');
-        toast.error("Could not prepare your profile for editing");
+      if (countError) {
+        console.error('Error in secondary verification:', countError);
+        console.error('Error details:', JSON.stringify(countError));
+        toast.error("Error verifying your profile status");
+        setIsCreatingProfile(false);
         return;
       }
       
-      // Navigate to edit page
-      console.log('Navigating to edit profile page');
+      // If count > 0, a profile exists despite our first check failing to return it
+      if (count && count > 0) {
+        console.error('Secondary check found existing profile(s) but first check did not return it');
+        toast.error("Profile found but could not be accessed. Please try again.");
+        setIsCreatingProfile(false);
+        return;
+      }
+      
+      // At this point, we're certain no profile exists, so create a new one
+      console.log('No profile found in both checks, creating a new one before editing...');
+      
+      // Create a unique slug
+      const slug = `mentor-${user.id.substring(0, 8)}-${Math.random().toString(36).substring(2, 7)}`;
+      
+      // Create a default consultant profile
+      const defaultProfile = {
+        user_id: user.id,
+        headline: 'Coming Soon',
+        image_url: 'https://placehold.co/300x300',
+        slug: slug,
+        university: 'Not specified',
+        major: ['Undecided'],
+        sat_score: 0,
+        num_aps: 0,
+      };
+      
+      // Insert the new profile
+      const { error: insertError } = await supabase
+        .from('consultants')
+        .insert(defaultProfile);
+      
+      if (insertError) {
+        console.error('Error creating consultant profile:', insertError);
+        console.error('Error details:', JSON.stringify(insertError));
+        toast.error("Failed to create your profile");
+        setIsCreatingProfile(false);
+        return;
+      }
+      
+      console.log('Created new profile, navigating to edit page');
+      toast.success("Profile created! Opening editor...");
+      
+      // Use router.push instead of direct navigation to maintain auth context
       router.push('/profile/consultant/edit');
-      setIsOpen(false);
-      toast.success("Loading profile editor");
     } catch (error) {
       console.error('Error in handleEditProfile:', error);
-      toast.error("Failed to access profile editor. Please try again.");
+      toast.error("Failed to edit your profile. Please try again.");
+      setIsCreatingProfile(false);
+    } finally {
+      // We'll keep the loading state until navigation completes or fails
+      setIsCreatingProfile(false);
     }
   };
 

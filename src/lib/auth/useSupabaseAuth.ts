@@ -111,7 +111,7 @@ const useSupabaseAuth = () => {
         const defaultProfile = {
           user_id: data.user.id,
           headline: 'Coming Soon',
-          image_url: 'https://via.placeholder.com/300',
+          image_url: 'https://placehold.co/300x300',
           slug: slug,
           university: 'Not specified',
           major: ['Undecided'],

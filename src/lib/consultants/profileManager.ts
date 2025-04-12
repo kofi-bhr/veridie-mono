@@ -65,12 +65,27 @@ export const createConsultantProfile = async (userId: string) => {
       return null;
     }
     
-    // First check if a profile already exists
-    const existingProfile = await checkConsultantProfile(userId);
+    // First check if a profile already exists - CRITICAL CHECK
+    const { data: existingProfile, error: checkError } = await supabase
+      .from('consultants')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+    
+    if (checkError) {
+      console.error('Error checking for existing profile:', checkError);
+      console.error('Error details:', JSON.stringify(checkError));
+      toast.error('Error checking your profile status');
+      return null;
+    }
+    
+    // If profile already exists, return it immediately
     if (existingProfile) {
-      console.log('Consultant profile already exists, returning existing profile');
+      console.log('Consultant profile already exists, returning existing profile:', existingProfile);
       return existingProfile;
     }
+    
+    console.log('No existing profile found, creating a new one...');
     
     // Generate a unique slug
     let slug = `mentor-${userId.substring(0, 8)}`;
@@ -99,7 +114,7 @@ export const createConsultantProfile = async (userId: string) => {
     const defaultProfile = {
       user_id: userId,
       headline: 'Coming Soon',
-      image_url: 'https://via.placeholder.com/300',
+      image_url: 'https://placehold.co/300x300',
       slug: slug,
       university: 'Not specified', // Default value that satisfies the not-null constraint
       major: ['Undecided'], // Default value as an array
