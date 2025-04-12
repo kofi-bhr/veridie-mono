@@ -119,8 +119,11 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('Initializing auth state');
         setInitialLoading(true); // Start loading
         
+        // Get the current session
         const { data: { session } } = await supabase.auth.getSession();
+        console.log('Initial session check:', session ? 'Session found' : 'No session');
         
+        // Set session and user state
         setSession(session);
         setUser(session?.user || null);
         
@@ -136,22 +139,32 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     };
     
+    // Initialize auth state immediately
     initAuth();
     
     // Subscribe to auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         console.log('Auth state changed, event:', event);
+        
+        // Always update session and user state on auth changes
         setSession(newSession);
         setUser(newSession?.user || null);
         
-        if (newSession?.user) {
-          console.log('New session, fetching profile for user:', newSession.user.id);
-          const userProfile = await fetchProfile(newSession.user.id);
-          setProfile(userProfile);
-        } else {
-          console.log('No user in new session, clearing profile');
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          if (newSession?.user) {
+            console.log('User signed in or token refreshed:', newSession.user.id);
+            const userProfile = await fetchProfile(newSession.user.id);
+            setProfile(userProfile);
+          }
+        } else if (event === 'SIGNED_OUT') {
+          console.log('User signed out, clearing profile');
           setProfile(null);
+          
+          // Force a refresh of the page to clear any cached data
+          if (typeof window !== 'undefined') {
+            window.location.reload();
+          }
         }
       }
     );

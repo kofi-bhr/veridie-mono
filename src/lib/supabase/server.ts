@@ -17,22 +17,35 @@ export const createClient = (request?: NextRequest, response?: NextResponse) => 
         },
         set(name, value, options) {
           if (response) {
+            // Ensure cookies are set with proper options for auth persistence
             response.cookies.set({
               name,
               value,
+              path: '/',
+              httpOnly: true,
+              secure: process.env.NODE_ENV === 'production',
+              sameSite: 'lax',
               ...options,
             });
           }
         },
         remove(name, options) {
           if (response) {
+            // Ensure cookies are properly removed
             response.cookies.set({
               name,
               value: '',
+              path: '/',
+              maxAge: 0,
               ...options,
             });
           }
         },
+      },
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
       },
     }
   );

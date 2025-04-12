@@ -32,19 +32,28 @@ const useSupabaseAuth = () => {
         console.error('Sign in error:', error);
         toast.dismiss(toastId);
         toast.error('Sign in failed: ' + error.message);
-        throw error;
+        setError(error.message);
+        return { success: false, error: error.message };
       }
       
       console.log('Sign in successful, redirecting to home page');
       toast.dismiss(toastId);
       toast.success('Signed in successfully!');
       
-      router.push('/');
+      // Use window.location for more reliable redirect after authentication
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      } else {
+        router.push('/');
+      }
+      
       return { success: true, data };
     } catch (err) {
       const authError = err as AuthError;
       console.error('Authentication error:', authError.message);
       setError(authError.message);
+      toast.dismiss();
+      toast.error(authError.message);
       return { success: false, error: authError.message };
     } finally {
       setLoading(false);
