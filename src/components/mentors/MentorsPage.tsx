@@ -3,11 +3,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
-import { X, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, Filter, AlertCircle } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import MentorCard from './MentorCard';
 import FilterBar from './FilterBar';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
+import { toast } from 'sonner';
 
 // Types
 type University = {
@@ -31,6 +32,25 @@ type Mentor = {
   is_verified: boolean;
 };
 
+// Define the structure of the consultant data from Supabase
+type ConsultantData = {
+  id: string;
+  slug: string | null;
+  user_id: string;
+  university: string | null;
+  headline: string | null;
+  image_url: string | null;
+  major: string[] | string | null;
+  accepted_schools: string[] | string | null;
+  profiles: {
+    first_name: string | null;
+    last_name: string | null;
+  } | {
+    first_name: string | null;
+    last_name: string | null;
+  }[] | null;
+};
+
 const MentorsPage = () => {
   const [mentors, setMentors] = useState<Mentor[]>([]);
   const [universities, setUniversities] = useState<University[]>([]);
@@ -42,12 +62,13 @@ const MentorsPage = () => {
   const [isFilterCardCollapsed, setIsFilterCardCollapsed] = useState(false);
   const [allMajors, setAllMajors] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Fetch universities from Supabase
   useEffect(() => {
     const fetchUniversities = async () => {
       try {
-        const supabase = createClient();
+        console.log('Fetching universities...');
         const { data, error } = await supabase
           .from('universities')
           .select('id, name, logo_url, color_hex');
@@ -59,13 +80,14 @@ const MentorsPage = () => {
         }
 
         if (data && data.length > 0) {
+          console.log(`Fetched ${data.length} universities`);
           setUniversities(data);
         } else {
           console.warn('No universities found in Supabase');
           setUniversities([]);
         }
       } catch (error: any) {
-        console.error('Error in fetchUniversities:', error?.message || 'Unknown error');
+        console.error('Exception in fetchUniversities:', error?.message || 'Unknown error');
         setError(`Error fetching universities: ${error?.message || 'Unknown error'}`);
         setUniversities([]);
       }
@@ -81,263 +103,261 @@ const MentorsPage = () => {
       setError(null);
       
       try {
-        const supabase = createClient();
-        
-        // First, check the structure of the consultants table to see what columns exist
-        const { data: tableInfo, error: tableError } = await supabase
-          .from('consultants')
-          .select('*')
-          .limit(1);
-        
-        if (tableError) {
-          console.error('Error checking consultants table:', tableError.message);
-          setError(`Error accessing consultants table: ${tableError.message}`);
-          setIsLoading(false);
-          return;
-        }
-        
-        // Determine if is_verified or verified column exists
-        const sampleConsultant = tableInfo && tableInfo[0] ? tableInfo[0] : {};
-        const hasIsVerified = 'is_verified' in sampleConsultant;
-        const hasVerified = 'verified' in sampleConsultant;
-        const verificationColumn = hasIsVerified ? 'is_verified' : hasVerified ? 'verified' : null;
-        
-        // Build the query dynamically based on available columns
-        let query = `
-          id, 
-          slug,
-          university,
-          headline,
-          image_url,
-          major,
-          accepted_schools,
-          profiles:user_id (
-            first_name,
-            last_name
-          ),
-          awards (
-            title
-          )
-        `;
-        
-        // Add verification column if it exists
-        if (verificationColumn) {
-          query = `${verificationColumn}, ${query}`;
-        }
-        
-        // Execute the query with the appropriate columns
+        console.log('Fetching consultants...');
+        // Fetch all consultants with their profiles
         const { data, error } = await supabase
           .from('consultants')
-          .select(query);
-
+          .select(`
+            id, 
+            slug,
+            user_id,
+            university,
+            headline,
+            image_url,
+            major,
+            accepted_schools,
+            profiles(
+              first_name,
+              last_name
+            )
+          `);
+        
         if (error) {
-          console.error('Error fetching mentors:', error.message);
+          console.error('Error fetching consultants:', error.message);
           setError(`Error fetching mentors: ${error.message}`);
           setIsLoading(false);
           return;
         }
-
-        if (data && data.length > 0) {
-          // Transform the data to match our Mentor type
-          const transformedData = data.map((item: any) => {
-            // Extract profile data - in Supabase, this might be an object or null
-            const profile = item.profiles || {};
-            
-            // Handle verification status based on available columns
-            let isVerified = false;
-            if (hasIsVerified) {
-              isVerified = !!item.is_verified;
-            } else if (hasVerified) {
-              isVerified = !!item.verified;
-            }
-            
-            return {
-              id: item.id || '',
-              slug: item.slug || item.id || '',
-              first_name: profile.first_name || 'Anonymous',
-              last_name: profile.last_name || 'Mentor',
-              university: item.university || '',
-              headline: item.headline || '',
-              image_url: item.image_url || '/placeholder.svg',
-              top_award: item.awards && item.awards.length > 0 ? item.awards[0].title : null,
-              major: Array.isArray(item.major) ? item.major : [],
-              accepted_schools: Array.isArray(item.accepted_schools) ? item.accepted_schools : [],
-              is_verified: isVerified,
-            };
-          });
-          
-          // Extract all unique majors from the mentors
-          const uniqueMajors = Array.from(
-            new Set(
-              transformedData.flatMap(mentor => 
-                Array.isArray(mentor.major) ? mentor.major : []
-              )
-            )
-          ).sort();
-          
-          setAllMajors(uniqueMajors);
-          setMentors(transformedData);
-          setFilteredMentors(transformedData);
-        } else {
-          console.warn('No mentors found in Supabase');
+        
+        if (!data || data.length === 0) {
+          console.warn('No consultants found');
           setMentors([]);
           setFilteredMentors([]);
-          setAllMajors([]);
+          setIsLoading(false);
+          return;
         }
+        
+        console.log(`Fetched ${data.length} consultants`);
+        
+        // Transform the data to match the Mentor type
+        const transformedData: Mentor[] = data
+          .filter((consultant: ConsultantData) => {
+            // Filter out consultants without required data
+            return (
+              consultant.slug && 
+              consultant.profiles && 
+              (Array.isArray(consultant.profiles) 
+                ? consultant.profiles.length > 0 
+                : true)
+            );
+          })
+          .map((consultant: ConsultantData) => {
+            // Extract profile data
+            const profile = Array.isArray(consultant.profiles)
+              ? consultant.profiles[0]
+              : consultant.profiles;
+            
+            // Handle arrays or strings for major and accepted_schools
+            const majorArray = Array.isArray(consultant.major)
+              ? consultant.major
+              : consultant.major
+              ? [consultant.major as string]
+              : ['Undecided'];
+            
+            const acceptedSchools = Array.isArray(consultant.accepted_schools)
+              ? consultant.accepted_schools
+              : consultant.accepted_schools
+              ? [consultant.accepted_schools as string]
+              : [];
+            
+            // Extract first award if available
+            const awards: any[] = []; // We would fetch awards here in a more complete implementation
+            const topAward = awards && awards.length > 0 ? awards[0].title : null;
+            
+            return {
+              id: consultant.id,
+              slug: consultant.slug || '',
+              first_name: profile?.first_name || 'Anonymous',
+              last_name: profile?.last_name || 'Mentor',
+              university: consultant.university || 'Not specified',
+              headline: consultant.headline || 'Mentor Profile',
+              image_url: consultant.image_url || 'https://via.placeholder.com/300',
+              top_award: topAward,
+              major: majorArray,
+              accepted_schools: acceptedSchools,
+              is_verified: true // Default to true for now
+            };
+          });
+        
+        console.log(`Transformed ${transformedData.length} consultants`);
+        
+        // Extract all unique majors for filtering
+        const allMajorsSet = new Set<string>();
+        transformedData.forEach((mentor) => {
+          mentor.major.forEach((major) => {
+            allMajorsSet.add(major);
+          });
+        });
+        
+        setAllMajors(Array.from(allMajorsSet));
+        setMentors(transformedData);
+        setFilteredMentors(transformedData);
       } catch (error: any) {
-        console.error('Error in fetchMentors:', error?.message || 'Unknown error');
-        setError(`Error fetching mentors: ${error?.message || 'Unknown error'}`);
-        setMentors([]);
-        setFilteredMentors([]);
-        setAllMajors([]);
+        console.error('Exception in fetchMentors:', error?.message || 'Unknown error');
+        setError(`Error loading mentors: ${error?.message || 'Unknown error'}`);
+        
+        // If we have a retry count left, try again
+        if (retryCount < 2) {
+          console.log(`Retrying fetch (attempt ${retryCount + 1})...`);
+          setTimeout(() => {
+            setRetryCount(prev => prev + 1);
+          }, 2000);
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchMentors();
-  }, []);
+  }, [retryCount]);
 
-  // Filter mentors based on selected universities and majors
+  // Filter mentors based on selected filters
   useEffect(() => {
+    if (mentors.length === 0) return;
+
     try {
-      let result = [...mentors];
+      const filtered = mentors.filter((mentor) => {
+        // Filter by university
+        const universityMatch =
+          selectedUniversities.length === 0 ||
+          selectedUniversities.includes(mentor.university);
 
-      // Apply university filter if any are selected
-      if (selectedUniversities.length > 0) {
-        result = result.filter((mentor) => {
-          // Check if mentor's university or any accepted school matches selected universities
-          return selectedUniversities.some(uniId => 
-            Array.isArray(mentor.accepted_schools) && mentor.accepted_schools.includes(uniId)
-          );
-        });
-      }
+        // Filter by major
+        const majorMatch =
+          selectedMajors.length === 0 ||
+          mentor.major.some((major) => selectedMajors.includes(major));
 
-      // Apply major filter if any are selected
-      if (selectedMajors.length > 0) {
-        result = result.filter((mentor) => {
-          // Check if any of the mentor's majors match the selected majors
-          return Array.isArray(mentor.major) && mentor.major.some(major => selectedMajors.includes(major));
-        });
-      }
+        return universityMatch && majorMatch;
+      });
 
-      setFilteredMentors(result);
-    } catch (error: any) {
-      console.error('Error filtering mentors:', error?.message || 'Unknown error');
-      // If filtering fails, just show all mentors
+      setFilteredMentors(filtered);
+    } catch (error) {
+      console.error('Error filtering mentors:', error);
+      // Fallback to showing all mentors if filtering fails
       setFilteredMentors(mentors);
     }
-  }, [selectedUniversities, selectedMajors, mentors]);
+  }, [mentors, selectedUniversities, selectedMajors]);
 
+  // Compute whether any filters are active
+  const hasActiveFilters = useMemo(() => {
+    return selectedUniversities.length > 0 || selectedMajors.length > 0;
+  }, [selectedUniversities, selectedMajors]);
+
+  // Handle university filter change
   const handleUniversityFilter = (universities: string[]) => {
     setSelectedUniversities(universities);
   };
 
+  // Handle major filter change
   const handleMajorFilter = (majors: string[]) => {
     setSelectedMajors(majors);
   };
 
+  // Clear all filters
   const clearFilters = () => {
     setSelectedUniversities([]);
     setSelectedMajors([]);
   };
 
+  // Toggle filter card collapse state
   const toggleFilterCard = () => {
     setIsFilterCardCollapsed(!isFilterCardCollapsed);
   };
 
-  const hasActiveFilters = selectedUniversities.length > 0 || selectedMajors.length > 0;
+  // Handle retry when there's an error
+  const handleRetry = () => {
+    setError(null);
+    setRetryCount(0);
+  };
 
   return (
-    <div className="min-h-screen pt-20 pb-12">
-      <div className="container mx-auto px-4">
-        {/* Page Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="mb-8"
-        >
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">Find Your Mentor</h1>
-          <p className="text-foreground/80">
-            Connect with elite college consultants who can guide you through the admissions process.
+    <div className="container mx-auto px-4 py-24">
+      <div className="max-w-6xl mx-auto">
+        <div className="mb-8 text-center">
+          <h1 className="text-4xl font-bold mb-4">Find Your Mentor</h1>
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            Connect with mentors who have successfully navigated the college admissions process at top universities.
           </p>
-        </motion.div>
+        </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="mb-8 p-4 border-2 border-red-500 bg-red-50 rounded-lg">
-            <p className="text-red-600 font-medium">{error}</p>
-            <p className="text-sm text-red-500 mt-1">Please try refreshing the page or contact support if the issue persists.</p>
-          </div>
-        )}
-
-        {/* Desktop Filters - Full Width Card */}
+        {/* Desktop Filter */}
         <div className="hidden md:block mb-8">
-          <div className="bg-background border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-lg overflow-hidden">
-            {/* Filter Header with Toggle */}
-            <div 
-              className="p-4 flex justify-between items-center cursor-pointer border-b-2 border-black"
-              onClick={toggleFilterCard}
-            >
+          <motion.div
+            initial={false}
+            animate={isFilterCardCollapsed ? { height: 'auto' } : { height: 'auto' }}
+            className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white rounded-lg overflow-hidden"
+          >
+            <div className="flex justify-between items-center p-4 border-b border-gray-200">
               <div className="flex items-center gap-2">
-                <h3 className="text-xl font-bold">Filters</h3>
-                {hasActiveFilters && (
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-main text-xs text-white">
-                    {selectedUniversities.length + selectedMajors.length}
-                  </span>
-                )}
+                <Filter className="h-5 w-5" />
+                <h3 className="font-semibold">Filter Mentors</h3>
               </div>
-              <div className="flex items-center gap-4">
-                {hasActiveFilters && (
-                  <Button
-                    variant="neutral"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      clearFilters();
-                    }}
-                    className="text-xs"
-                  >
-                    Clear All
-                  </Button>
-                )}
+              <Button
+                variant="neutral"
+                size="sm"
+                onClick={toggleFilterCard}
+                className="p-1 h-auto"
+              >
                 {isFilterCardCollapsed ? (
                   <ChevronDown className="h-5 w-5" />
                 ) : (
                   <ChevronUp className="h-5 w-5" />
                 )}
-              </div>
+              </Button>
             </div>
 
-            {/* Filter Content */}
             {!isFilterCardCollapsed && (
-              <div className="p-6">
-                <div className="flex flex-col gap-6">
-                  {/* Filter Options */}
-                  {universities.length > 0 && (
-                    <FilterBar
-                      variant="pill"
-                      onUniversityChange={handleUniversityFilter}
-                      onMajorChange={handleMajorFilter}
-                      selectedUniversities={selectedUniversities}
-                      selectedMajors={selectedMajors}
-                      universities={universities}
-                      majors={allMajors}
-                    />
-                  )}
-                </div>
+              <div className="p-4">
+                {universities.length > 0 ? (
+                  <FilterBar
+                    variant="pill"
+                    onUniversityChange={handleUniversityFilter}
+                    onMajorChange={handleMajorFilter}
+                    selectedUniversities={selectedUniversities}
+                    selectedMajors={selectedMajors}
+                    universities={universities}
+                    majors={allMajors}
+                    isMobile={false}
+                  />
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500">Loading filters...</p>
+                  </div>
+                )}
+
+                {hasActiveFilters && (
+                  <div className="mt-4 flex justify-end">
+                    <Button
+                      variant="neutral"
+                      onClick={clearFilters}
+                      className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                    >
+                      Clear Filters
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
-          </div>
+          </motion.div>
         </div>
 
-        {/* Filter - Mobile */}
-        <div className="flex flex-col gap-4 mb-6 md:hidden">
+        {/* Mobile Filter Button */}
+        <div className="md:hidden mb-6">
           <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
             <SheetTrigger asChild>
               <Button variant="reverse" className="w-full gap-2 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                Filter
+                <Filter className="h-5 w-5" />
+                <span>Filter</span>
                 {hasActiveFilters && (
                   <span className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-main text-xs text-white">
                     {selectedUniversities.length + selectedMajors.length}
@@ -359,18 +379,20 @@ const MentorsPage = () => {
               </div>
 
               {universities.length > 0 && (
-                <FilterBar
-                  variant="grid"
-                  onUniversityChange={handleUniversityFilter}
-                  onMajorChange={handleMajorFilter}
-                  selectedUniversities={selectedUniversities}
-                  selectedMajors={selectedMajors}
-                  universities={universities}
-                  majors={allMajors}
-                  isMobile={true}
-                />
+                <div className="p-4">
+                  <FilterBar
+                    variant="pill"
+                    onUniversityChange={handleUniversityFilter}
+                    onMajorChange={handleMajorFilter}
+                    selectedUniversities={selectedUniversities}
+                    selectedMajors={selectedMajors}
+                    universities={universities}
+                    majors={allMajors}
+                    isMobile={true}
+                  />
+                </div>
               )}
-              <div className="flex gap-4 mt-6">
+              <div className="flex gap-4 mt-6 p-4">
                 {hasActiveFilters && (
                   <Button
                     variant="reverse"
@@ -381,7 +403,8 @@ const MentorsPage = () => {
                   </Button>
                 )}
                 <Button
-                  className="flex-1"
+                  variant="default"
+                  className="flex-1 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                   onClick={() => setIsFilterOpen(false)}
                 >
                   Apply
@@ -392,15 +415,32 @@ const MentorsPage = () => {
         </div>
 
         {/* Mentors Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
           {isLoading ? (
             // Loading skeletons
             Array.from({ length: 6 }).map((_, index) => (
               <div
                 key={index}
-                className="h-40 animate-pulse bg-gray-200 rounded-lg border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                className="h-[300px] animate-pulse bg-gray-200 rounded-lg border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
               />
             ))
+          ) : error ? (
+            // Error state
+            <div className="col-span-full text-center py-12 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-lg p-6 bg-white">
+              <div className="flex flex-col items-center">
+                <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+                <h3 className="text-xl font-bold mb-2">Error Loading Mentors</h3>
+                <p className="text-foreground/80 mb-6 max-w-md mx-auto">
+                  {error}
+                </p>
+                <Button 
+                  onClick={handleRetry}
+                  className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                >
+                  Try Again
+                </Button>
+              </div>
+            </div>
           ) : filteredMentors.length > 0 ? (
             // Mentor cards
             filteredMentors.map((mentor) => (
@@ -412,13 +452,20 @@ const MentorsPage = () => {
             ))
           ) : (
             // No results message
-            <div className="col-span-full text-center py-12 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-lg p-6">
+            <div className="col-span-full text-center py-12 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-lg p-6 bg-white">
               <h3 className="text-xl font-bold mb-2">No mentors found</h3>
               <p className="text-foreground/80 mb-6">
-                Try adjusting your filters or check back later for more mentors.
+                {mentors.length > 0 
+                  ? "No mentors match your current filters. Try adjusting your search criteria."
+                  : "No mentors are available at this time. Please check back later."}
               </p>
               {hasActiveFilters && (
-                <Button onClick={clearFilters}>Clear Filters</Button>
+                <Button 
+                  onClick={clearFilters}
+                  className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                >
+                  Clear Filters
+                </Button>
               )}
             </div>
           )}

@@ -20,7 +20,7 @@ export async function middleware(req: NextRequest) {
     '/auth/signup',
     '/auth/reset-password',
     '/auth/callback',
-    '/mentors',
+    '/mentors', // Base mentors route and all sub-routes are public
     '/about',
     '/contact',
     '/privacy',
@@ -39,6 +39,7 @@ export async function middleware(req: NextRequest) {
   
   // If user is not authenticated and trying to access a protected route, redirect to login
   if (!session && !isPublicRoute) {
+    console.log('Redirecting unauthenticated user to login:', pathname);
     const redirectUrl = new URL('/auth/signin', req.url);
     redirectUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(redirectUrl);
@@ -47,11 +48,13 @@ export async function middleware(req: NextRequest) {
   // If user is authenticated, get their role
   if (session) {
     const userRole = session.user?.user_metadata?.role as string;
+    console.log('Authenticated user with role:', userRole, 'accessing path:', pathname);
     
     // Handle consultant-specific routes
     if (pathname.startsWith('/profile/consultant')) {
       // Only consultants can access consultant profile routes
       if (userRole !== 'consultant') {
+        console.log('Non-consultant trying to access consultant profile, redirecting to home');
         return NextResponse.redirect(new URL('/', req.url));
       }
     }
@@ -59,6 +62,7 @@ export async function middleware(req: NextRequest) {
     // Handle student-specific routes
     if (pathname === '/profile' && userRole === 'consultant') {
       // Redirect consultants to their consultant profile
+      console.log('Consultant accessing /profile, redirecting to consultant profile');
       return NextResponse.redirect(new URL('/profile/consultant', req.url));
     }
   }
