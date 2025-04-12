@@ -169,7 +169,7 @@ const MentorCard = ({ mentor, universities }: MentorProps) => {
           {/* Majors - Scrolling List */}
           {major && major.length > 0 && (
             <div className="mt-3 mb-2">
-              <span className="text-xs text-foreground/60 block mb-1">Interest{major.length > 1 ? 's' : ''}:</span>
+              <span className="text-xs text-foreground/60 block mb-1">Interest{major.length > 1 ? "s" : ""}:</span>
               <div 
                 ref={majorScrollRef}
                 className="flex gap-2 overflow-x-auto scrollbar-hide relative"

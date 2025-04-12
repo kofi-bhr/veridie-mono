@@ -21,7 +21,7 @@ interface University {
 }
 
 const ConsultantProfileEditPage = () => {
-  const { user, isConsultant } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [consultantData, setConsultantData] = useState<ConsultantData | null>(null);

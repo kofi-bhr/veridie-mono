@@ -155,7 +155,7 @@ const ConsultantProfilePage = () => {
         <div className="w-full max-w-4xl border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white p-8 rounded-md">
           <div className="text-center">
             <h1 className="text-3xl font-bold mb-4">Complete Your Mentor Profile</h1>
-            <p className="text-gray-600 mb-6">You haven't set up your mentor profile yet. Create one to start connecting with students.</p>
+            <p className="text-gray-600 mb-6">You haven&apos;t set up your mentor profile yet. Create one to start connecting with students.</p>
             <Link href="/profile/consultant/edit">
               <Button className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                 Create Profile

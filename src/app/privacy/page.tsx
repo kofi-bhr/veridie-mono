@@ -74,7 +74,7 @@ export default function PrivacyPage() {
                 <p>Our website may contain links to third-party websites or services that are not owned or controlled by Veridie. We have no control over and assume no responsibility for the content, privacy policies, or practices of any third-party websites or services.</p>
                 
                 <h2 className="text-xl font-bold mt-8 mb-4">9. Children&apos;s Privacy</h2>
-                <p>Our services are not intended for individuals under the age of 13. We do not knowingly collect personal information from children under 13. If we learn we have collected personal information from a child under 13, we will delete that information promptly.</p>
+                <p>Children&apos;s Privacy is important to us. Our services are not intended for individuals under the age of 13. We do not knowingly collect personal information from children under 13. If we learn we have collected personal information from a child under 13, we will delete that information promptly.</p>
                 
                 <h2 className="text-xl font-bold mt-8 mb-4">10. Changes to This Privacy Policy</h2>
                 <p>We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last Updated" date. You are advised to review this Privacy Policy periodically for any changes.</p>
