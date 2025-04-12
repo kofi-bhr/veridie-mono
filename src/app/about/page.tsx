@@ -8,8 +8,19 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
 
+// Define a type for the consultant data
+interface Consultant {
+  id: number;
+  slug: string;
+  profiles: { first_name: string; last_name: string; }[];
+  university: string;
+  headline: string;
+  image_url: string;
+  accepted_schools: string[];
+}
+
 export default function AboutPage() {
-  const [secondConsultant, setSecondConsultant] = useState(null);
+  const [secondConsultant, setSecondConsultant] = useState<Consultant | null>(null);
 
   useEffect(() => {
     const fetchSecondConsultant = async () => {
@@ -61,120 +72,65 @@ export default function AboutPage() {
         {/* Our Story Section */}
         <section className="mb-20">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5 }}
-              viewport={{ once: true }}
+            <Card 
+              className="h-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden transition-all hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-none"
+              tabIndex={0}
+              aria-label="Our Story"
             >
-              <h2 className="text-3xl font-bold mb-6">Our Story</h2>
-              <div className="space-y-4">
-                <p>
-                  Veridie was born from a simple truth: the college admissions process is broken. 
-                  Traditional consulting services charge astronomical fees for outdated advice from 
-                  consultants who haven't navigated the current admissions landscape themselves.
-                </p>
-                <p>
-                  We flipped the script. Our platform connects you with consultants who just 
-                  cracked the code—recent admits to top universities who know exactly what works 
-                  right now, not what worked a decade ago.
-                </p>
-                <p>
-                  These aren't just any admits—they're the elite few who beat the odds and earned 
-                  their spots at the nation's most selective institutions. And now they're ready to 
-                  show you exactly how they did it.
+              <div className="pt-2 px-4 pb-0 flex flex-col h-full">
+                <p className="py-0.5 px-4">
+                  Veridie was born from a simple truth: the college admissions process is broken. Traditional consulting services charge astronomical fees for outdated advice from consultants who haven't navigated the current admissions landscape themselves. We flipped the script. Our platform connects you with consultants who just cracked the code—recent admits to top universities who know exactly what works right now, not what worked a decade ago.
                 </p>
               </div>
-            </motion.div>
-            
+            </Card>
             <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5 }}
-              viewport={{ once: true }}
-              className="relative"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              whileHover={{ y: -5 }}
             >
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                whileHover={{ y: -5 }}
+              <Card 
+                className="h-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden transition-all hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-none"
+                tabIndex={0}
+                aria-label="View profile of Sebastian Tan, College Consultant"
               >
-                <Card 
-                  className="h-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-hidden transition-all hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-none"
-                  tabIndex={0}
-                  aria-label="View profile of Sebastian Tan, College Consultant"
-                >
-                  <div className="pt-0 px-4 pb-0 flex flex-col h-full">
-                    <div className="flex flex-row gap-4">
-                      {/* Mentor Image with Verification Badge */}
-                      <div className="relative w-24 h-24 shrink-0 overflow-hidden border-2 border-black">
-                        <Image
-                          src="/images/sebastian-tan-new-photo.jpg" // Replace with actual path
-                          alt="Sebastian Tan"
-                          width={96}
-                          height={96}
-                          className="object-cover w-full h-full"
-                        />
-                      </div>
-
-                      {/* Mentor Info */}
-                      <div className="flex-1">
-                        <h3 className="text-xl font-bold">Sebastian Tan</h3>
-                        <p className="text-foreground/80 text-sm">Founder @ Veridie</p>
-                        <div className="mt-1 bg-[#ff8188] inline-block px-2 py-1 text-sm border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-bold">
-                          Coca-Cola Scholar
-                        </div>
-                      </div>
+                <div className="pt-0 px-4 pb-0 flex flex-col h-full">
+                  <div className="flex flex-row gap-4">
+                    <div className="relative w-24 h-24 shrink-0 overflow-hidden border-2 border-black">
+                      <Image
+                        src="/images/sebastian-tan-new-photo.jpg" // Replace with actual path
+                        alt="Sebastian Tan"
+                        width={96}
+                        height={96}
+                        className="object-cover w-full h-full"
+                      />
                     </div>
-
-                    {/* Majors - Scrolling List */}
-                    <div className="mt-3 mb-2">
-                      <span className="text-xs text-foreground/60 block mb-1">Interests:</span>
-                      <div className="flex gap-2 overflow-x-auto scrollbar-hide relative">
-                        <div className="bg-white px-2 py-1 text-xs border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-bold whitespace-nowrap flex-shrink-0">
-                          Computer Science
-                        </div>
-                        <div className="bg-white px-2 py-1 text-xs border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-bold whitespace-nowrap flex-shrink-0">
-                          Mathematics
-                        </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold">Sebastian Tan</h3>
+                      <p className="text-foreground/80 text-sm">Founder @ Veridie</p>
+                      <div className="mt-1 bg-[#ff8188] inline-block px-2 py-1 text-sm border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-bold">
+                        Coca-Cola Scholar
                       </div>
-                    </div>
-
-                    {/* Accepted Schools */}
-                    {/* <div className="mt-2 mb-3">
-                      <span className="text-xs text-foreground/60 block mb-1">Accepted at:</span>
-                      <div className="flex gap-3 overflow-x-auto scrollbar-hide relative">
-                        <div className="h-8 flex-shrink-0" title="Harvard University">
-                          <Image
-                            src="/path/to/harvard-logo.jpg" // Replace with actual path
-                            alt="Harvard University"
-                            width={32}
-                            height={32}
-                            className="object-contain h-full"
-                          />
-                        </div>
-                        <div className="h-8 flex-shrink-0" title="Stanford University">
-                          <Image
-                            src="/path/to/stanford-logo.jpg" // Replace with actual path
-                            alt="Stanford University"
-                            width={32}
-                            height={32}
-                            className="object-contain h-full"
-                          />
-                        </div>
-                      </div>
-                    </div> */}
-
-                    {/* CTA */}
-                    <div className="mt-auto">
-                      <Button asChild className="w-full rounded-none">
-                        <Link href="#" className="font-bold">View Profile</Link>
-                      </Button>
                     </div>
                   </div>
-                </Card>
-              </motion.div>
+                  <div className="mt-3 mb-2">
+                    <span className="text-xs text-foreground/60 block mb-1">Interests:</span>
+                    <div className="flex gap-2 overflow-x-auto scrollbar-hide relative">
+                      <div className="bg-white px-2 py-1 text-xs border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-bold whitespace-nowrap flex-shrink-0">
+                        Computer Science
+                      </div>
+                      <div className="bg-white px-2 py-1 text-xs border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-bold whitespace-nowrap flex-shrink-0">
+                        Mathematics
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-auto">
+                    <Button asChild className="w-full rounded-none">
+                      <Link href="#" className="font-bold">View Profile</Link>
+                    </Button>
+                  </div>
+                </div>
+              </Card>
             </motion.div>
           </div>
         </section>
@@ -203,9 +159,7 @@ export default function AboutPage() {
                 <h3 className="text-xl font-bold mb-4">Fresh Perspectives</h3>
                 <p className="mb-4">
                   Our consultants aren't career advisors—they're successful students who just navigated 
-                  the exact process you're facing. Their insights are current, relevant, and proven to work.
-                </p>
-                <p>
+                  the exact process you're facing. Their insights are current, relevant, and proven to work. 
                   They know what admissions officers are looking for because they just impressed those 
                   same officers with their own applications.
                 </p>
@@ -223,11 +177,8 @@ export default function AboutPage() {
                 <h3 className="text-xl font-bold mb-4">No BS Approach</h3>
                 <p className="mb-4">
                   We cut through the noise and deliver straight talk. No corporate jargon, no vague promises—just 
-                  clear, actionable advice from people who succeeded where most fail.
-                </p>
-                <p>
-                  Our consultants tell you what actually matters, not what the traditional consulting 
-                  industry wants you to believe matters.
+                  clear, actionable advice from people who succeeded where most fail. Our consultants tell you what 
+                  actually matters, not what the traditional consulting industry wants you to believe matters.
                 </p>
               </Card>
             </motion.div>
@@ -243,11 +194,8 @@ export default function AboutPage() {
                 <h3 className="text-xl font-bold mb-4">Accessible Excellence</h3>
                 <p className="mb-4">
                   Elite consulting shouldn't cost more than tuition. We've created a platform where top-tier 
-                  advice is affordable and accessible to students from all backgrounds.
-                </p>
-                <p>
-                  Our consultants are motivated by a desire to give back and help others achieve the same 
-                  success they've earned.
+                  advice is affordable and accessible to students from all backgrounds. Our consultants are motivated 
+                  by a desire to give back and help others achieve the same success they've earned.
                 </p>
               </Card>
             </motion.div>
