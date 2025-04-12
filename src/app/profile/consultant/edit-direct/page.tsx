@@ -59,6 +59,21 @@ export default function ConsultantEditDirectPage() {
     image_url: '',
   });
 
+  // Fetch universities list
+  const fetchUniversities = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('universities')
+        .select('*')
+        .order('name');
+        
+      if (error) throw error;
+      setUniversities(data || []);
+    } catch (error) {
+      console.error('Error fetching universities:', error);
+    }
+  };
+
   // List of AP courses
   const AP_COURSES = [
     "Art History",
@@ -192,7 +207,7 @@ export default function ConsultantEditDirectPage() {
       setActEnabled(consultant.act_composite !== null);
       
       // Fetch universities list
-      fetchUniversities();
+      await fetchUniversities();
       
       setLoading(false);
     } catch (error) {
@@ -464,25 +479,6 @@ export default function ConsultantEditDirectPage() {
       setSaving(false);
     }
   };
-
-  // Fetch universities on component mount
-  useEffect(() => {
-    const fetchUniversities = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('universities')
-          .select('*')
-          .order('name');
-          
-        if (error) throw error;
-        setUniversities(data || []);
-      } catch (error) {
-        console.error('Error fetching universities:', error);
-      }
-    };
-    
-    fetchUniversities();
-  }, []);
 
   // Available majors
   const availableMajors = [
