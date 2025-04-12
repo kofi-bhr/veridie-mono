@@ -144,6 +144,45 @@ const MentorCard = ({ mentor, universities }: MentorProps) => {
                   {top_award}
                 </div>
               )}
+
+              {/* Accepted Schools */}
+              {acceptedSchools.length > 0 && (
+                <div className="mt-2 mb-3">
+                  <div className="flex gap-3 relative">
+                    {acceptedSchools.length === 1 ? (
+                      <div 
+                        key={acceptedSchools[0].id} 
+                        className="h-8 flex-shrink-0"
+                        title={acceptedSchools[0].name}
+                      >
+                        <Image
+                          src={acceptedSchools[0].logo_url}
+                          alt={acceptedSchools[0].name}
+                          width={32}
+                          height={32}
+                          className="object-contain h-full"
+                        />
+                      </div>
+                    ) : (
+                      acceptedSchools.map((school, index) => (
+                        <div 
+                          key={`${school.id}-${index}`} 
+                          className="h-8 flex-shrink-0"
+                          title={school.name}
+                        >
+                          <Image
+                            src={school.logo_url}
+                            alt={school.name}
+                            width={32}
+                            height={32}
+                            className="object-contain h-full"
+                          />
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -163,46 +202,6 @@ const MentorCard = ({ mentor, universities }: MentorProps) => {
                       className="bg-white px-2 py-1 text-xs border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-bold whitespace-nowrap flex-shrink-0"
                     >
                       {item}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Accepted Schools */}
-          {acceptedSchools.length > 0 && (
-            <div className="mt-2 mb-3">
-              <span className="text-xs text-foreground/60 block mb-1">Accepted at:</span>
-              <div className="flex gap-3 relative">
-                {acceptedSchools.length === 1 ? (
-                  <div 
-                    key={acceptedSchools[0].id} 
-                    className="h-8 flex-shrink-0"
-                    title={acceptedSchools[0].name}
-                  >
-                    <Image
-                      src={acceptedSchools[0].logo_url}
-                      alt={acceptedSchools[0].name}
-                      width={32}
-                      height={32}
-                      className="object-contain h-full"
-                    />
-                  </div>
-                ) : (
-                  acceptedSchools.map((school, index) => (
-                    <div 
-                      key={`${school.id}-${index}`} 
-                      className="h-8 flex-shrink-0"
-                      title={school.name}
-                    >
-                      <Image
-                        src={school.logo_url}
-                        alt={school.name}
-                        width={32}
-                        height={32}
-                        className="object-contain h-full"
-                      />
                     </div>
                   ))
                 )}
