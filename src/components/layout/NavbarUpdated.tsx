@@ -273,8 +273,13 @@ const Navbar = () => {
         console.log('Found existing profile, navigating to edit page');
         toast.success("Opening profile editor...");
         
-        // Use router.push instead of direct navigation to maintain auth context
-        router.push('/profile/consultant/edit');
+        // Create a form and submit it to navigate with full authentication context
+        const form = document.createElement('form');
+        form.method = 'GET';
+        form.action = '/profile/consultant/edit';
+        document.body.appendChild(form);
+        form.submit();
+        
         return;
       }
       
@@ -335,8 +340,12 @@ const Navbar = () => {
       console.log('Created new profile, navigating to edit page');
       toast.success("Profile created! Opening editor...");
       
-      // Use router.push instead of direct navigation to maintain auth context
-      router.push('/profile/consultant/edit');
+      // Create a form and submit it to navigate with full authentication context
+      const form = document.createElement('form');
+      form.method = 'GET';
+      form.action = '/profile/consultant/edit';
+      document.body.appendChild(form);
+      form.submit();
     } catch (error) {
       console.error('Error in handleEditProfile:', error);
       toast.error("Failed to edit your profile. Please try again.");
