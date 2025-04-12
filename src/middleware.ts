@@ -89,11 +89,8 @@ export async function middleware(request: NextRequest) {
 // Configure the middleware to run on specific paths
 export const config = {
   matcher: [
-    // Match all protected paths
-    ...protectedPaths.map(path => path + '/:path*'),
-    // Match all consultant paths
-    ...consultantPaths.map(path => path + '/:path*'),
-    // Match all auth paths
+    '/dashboard/:path*',
+    '/profile/consultant/:path*',
     '/auth/:path*',
   ],
 };

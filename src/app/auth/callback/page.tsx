@@ -11,37 +11,47 @@ const AuthCallbackPage = () => {
 
   useEffect(() => {
     const handleCallback = async () => {
-      const code = searchParams.get('code');
-      const next = searchParams.get('next') || '/';
-      const role = searchParams.get('role');
+      if (searchParams) {
+        const code = searchParams.get('code');
+        const next = searchParams.get('next') || '/';
+        const role = searchParams.get('role');
 
-      if (code) {
-        try {
-          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-          
-          if (error) {
-            throw error;
+        if (code) {
+          try {
+            const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+            
+            if (error) {
+              throw error;
+            }
+
+            // Check if this is a new user
+            const { data: profileData } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', data.session?.user.id)
+              .single();
+
+            // If no profile exists, redirect to complete profile
+            if (!profileData) {
+              router.push(role ? `/auth/complete-profile?role=${role}` : '/auth/complete-profile');
+            } else {
+              router.push(next);
+            }
+          } catch (err: unknown) {
+            if (err instanceof Error) {
+              console.error('Error during auth callback:', err);
+              setError(err.message);
+            } else {
+              console.error('Unexpected error during auth callback:', err);
+              setError('An unexpected error occurred.');
+            }
           }
-
-          // Check if this is a new user
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', data.session?.user.id)
-            .single();
-
-          // If no profile exists, redirect to complete profile
-          if (!profileData) {
-            router.push(role ? `/auth/complete-profile?role=${role}` : '/auth/complete-profile');
-          } else {
-            router.push(next);
-          }
-        } catch (err: any) {
-          console.error('Error during auth callback:', err);
-          setError(err.message);
+        } else {
+          router.push('/auth/signin');
         }
       } else {
-        router.push('/auth/signin');
+        console.error('searchParams is null');
+        setError('Invalid search parameters.');
       }
     };
 
