@@ -273,19 +273,25 @@ const ConsultantProfileEditPage = () => {
 
   // Update saveProfile function to save related data
   const saveProfile = async () => {
-    if (!user) {
-      toast.error("You must be signed in to save your profile");
-      return;
-    }
-    
     try {
       setSaving(true);
+      
+      // Get session directly from Supabase instead of relying on auth context
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast.error("You must be signed in to save your profile");
+        setSaving(false);
+        return;
+      }
+      
+      const userId = session.user.id;
       
       // Upload image if changed
       let imageUrl = profile.image_url;
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
-        const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+        const fileName = `${userId}-${Date.now()}.${fileExt}`;
         
         const { error: uploadError, data: uploadData } = await supabase.storage
           .from('profiles')
@@ -307,7 +313,7 @@ const ConsultantProfileEditPage = () => {
       const { error: profileError } = await supabase
         .from('profiles')
         .upsert({
-          id: user.id,
+          id: userId,
           first_name: firstName,
           last_name: lastName,
         });
@@ -318,7 +324,7 @@ const ConsultantProfileEditPage = () => {
       
       // Update or create consultant profile
       const consultantData = {
-        user_id: user.id,
+        user_id: userId,
         headline: profile.headline || 'Mentor Profile (Coming Soon)',
         university: profile.university || '',
         major: selectedMajors,
