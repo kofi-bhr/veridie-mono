@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input'; 
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'; 
+import { checkSupabaseConnection } from '@/lib/supabase/client';
+import { toast } from 'sonner';
 
 const signUpSchema = z
   .object({
@@ -28,7 +30,9 @@ type SignUpFormValues = z.infer<typeof signUpSchema>;
 const SignUpForm = () => {
   const { loading, error: authApiError, handleSignUp } = useSupabaseAuth();
   const [apiError, setApiError] = useState<string | null>(authApiError);
-
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [longOperation, setLongOperation] = useState(false);
+  
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
     defaultValues: {
@@ -39,12 +43,81 @@ const SignUpForm = () => {
     },
   });
 
-  const onSubmit = async (values: SignUpFormValues) => {
-    setApiError(null);
-    const { success, error } = await handleSignUp(values.email, values.password, values.role);
+  // Effect to detect unusually long loading states
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
     
-    if (!success && error) {
-      setApiError(error);
+    if (loading && submitAttempted) {
+      timer = setTimeout(() => {
+        // If still loading after 10 seconds, show a message
+        setLongOperation(true);
+        // Check Supabase connection
+        checkSupabaseConnection().then(result => {
+          if (!result.connected) {
+            console.error('Supabase connection check failed during signup', result.error);
+            setApiError(`Connection issue detected: ${result.error || 'Unable to reach our servers'}. Please try again.`);
+          }
+        });
+      }, 10000);
+    } else {
+      setLongOperation(false);
+    }
+    
+    return () => clearTimeout(timer);
+  }, [loading, submitAttempted]);
+
+  const onSubmit = async (values: SignUpFormValues) => {
+    try {
+      console.log('Form submitted with values:', { ...values, password: '[REDACTED]' });
+      setApiError(null);
+      setSubmitAttempted(true);
+      
+      // Manually control loading state to ensure it's working correctly
+      form.reset(form.getValues(), { keepValues: true, keepDirty: false });
+      
+      // Check connection before proceeding
+      const connectionCheck = await checkSupabaseConnection();
+      if (!connectionCheck.connected) {
+        console.error('Supabase connection check failed before signup', connectionCheck.error);
+        setApiError(`Connection issue detected: ${connectionCheck.error || 'Unable to reach our servers'}. Please try again later.`);
+        setSubmitAttempted(false);
+        return;
+      }
+      
+      // Add a backup timeout to reset the loading state in case of issues
+      const failsafeTimer = setTimeout(() => {
+        if (submitAttempted) {
+          console.error('Manual failsafe triggered: Form has been submitting for too long');
+          setSubmitAttempted(false);
+          setApiError('The signup process is taking longer than expected. Please try again or contact support if the issue persists.');
+          toast.error('Signup operation timed out');
+          
+          // Force reload the page if we're still stuck
+          setTimeout(() => {
+            if (typeof window !== 'undefined') {
+              window.location.reload();
+            }
+          }, 3000);
+        }
+      }, 20000);
+      
+      const { success, error } = await handleSignUp(values.email, values.password, values.role);
+      
+      clearTimeout(failsafeTimer);
+      
+      if (!success && error) {
+        console.error('Signup failed with error:', error);
+        setApiError(error);
+      } else {
+        console.log('Signup completed successfully');
+      }
+    } catch (err) {
+      console.error('Unexpected error during signup:', err);
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+      setApiError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setSubmitAttempted(false);
     }
   };
 
@@ -137,6 +210,12 @@ const SignUpForm = () => {
           {apiError && (
             <p className="text-sm font-medium text-destructive bg-red-100 p-3 rounded border border-destructive">{apiError}</p>
           )}
+          
+          {longOperation && !apiError && (
+            <p className="text-sm font-medium text-amber-800 bg-amber-100 p-3 rounded border border-amber-300">
+              This is taking longer than expected. We're still trying to create your account. Please be patient...
+            </p>
+          )}
 
           <Button 
             type="submit" 
@@ -145,6 +224,12 @@ const SignUpForm = () => {
           >
             {loading ? 'Signing Up...' : 'Sign Up'}
           </Button>
+          
+          {loading && submitAttempted && (
+            <p className="text-xs text-center text-gray-500 mt-2">
+              Creating your account... This may take a few moments.
+            </p>
+          )}
         </form>
       </Form>
 

@@ -197,14 +197,44 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signUp = async (email: string, password: string, role: 'student' | 'consultant') => {
+    let timeoutId;
+    
     try {
+      console.log('AuthContext: Starting signup process for:', email);
+      
+      // Add a cleanup function to ensure loading state gets reset
+      const resetState = () => {
+        console.log('AuthContext: Resetting loading state');
+        setInitialLoading(false);
+        if (timeoutId) clearTimeout(timeoutId);
+      };
+      
+      // Set a timeout to force reset loading state
+      timeoutId = setTimeout(() => {
+        console.error('AuthContext: Signup timeout reached, forcing state reset');
+        resetState();
+      }, 20000);
+      
+      // Execute the signup
       const result = await handleSignUp(email, password, role);
+      
+      // Check result
       if (!result.success) {
+        console.error('AuthContext: Signup failed with error:', result.error);
         throw new Error(result.error);
       }
+      
+      console.log('AuthContext: Signup completed successfully');
+      return result;
     } catch (error) {
-      console.error('Error signing up:', error);
+      console.error('Error in AuthContext signUp:', error);
+      // Ensure we're not leaving the app in a loading state
+      setInitialLoading(false);
       throw error;
+    } finally {
+      // Always clean up
+      if (timeoutId) clearTimeout(timeoutId);
+      setInitialLoading(false);
     }
   };
 

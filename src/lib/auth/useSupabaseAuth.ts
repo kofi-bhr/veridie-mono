@@ -65,6 +65,13 @@ const useSupabaseAuth = () => {
     password: string, 
     role: 'student' | 'consultant'
   ) => {
+    // Create a promise that will reject after a timeout
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('Sign up operation timed out after 15 seconds'));
+      }, 15000);
+    });
+
     try {
       setLoading(true);
       setError(null);
@@ -72,7 +79,8 @@ const useSupabaseAuth = () => {
       console.log('Starting signup process for:', email, 'with role:', role);
       const signupToastId = toast.loading('Creating your account...');
 
-      const { data, error } = await supabase.auth.signUp({
+      // Step 1: Auth signup with timeout protection
+      const signupPromise = supabase.auth.signUp({
         email,
         password,
         options: {
@@ -81,6 +89,11 @@ const useSupabaseAuth = () => {
           },
         },
       });
+
+      const { data, error } = await Promise.race([
+        signupPromise,
+        timeoutPromise
+      ]) as any;
 
       if (error) {
         console.error('Supabase Auth signup error:', error);
@@ -101,12 +114,19 @@ const useSupabaseAuth = () => {
       toast.dismiss(signupToastId);
       toast.success('Account created successfully!');
       
+      // Step 2: Create profile with timeout protection
       const profileToastId = toast.loading('Setting up your profile...');
-      const { error: profileError } = await supabase.from('profiles').upsert({
+      
+      const profilePromise = supabase.from('profiles').upsert({
         id: data.user.id,
         role: role,
         is_verified: false,
       });
+      
+      const { error: profileError } = await Promise.race([
+        profilePromise,
+        timeoutPromise
+      ]) as any;
 
       if (profileError) {
         console.error("Profile creation error:", profileError);
@@ -119,6 +139,7 @@ const useSupabaseAuth = () => {
       console.log('Profile created successfully');
       toast.dismiss(profileToastId);
       
+      // Step 3: Create consultant profile if needed
       if (role === 'consultant') {
         console.log('Creating consultant profile for new user');
         const consultantToastId = toast.loading('Setting up your mentor profile...');
@@ -136,11 +157,16 @@ const useSupabaseAuth = () => {
           num_aps: 0,
         };
         
-        const { data: consultantData, error: consultantError } = await supabase
+        const consultantPromise = supabase
           .from('consultants')
           .insert(defaultProfile)
           .select()
           .single();
+        
+        const { data: consultantData, error: consultantError } = await Promise.race([
+          consultantPromise,
+          timeoutPromise
+        ]) as any;
         
         if (consultantError) {
           console.error('Error creating consultant profile:', consultantError);
@@ -186,6 +212,7 @@ const useSupabaseAuth = () => {
       toast.error(message);
       return { success: false, error: message };
     } finally {
+      clearTimeout(loadingTimeout); // Clear the timeout
       setLoading(false);
     }
   };
