@@ -9,19 +9,19 @@ const features = [
     title: 'Expert Mentorship',
     description: "Connect with consultants who've gained admission to top universities and know what it takes to succeed.",
     icon: <GraduationCap className="w-8 h-8" />,
-    color: 'bg-[#FFEDDF]'
+    color: 'bg-[#FFD700]'
   },
   {
     title: 'Personalized Guidance',
     description: 'Get tailored advice specific to your goals, background, and aspirations.',
     icon: <Award className="w-8 h-8" />,
-    color: 'bg-[#E5DEFF]'
+    color: 'bg-[#FFD700]'
   },
   {
     title: 'Secure Platform',
     description: 'Enjoy peace of mind with our secure payment system and verified consultant profiles.',
     icon: <Shield className="w-8 h-8" />,
-    color: 'bg-[#DEFFEF]'
+    color: 'bg-[#FFD700]'
   }
 ];
 
@@ -48,7 +48,7 @@ const Features = () => {
               transition={{ duration: 0.5, delay: index * 0.1 }}
               viewport={{ once: true }}
             >
-              <Card className={`p-6 h-full ${feature.color} border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform hover:translate-y-[-4px]`}>
+              <Card className={`p-6 h-full ${feature.color} border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform hover:translate-y-[-4px] rounded-none`}>
                 <div className="flex flex-col h-full">
                   <div className="mb-4">
                     {feature.icon}
