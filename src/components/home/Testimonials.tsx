@@ -30,7 +30,7 @@ const testimonials = [
 
 const Testimonials = () => {
   return (
-    <section className="py-12 md:py-20 bg-[#F5F5F5]">
+    <section className="py-12 md:py-20 bg-[var(--background)]">
       <div className="container mx-auto px-4">
         <motion.h2 
           initial={{ opacity: 0, y: 10 }}
