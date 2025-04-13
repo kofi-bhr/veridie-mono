@@ -130,7 +130,14 @@ const MAJORS = [
 
 const ConsultantProfileEditPage = () => {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isAuthenticated } = useAuth();
+  
+  // Add a reference to track if we've already attempted to redirect
+  const hasAttemptedRedirect = useRef(false);
+  // Add a reference to track if we've initialized
+  const isInitialized = useRef(false);
+  // Add file input reference
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // State variables
   const [profile, setProfile] = useState<ConsultantProfile>({});
@@ -363,110 +370,140 @@ const ConsultantProfileEditPage = () => {
   
   // Fetch data
   useEffect(() => {
+    // Skip if already initialized to prevent multiple fetches
+    if (isInitialized.current) return;
+    
     const fetchData = async () => {
-      if (authLoading) return;
-      
-      if (!user) {
-        router.push('/login');
-        return;
-      }
-      
       try {
+        // Mark as initialized to prevent duplicate fetches
+        isInitialized.current = true;
         setLoading(true);
         
-        // Fetch user profile
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-          
-        if (profileError) {
-          throw new Error(`Error fetching user profile: ${profileError.message}`);
-        }
+        // Force client-side data fetching without waiting for auth context
+        // This is more reliable when there are auth context synchronization issues
+        const { data: { session } } = await supabase.auth.getSession();
         
-        // Set first name and last name
-        setFirstName(profileData.first_name || '');
-        setLastName(profileData.last_name || '');
-        
-        // Fetch universities
-        const { data: universityData, error: universityError } = await supabase
-          .from('universities')
-          .select('*')
-          .order('name');
-          
-        if (universityError) {
-          throw new Error(`Error fetching universities: ${universityError.message}`);
-        }
-        
-        setUniversities(universityData || []);
-        
-        // Fetch consultant profile
-        const { data: consultantData, error: consultantError } = await supabase
-          .from('consultants')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
-          
-        if (consultantError && consultantError.code !== 'PGRST116') {
-          throw new Error(`Error fetching consultant profile: ${consultantError.message}`);
-        }
-        
-        if (consultantData) {
-          setProfile(consultantData);
-          setSelectedMajors(consultantData.major || []);
-          
-          // Fetch accepted universities
-          if (consultantData.accepted_university_ids && consultantData.accepted_university_ids.length > 0) {
-            const { data: acceptedUniversities, error: acceptedError } = await supabase
-              .from('universities')
-              .select('*')
-              .in('id', consultantData.accepted_university_ids);
-              
-            if (acceptedError) {
-              console.error("Error fetching accepted universities:", acceptedError);
-            } else {
-              setSelectedUniversities(acceptedUniversities || []);
-            }
+        if (!session) {
+          console.log("No session found, redirecting to login");
+          if (!hasAttemptedRedirect.current) {
+            hasAttemptedRedirect.current = true;
+            router.push('/auth/signin?redirect=/profile/consultant/edit-direct');
           }
+          setLoading(false);
+          return;
+        }
+        
+        const userId = session.user.id;
+        console.log("Fetching data for user:", userId);
+        
+        // Fetch data in parallel to improve performance
+        const [profileResponse, universitiesResponse, consultantResponse] = await Promise.all([
+          // Fetch user profile
+          supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single(),
+            
+          // Fetch universities
+          supabase
+            .from('universities')
+            .select('*')
+            .order('name'),
+            
+          // Fetch consultant profile
+          supabase
+            .from('consultants')
+            .select('*')
+            .eq('user_id', userId)
+            .single()
+        ]);
+        
+        // Handle profile data
+        if (profileResponse.error) {
+          console.error("Error fetching user profile:", profileResponse.error);
+        } else {
+          setFirstName(profileResponse.data?.first_name || '');
+          setLastName(profileResponse.data?.last_name || '');
+        }
+        
+        // Handle universities data
+        if (universitiesResponse.error) {
+          console.error("Error fetching universities:", universitiesResponse.error);
+        } else {
+          setUniversities(universitiesResponse.data || []);
+        }
+        
+        // Handle consultant data
+        if (consultantResponse.error && consultantResponse.error.code !== 'PGRST116') {
+          console.error("Error fetching consultant profile:", consultantResponse.error);
+        } else if (consultantResponse.data) {
+          setProfile(consultantResponse.data);
+          setSelectedMajors(consultantResponse.data.major || []);
+          setImagePreview(consultantResponse.data.image_url || null);
           
-          // Fetch AP scores
-          if (consultantData.id) {
-            const { data: apData, error: apError } = await supabase
-              .from('ap_scores')
-              .select('*')
-              .eq('consultant_id', consultantData.id);
-              
-            if (apError) {
-              console.error("Error fetching AP scores:", apError);
-            } else {
-              setApScores(apData || []);
+          // If we have a consultant profile, fetch related data in parallel
+          if (consultantResponse.data.id) {
+            const consultantId = consultantResponse.data.id;
+            
+            // Fetch accepted universities if we have IDs
+            if (consultantResponse.data.accepted_university_ids?.length > 0 && universitiesResponse.data) {
+              const selectedUnivs = universitiesResponse.data.filter(univ => 
+                consultantResponse.data.accepted_university_ids?.includes(univ.id)
+              );
+              setSelectedUniversities(selectedUnivs);
             }
             
-            // Fetch awards
-            const { data: awardsData, error: awardsError } = await supabase
-              .from('awards')
-              .select('*')
-              .eq('consultant_id', consultantData.id);
-              
-            if (awardsError) {
-              console.error("Error fetching awards:", awardsError);
+            // Fetch AP scores, awards, and extracurriculars in parallel
+            const [apResponse, awardsResponse, extracurricularsResponse] = await Promise.all([
+              supabase
+                .from('ap_scores')
+                .select('*')
+                .eq('consultant_id', consultantId),
+                
+              supabase
+                .from('awards')
+                .select('*')
+                .eq('consultant_id', consultantId),
+                
+              supabase
+                .from('extracurriculars')
+                .select('*')
+                .eq('consultant_id', consultantId)
+            ]);
+            
+            // Handle AP scores
+            if (apResponse.error) {
+              console.error("Error fetching AP scores:", apResponse.error);
             } else {
-              setAwards(awardsData || []);
+              setApScores(apResponse.data || []);
             }
             
-            // Fetch extracurricular activities
-            const { data: extracurricularData, error: extracurricularError } = await supabase
-              .from('extracurriculars')
-              .select('*')
-              .eq('consultant_id', consultantData.id);
-              
-            if (extracurricularError) {
-              console.error("Error fetching extracurricular activities:", extracurricularError);
+            // Handle awards
+            if (awardsResponse.error) {
+              console.error("Error fetching awards:", awardsResponse.error);
             } else {
-              setExtracurriculars(extracurricularData || []);
+              setAwards(awardsResponse.data || []);
+            }
+            
+            // Handle extracurriculars
+            if (extracurricularsResponse.error) {
+              console.error("Error fetching extracurriculars:", extracurricularsResponse.error);
+            } else {
+              setExtracurriculars(extracurricularsResponse.data || []);
             }
           }
+        } else {
+          // If no consultant profile exists yet, create an empty one
+          console.log("No consultant profile found, creating empty state");
+          setProfile({
+            user_id: userId,
+            headline: '',
+            university: '',
+            major: [],
+            accepted_university_ids: [],
+            accepted_schools: []
+          });
         }
       } catch (err) {
         console.error("Error fetching data:", err);
@@ -476,9 +513,10 @@ const ConsultantProfileEditPage = () => {
       }
     };
     
+    // Execute data fetching immediately without waiting for auth context
     fetchData();
-  }, [user, authLoading, router]);
-
+  }, [router]); // Remove dependencies on user and authLoading
+  
   // Handle image upload
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1031,6 +1069,7 @@ const ConsultantProfileEditPage = () => {
                       onClick={() => {
                         setApScores([...apScores, { subject: '', score: 3 }]);
                       }}
+                      variant="default"
                       className="border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1"
                       size="sm"
                     >
@@ -1091,7 +1130,7 @@ const ConsultantProfileEditPage = () => {
                             </div>
                             
                             <Button
-                              variant="destructive"
+                              variant="default"
                               size="icon"
                               className="self-end mb-1"
                               onClick={() => {
@@ -1113,7 +1152,7 @@ const ConsultantProfileEditPage = () => {
                         onClick={() => {
                           setApScores([...apScores, { subject: '', score: 3 }]);
                         }}
-                        variant="secondary"
+                        variant="default"
                         className="mt-2"
                       >
                         Add Your First AP Score
@@ -1155,6 +1194,7 @@ const ConsultantProfileEditPage = () => {
                                 }
                               ]);
                             }}
+                            variant="default"
                             className="border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1"
                             size="sm"
                           >
@@ -1274,7 +1314,7 @@ const ConsultantProfileEditPage = () => {
                                   </div>
                                   
                                   <Button
-                                    variant="destructive"
+                                    variant="default"
                                     size="sm"
                                     onClick={() => {
                                       const newActivities = [...extracurriculars];
@@ -1306,7 +1346,7 @@ const ConsultantProfileEditPage = () => {
                                   }
                                 ]);
                               }}
-                              variant="secondary"
+                              variant="default"
                               className="mt-2"
                             >
                               Add Your First Activity
@@ -1343,6 +1383,7 @@ const ConsultantProfileEditPage = () => {
                                 }
                               ]);
                             }}
+                            variant="default"
                             className="border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1"
                             size="sm"
                           >
@@ -1444,7 +1485,7 @@ const ConsultantProfileEditPage = () => {
                                   </div>
                                   
                                   <Button
-                                    variant="destructive"
+                                    variant="default"
                                     size="sm"
                                     onClick={() => {
                                       const newAwards = [...awards];
@@ -1475,7 +1516,7 @@ const ConsultantProfileEditPage = () => {
                                   }
                                 ]);
                               }}
-                              variant="secondary"
+                              variant="default"
                               className="mt-2"
                             >
                               Add Your First Award

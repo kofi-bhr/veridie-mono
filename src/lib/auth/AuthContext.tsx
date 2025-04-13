@@ -114,6 +114,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Initialize auth state
   useEffect(() => {
+    let isMounted = true;
     const initAuth = async () => {
       try {
         console.log('Initializing auth state');
@@ -124,20 +125,26 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('Initial session check:', session ? 'Session found' : 'No session');
         
         // Set session and user state
-        setSession(session);
-        setUser(session?.user || null);
+        if (isMounted) {
+          setSession(session);
+          setUser(session?.user || null);
+        }
         
         if (session?.user) {
           console.log('Found existing session, setting user:', session.user.id);
           const userProfile = await fetchProfile(session.user.id);
           console.log('Fetched user profile:', userProfile);
-          setProfile(userProfile);
+          if (isMounted) {
+            setProfile(userProfile);
+          }
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
       } finally {
         console.log('Auth initialization complete, setting loading to false');
-        setInitialLoading(false); // End loading regardless of outcome
+        if (isMounted) {
+          setInitialLoading(false); // End loading regardless of outcome
+        }
       }
     };
     
@@ -172,6 +179,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Clean up the subscription
     return () => {
       subscription.unsubscribe();
+      isMounted = false;
     };
   }, []);
 
