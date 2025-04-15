@@ -26,8 +26,8 @@ type AuthContextType = {
   isAuthenticated: boolean;
   isConsultant: boolean;
   isStudent: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, role: 'student' | 'consultant') => Promise<void>;
+  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string; data?: any }>;
+  signUp: (email: string, password: string, role: 'student' | 'consultant') => Promise<{ success: boolean; error?: string; data?: any }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 };
@@ -41,8 +41,8 @@ const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
   isConsultant: false,
   isStudent: false,
-  signIn: async () => {},
-  signUp: async () => {},
+  signIn: async () => ({ success: false }),
+  signUp: async () => ({ success: false }),
   signOut: async () => {},
   refreshProfile: async () => {},
 });
@@ -63,7 +63,15 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   } = useSupabaseAuth();
 
   // Function to fetch user profile
-  const fetchUserProfile = async (userId: string) => {
+  const fetchUserProfile = async (userId: string | undefined | null) => {
+    if (!userId) {
+      // No user, so no profile to fetch
+      return null;
+    }
+    if (!supabase) {
+      // Supabase client is not available (e.g., SSR)
+      return null;
+    }
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
@@ -72,13 +80,27 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .single();
 
       if (error) {
+        // Log the error object for better debugging
         console.error('Error fetching user profile:', error);
         return null;
       }
 
-      console.log('Fetched user profile:', profile);
-      return profile;
+      // Type guard: ensure the profile matches UserProfile
+      if (
+        profile &&
+        typeof profile.id === 'string' &&
+        ('first_name' in profile) &&
+        ('last_name' in profile) &&
+        ('role' in profile) &&
+        ('is_verified' in profile)
+      ) {
+        return profile as UserProfile;
+      } else {
+        // Profile is not valid
+        return null;
+      }
     } catch (err) {
+      // Log the error object for better debugging
       console.error('Error in fetchUserProfile:', err);
       return null;
     }
@@ -87,7 +109,6 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Function to refresh user profile
   const refreshUserProfile = async () => {
     if (!user?.id) return;
-    
     const profile = await fetchUserProfile(user.id);
     if (profile) {
       setUserProfile(profile);
@@ -95,37 +116,32 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
+    if (!supabase) return; // SSR/Null guard
     // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       console.log('Auth state changed:', event, currentSession?.user?.id);
-      
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
-      
       if (currentSession?.user) {
         const profile = await fetchUserProfile(currentSession.user.id);
         setUserProfile(profile);
       } else {
         setUserProfile(null);
       }
-      
       setInitialLoading(false);
     });
 
     // Initial session check
     supabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
       console.log('Initial session check:', initialSession?.user?.id);
-      
       setSession(initialSession);
       setUser(initialSession?.user ?? null);
-      
       if (initialSession?.user) {
         const profile = await fetchUserProfile(initialSession.user.id);
         setUserProfile(profile);
       }
-      
       setInitialLoading(false);
     });
 
@@ -141,6 +157,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (!result.success) {
         throw new Error(result.error);
       }
+      return result;
     } catch (error) {
       console.error('Error signing in:', error);
       throw error;
@@ -148,42 +165,30 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signUp = async (email: string, password: string, role: 'student' | 'consultant') => {
-    let timeoutId;
-    
+    let timeoutId: NodeJS.Timeout | undefined;
     try {
       console.log('AuthContext: Starting signup process for:', email);
-      
-      // Add a cleanup function to ensure loading state gets reset
       const resetState = () => {
         console.log('AuthContext: Resetting loading state');
         setInitialLoading(false);
         if (timeoutId) clearTimeout(timeoutId);
       };
-      
-      // Set a timeout to force reset loading state
       timeoutId = setTimeout(() => {
         console.error('AuthContext: Signup timeout reached, forcing state reset');
         resetState();
       }, 20000);
-      
-      // Execute the signup
       const result = await handleSignUp(email, password, role);
-      
-      // Check result
       if (!result.success) {
         console.error('AuthContext: Signup failed with error:', result.error);
         throw new Error(result.error);
       }
-      
       console.log('AuthContext: Signup completed successfully');
       return result;
     } catch (error) {
       console.error('Error in AuthContext signUp:', error);
-      // Ensure we're not leaving the app in a loading state
       setInitialLoading(false);
       throw error;
     } finally {
-      // Always clean up
       if (timeoutId) clearTimeout(timeoutId);
       setInitialLoading(false);
     }
@@ -191,6 +196,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signOut = async () => {
     try {
+      if (!supabase) return; // SSR/Null guard
       await handleSignOut();
     } catch (error) {
       console.error('Error signing out:', error);

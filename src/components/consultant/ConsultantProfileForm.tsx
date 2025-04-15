@@ -281,9 +281,9 @@ const ConsultantProfileForm = ({ initialData, universities, userId, initialTab, 
             await supabase
               .from('awards')
               .update({
-                name: award.name,
-                year: award.year,
-                description: award.description
+                title: award.name,
+                date: award.year?.toString() ?? '',
+                description: award.description,
               })
               .eq('id', award.id);
           } else {
@@ -291,9 +291,9 @@ const ConsultantProfileForm = ({ initialData, universities, userId, initialTab, 
               .from('awards')
               .insert({
                 consultant_id: initialData.id,
-                name: award.name,
-                year: award.year,
-                description: award.description
+                title: award.name,
+                date: award.year?.toString() ?? '',
+                description: award.description,
               });
           }
         }
@@ -367,12 +367,11 @@ const ConsultantProfileForm = ({ initialData, universities, userId, initialTab, 
             await supabase
               .from('packages')
               .update({
-                name: pkg.name,
-                description: pkg.description,
+                title: pkg.name,
+                features: pkg.features || [],
                 price: pkg.price,
-                duration: pkg.duration,
-                is_featured: pkg.is_featured,
-                position: i
+                position: i,
+                billing_frequency: pkg.billing_frequency || 'one-time',
               })
               .eq('id', pkg.id);
           } else {
@@ -380,12 +379,11 @@ const ConsultantProfileForm = ({ initialData, universities, userId, initialTab, 
               .from('packages')
               .insert({
                 consultant_id: initialData.id,
-                name: pkg.name,
-                description: pkg.description,
+                title: pkg.name,
+                features: pkg.features || [],
                 price: pkg.price,
-                duration: pkg.duration,
-                is_featured: pkg.is_featured,
-                position: i
+                position: i,
+                billing_frequency: pkg.billing_frequency || 'one-time',
               });
           }
         }

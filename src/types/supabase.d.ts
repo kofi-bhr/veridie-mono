@@ -11,393 +11,509 @@ export interface Database {
     Tables: {
       ap_scores: {
         Row: {
-          id: string
-          consultant_id: string | null
-          subject: string
-          score: number | null
-          created_at: string | null
-        }
+          subject: string;
+          score: number | null;
+          consultant_id: string | null;
+          id: string;
+          created_at: string | null;
+        };
         Insert: {
-          id?: string
-          consultant_id?: string | null
-          subject: string
-          score?: number | null
-          created_at?: string | null
-        }
+          subject: string;
+          score?: number | null;
+          consultant_id?: string | null;
+          id?: string;
+          created_at?: string | null;
+        };
         Update: {
-          id?: string
-          consultant_id?: string | null
-          subject?: string
-          score?: number | null
-          created_at?: string | null
-        }
-      }
+          subject?: string;
+          score?: number | null;
+          consultant_id?: string | null;
+          id?: string;
+          created_at?: string | null;
+        };
+      };
       awards: {
         Row: {
-          id: string
-          consultant_id: string | null
-          title: string
-          description: string | null
-          is_visible: boolean | null
-          created_at: string | null
-          scope: string | null
-          date: string
-        }
+          date: string;
+          id: string;
+          consultant_id: string | null;
+          is_visible: boolean | null;
+          created_at: string | null;
+          scope: string | null;
+          description: string | null;
+          title: string;
+        };
         Insert: {
-          id?: string
-          consultant_id?: string | null
-          title: string
-          description?: string | null
-          is_visible?: boolean | null
-          created_at?: string | null
-          scope?: string | null
-          date: string
-        }
+          date: string;
+          id?: string;
+          consultant_id?: string | null;
+          is_visible?: boolean | null;
+          created_at?: string | null;
+          scope?: string | null;
+          description?: string | null;
+          title: string;
+        };
         Update: {
-          id?: string
-          consultant_id?: string | null
-          title?: string
-          description?: string | null
-          is_visible?: boolean | null
-          created_at?: string | null
-          scope?: string | null
-          date?: string
-        }
-      }
+          date?: string;
+          id?: string;
+          consultant_id?: string | null;
+          is_visible?: boolean | null;
+          created_at?: string | null;
+          scope?: string | null;
+          description?: string | null;
+          title?: string;
+        };
+      };
       booking_settings: {
         Row: {
-          id: string
-          consultant_id: string | null
-          is_enabled: boolean | null
-          provider: string | null
-          booking_url: string | null
-          price_per_hour: number | null
-          stripe_price_id: string | null
-          created_at: string | null
-          updated_at: string | null
-        }
+          consultant_id: string | null;
+          id: string;
+          provider: string | null;
+          booking_url: string | null;
+          stripe_price_id: string | null;
+          updated_at: string | null;
+          created_at: string | null;
+          price_per_hour: number | null;
+          is_enabled: boolean | null;
+        };
         Insert: {
-          id?: string
-          consultant_id?: string | null
-          is_enabled?: boolean | null
-          provider?: string | null
-          booking_url?: string | null
-          price_per_hour?: number | null
-          stripe_price_id?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
+          consultant_id?: string | null;
+          id?: string;
+          provider?: string | null;
+          booking_url?: string | null;
+          stripe_price_id?: string | null;
+          updated_at?: string | null;
+          created_at?: string | null;
+          price_per_hour?: number | null;
+          is_enabled?: boolean | null;
+        };
         Update: {
-          id?: string
-          consultant_id?: string | null
-          is_enabled?: boolean | null
-          provider?: string | null
-          booking_url?: string | null
-          price_per_hour?: number | null
-          stripe_price_id?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-      }
+          consultant_id?: string | null;
+          id?: string;
+          provider?: string | null;
+          booking_url?: string | null;
+          stripe_price_id?: string | null;
+          updated_at?: string | null;
+          created_at?: string | null;
+          price_per_hour?: number | null;
+          is_enabled?: boolean | null;
+        };
+      };
       bookings: {
         Row: {
-          id: string
-          user_id: string
-          package_id: string
-          consultant_id: string | null
-          stripe_session_id: string
-          stripe_payment_intent_id: string
-          status: string
-          payment_status: string
-          amount_total: number
-          amount_consultant: number | null
-          amount_platform: number | null
-          created_at: string | null
-          updated_at: string | null
-        }
+          amount_total: number;
+          amount_consultant: number | null;
+          amount_platform: number | null;
+          created_at: string | null;
+          updated_at: string | null;
+          stripe_session_id: string;
+          stripe_payment_intent_id: string | null;
+          status: string;
+          payment_status: string;
+          id: string;
+          user_id: string;
+          package_id: string;
+          consultant_id: string | null;
+        };
         Insert: {
-          id?: string
-          user_id: string
-          package_id: string
-          consultant_id?: string | null
-          stripe_session_id: string
-          stripe_payment_intent_id: string
-          status: string
-          payment_status: string
-          amount_total: number
-          amount_consultant?: number | null
-          amount_platform?: number | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
+          amount_total: number;
+          amount_consultant?: number | null;
+          amount_platform?: number | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          stripe_session_id: string;
+          stripe_payment_intent_id?: string | null;
+          status: string;
+          payment_status: string;
+          id?: string;
+          user_id: string;
+          package_id: string;
+          consultant_id?: string | null;
+        };
         Update: {
-          id?: string
-          user_id?: string
-          package_id?: string
-          consultant_id?: string | null
-          stripe_session_id?: string
-          stripe_payment_intent_id?: string
-          status?: string
-          payment_status?: string
-          amount_total?: number
-          amount_consultant?: number | null
-          amount_platform?: number | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-      }
+          amount_total?: number;
+          amount_consultant?: number | null;
+          amount_platform?: number | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+          stripe_session_id?: string;
+          stripe_payment_intent_id?: string | null;
+          status?: string;
+          payment_status?: string;
+          id?: string;
+          user_id?: string;
+          package_id?: string;
+          consultant_id?: string | null;
+        };
+      };
       consultants: {
         Row: {
-          id: string
-          user_id: string | null
-          university: string
-          sat_score: number | null
-          num_aps: number | null
-          image_url: string
-          created_at: string | null
-          slug: string | null
-          accepted_university_ids: string[] | null
-          accepted_schools: string[] | null
-          headline: string | null
-          sat_reading: number | null
-          sat_math: number | null
-          act_english: number | null
-          act_math: number | null
-          act_reading: number | null
-          act_science: number | null
-          act_composite: number | null
-          gpa_score: number | null
-          gpa_scale: number | null
-          is_weighted: boolean | null
-          major: string[] | null
-          stripe_account_id: string | null
-          stripe_charges_enabled: boolean | null
-          stripe_onboarding_complete: boolean | null
-        }
+          slug: string | null;
+          major: string[] | null;
+          stripe_account_id: string | null;
+          headline: string | null;
+          accepted_schools: string[] | null;
+          image_url: string;
+          gpa_scale: number | null;
+          is_weighted: boolean | null;
+          stripe_charges_enabled: boolean | null;
+          university: string;
+          stripe_onboarding_complete: boolean | null;
+          id: string;
+          user_id: string | null;
+          sat_score: number | null;
+          num_aps: number | null;
+          created_at: string | null;
+          accepted_university_ids: string[] | null;
+          sat_reading: number | null;
+          sat_math: number | null;
+          act_english: number | null;
+          act_math: number | null;
+          act_reading: number | null;
+          act_science: number | null;
+          act_composite: number | null;
+          gpa_score: number | null;
+        };
         Insert: {
-          id?: string
-          user_id?: string | null
-          university: string
-          sat_score?: number | null
-          num_aps?: number | null
-          image_url?: string
-          created_at?: string | null
-          slug?: string | null
-          accepted_university_ids?: string[] | null
-          accepted_schools?: string[] | null
-          headline?: string | null
-          sat_reading?: number | null
-          sat_math?: number | null
-          act_english?: number | null
-          act_math?: number | null
-          act_reading?: number | null
-          act_science?: number | null
-          act_composite?: number | null
-          gpa_score?: number | null
-          gpa_scale?: number | null
-          is_weighted?: boolean | null
-          major?: string[] | null
-          stripe_account_id?: string | null
-          stripe_charges_enabled?: boolean | null
-          stripe_onboarding_complete?: boolean | null
-        }
+          slug?: string | null;
+          major?: string[] | null;
+          stripe_account_id?: string | null;
+          headline?: string | null;
+          accepted_schools?: string[] | null;
+          image_url: string;
+          gpa_scale?: number | null;
+          is_weighted?: boolean | null;
+          stripe_charges_enabled?: boolean | null;
+          university: string;
+          stripe_onboarding_complete?: boolean | null;
+          id?: string;
+          user_id?: string | null;
+          sat_score?: number | null;
+          num_aps?: number | null;
+          created_at?: string | null;
+          accepted_university_ids?: string[] | null;
+          sat_reading?: number | null;
+          sat_math?: number | null;
+          act_english?: number | null;
+          act_math?: number | null;
+          act_reading?: number | null;
+          act_science?: number | null;
+          act_composite?: number | null;
+          gpa_score?: number | null;
+        };
         Update: {
-          id?: string
-          user_id?: string | null
-          university?: string
-          sat_score?: number | null
-          num_aps?: number | null
-          image_url?: string
-          created_at?: string | null
-          slug?: string | null
-          accepted_university_ids?: string[] | null
-          accepted_schools?: string[] | null
-          headline?: string | null
-          sat_reading?: number | null
-          sat_math?: number | null
-          act_english?: number | null
-          act_math?: number | null
-          act_reading?: number | null
-          act_science?: number | null
-          act_composite?: number | null
-          gpa_score?: number | null
-          gpa_scale?: number | null
-          is_weighted?: boolean | null
-          major?: string[] | null
-          stripe_account_id?: string | null
-          stripe_charges_enabled?: boolean | null
-          stripe_onboarding_complete?: boolean | null
-        }
-      }
+          slug?: string | null;
+          major?: string[] | null;
+          stripe_account_id?: string | null;
+          headline?: string | null;
+          accepted_schools?: string[] | null;
+          image_url?: string;
+          gpa_scale?: number | null;
+          is_weighted?: boolean | null;
+          stripe_charges_enabled?: boolean | null;
+          university?: string;
+          stripe_onboarding_complete?: boolean | null;
+          id?: string;
+          user_id?: string | null;
+          sat_score?: number | null;
+          num_aps?: number | null;
+          created_at?: string | null;
+          accepted_university_ids?: string[] | null;
+          sat_reading?: number | null;
+          sat_math?: number | null;
+          act_english?: number | null;
+          act_math?: number | null;
+          act_reading?: number | null;
+          act_science?: number | null;
+          act_composite?: number | null;
+          gpa_score?: number | null;
+        };
+      };
       essays: {
         Row: {
-          id: string
-          consultant_id: string | null
-          prompt: string
-          content: string
-          is_visible: boolean | null
-          created_at: string | null
-        }
+          id: string;
+          content: string;
+          prompt: string;
+          created_at: string | null;
+          is_visible: boolean | null;
+          consultant_id: string | null;
+        };
         Insert: {
-          id?: string
-          consultant_id?: string | null
-          prompt: string
-          content: string
-          is_visible?: boolean | null
-          created_at?: string | null
-        }
+          id?: string;
+          content: string;
+          prompt: string;
+          created_at?: string | null;
+          is_visible?: boolean | null;
+          consultant_id?: string | null;
+        };
         Update: {
-          id?: string
-          consultant_id?: string | null
-          prompt?: string
-          content?: string
-          is_visible?: boolean | null
-          created_at?: string | null
-        }
-      }
+          id?: string;
+          content?: string;
+          prompt?: string;
+          created_at?: string | null;
+          is_visible?: boolean | null;
+          consultant_id?: string | null;
+        };
+      };
       extracurriculars: {
         Row: {
-          id: string
-          consultant_id: string | null
-          years: string[]
-          position_name: string
-          institution: string
-          description: string | null
-          is_visible: boolean | null
-          created_at: string | null
-          role: string | null
-        }
+          is_visible: boolean | null;
+          position_name: string;
+          consultant_id: string | null;
+          role: string | null;
+          created_at: string | null;
+          id: string;
+          description: string | null;
+          institution: string;
+          years: string[];
+        };
         Insert: {
-          id?: string
-          consultant_id?: string | null
-          years?: string[]
-          position_name: string
-          institution: string
-          description?: string | null
-          is_visible?: boolean | null
-          created_at?: string | null
-          role?: string | null
-        }
+          is_visible?: boolean | null;
+          position_name: string;
+          consultant_id?: string | null;
+          role?: string | null;
+          created_at?: string | null;
+          id?: string;
+          description?: string | null;
+          institution: string;
+          years: string[];
+        };
         Update: {
-          id?: string
-          consultant_id?: string | null
-          years?: string[]
-          position_name?: string
-          institution?: string
-          description?: string | null
-          is_visible?: boolean | null
-          created_at?: string | null
-          role?: string | null
-        }
-      }
+          is_visible?: boolean | null;
+          position_name?: string;
+          consultant_id?: string | null;
+          role?: string | null;
+          created_at?: string | null;
+          id?: string;
+          description?: string | null;
+          institution?: string;
+          years?: string[];
+        };
+      };
+      notifications: {
+        Row: {
+          updated_at: string | null;
+          read: boolean | null;
+          data: Json | null;
+          user_id: string;
+          title: string;
+          id: string;
+          message: string;
+          type: string;
+          created_at: string | null;
+        };
+        Insert: {
+          updated_at?: string | null;
+          read?: boolean | null;
+          data?: Json | null;
+          user_id: string;
+          title: string;
+          id?: string;
+          message: string;
+          type: string;
+          created_at?: string | null;
+        };
+        Update: {
+          updated_at?: string | null;
+          read?: boolean | null;
+          data?: Json | null;
+          user_id?: string;
+          title?: string;
+          id?: string;
+          message?: string;
+          type?: string;
+          created_at?: string | null;
+        };
+      };
       packages: {
         Row: {
-          id: string
-          consultant_id: string | null
-          title: string
-          price: number
-          features: string[]
-          position: number
-          created_at: string | null
-          is_visible: boolean | null
-          billing_frequency: string
-          stripe_price_id: string | null
-          stripe_product_id: string | null
-        }
+          created_at: string | null;
+          id: string;
+          consultant_id: string | null;
+          price: number;
+          position: number;
+          is_visible: boolean | null;
+          billing_frequency: string;
+          stripe_price_id: string | null;
+          title: string;
+          stripe_product_id: string | null;
+          features: string[];
+        };
         Insert: {
-          id?: string
-          consultant_id?: string | null
-          title: string
-          price: number
-          features?: string[]
-          position: number
-          created_at?: string | null
-          is_visible?: boolean | null
-          billing_frequency: string
-          stripe_price_id?: string | null
-          stripe_product_id?: string | null
-        }
+          created_at?: string | null;
+          id?: string;
+          consultant_id?: string | null;
+          price: number;
+          position: number;
+          is_visible?: boolean | null;
+          billing_frequency: string;
+          stripe_price_id?: string | null;
+          title: string;
+          stripe_product_id?: string | null;
+          features: string[];
+        };
         Update: {
-          id?: string
-          consultant_id?: string | null
-          title?: string
-          price?: number
-          features?: string[]
-          position?: number
-          created_at?: string | null
-          is_visible?: boolean | null
-          billing_frequency?: string
-          stripe_price_id?: string | null
-          stripe_product_id?: string | null
-        }
-      }
+          created_at?: string | null;
+          id?: string;
+          consultant_id?: string | null;
+          price?: number;
+          position?: number;
+          is_visible?: boolean | null;
+          billing_frequency?: string;
+          stripe_price_id?: string | null;
+          title?: string;
+          stripe_product_id?: string | null;
+          features?: string[];
+        };
+      };
       profiles: {
         Row: {
-          id: string
-          first_name: string | null
-          last_name: string | null
-          is_verified: boolean
-          role: string
-        }
+          first_name: string | null;
+          is_verified: boolean;
+          id: string;
+          role: string;
+          last_name: string | null;
+        };
         Insert: {
-          id: string
-          first_name?: string | null
-          last_name?: string | null
-          is_verified?: boolean
-          role?: string
-        }
+          first_name?: string | null;
+          is_verified: boolean;
+          id: string;
+          role: string;
+          last_name?: string | null;
+        };
         Update: {
-          id?: string
-          first_name?: string | null
-          last_name?: string | null
-          is_verified?: boolean
-          role?: string
-        }
-      }
+          first_name?: string | null;
+          is_verified?: boolean;
+          id?: string;
+          role?: string;
+          last_name?: string | null;
+        };
+      };
       services: {
         Row: {
-          id: string
-          consultant_id: string | null
-          title: string
-          description: string | null
-          price: number
-          duration_minutes: number | null
-          is_active: boolean | null
-          created_at: string | null
-          updated_at: string | null
-          stripe_price_id: string | null
-          service_type: string
-          billing_interval: string | null
-        }
+          description: string | null;
+          updated_at: string | null;
+          created_at: string | null;
+          is_active: boolean | null;
+          duration_minutes: number | null;
+          price: number;
+          id: string;
+          service_type: string;
+          billing_interval: string | null;
+          stripe_price_id: string | null;
+          consultant_id: string | null;
+          title: string;
+        };
         Insert: {
-          id?: string
-          consultant_id?: string | null
-          title: string
-          description?: string | null
-          price: number
-          duration_minutes?: number | null
-          is_active?: boolean | null
-          created_at?: string | null
-          updated_at?: string | null
-          stripe_price_id?: string | null
-          service_type: string
-          billing_interval?: string | null
-        }
+          description?: string | null;
+          updated_at?: string | null;
+          created_at?: string | null;
+          is_active?: boolean | null;
+          duration_minutes?: number | null;
+          price: number;
+          id?: string;
+          service_type: string;
+          billing_interval?: string | null;
+          stripe_price_id?: string | null;
+          consultant_id?: string | null;
+          title: string;
+        };
         Update: {
-          id?: string
-          consultant_id?: string | null
-          title?: string
-          description?: string | null
-          price?: number
-          duration_minutes?: number | null
-          is_active?: boolean | null
-          created_at?: string | null
-          updated_at?: string | null
-          stripe_price_id?: string | null
-          service_type?: string
-          billing_interval?: string | null
-        }
-      }
+          description?: string | null;
+          updated_at?: string | null;
+          created_at?: string | null;
+          is_active?: boolean | null;
+          duration_minutes?: number | null;
+          price?: number;
+          id?: string;
+          service_type?: string;
+          billing_interval?: string | null;
+          stripe_price_id?: string | null;
+          consultant_id?: string | null;
+          title?: string;
+        };
+      };
+      stripe_webhooks: {
+        Row: {
+          type: string;
+          processed_at: string | null;
+          created_at: string | null;
+          data: Json;
+          id: string;
+        };
+        Insert: {
+          type: string;
+          processed_at?: string | null;
+          created_at?: string | null;
+          data: Json;
+          id?: string;
+        };
+        Update: {
+          type?: string;
+          processed_at?: string | null;
+          created_at?: string | null;
+          data?: Json;
+          id?: string;
+        };
+      };
+      transfers: {
+        Row: {
+          amount: number;
+          booking_id: string;
+          consultant_id: string;
+          failure_reason: string | null;
+          status: string;
+          id: string;
+          stripe_transfer_id: string;
+          updated_at: string | null;
+          created_at: string | null;
+        };
+        Insert: {
+          amount: number;
+          booking_id: string;
+          consultant_id: string;
+          failure_reason?: string | null;
+          status: string;
+          id?: string;
+          stripe_transfer_id: string;
+          updated_at?: string | null;
+          created_at?: string | null;
+        };
+        Update: {
+          amount?: number;
+          booking_id?: string;
+          consultant_id?: string;
+          failure_reason?: string | null;
+          status?: string;
+          id?: string;
+          stripe_transfer_id?: string;
+          updated_at?: string | null;
+          created_at?: string | null;
+        };
+      };
+      universities: {
+        Row: {
+          id: string;
+          logo_url: string;
+          color_hex: string;
+          created_at: string | null;
+          name: string;
+        };
+        Insert: {
+          id?: string;
+          logo_url: string;
+          color_hex: string;
+          created_at?: string | null;
+          name: string;
+        };
+        Update: {
+          id?: string;
+          logo_url?: string;
+          color_hex?: string;
+          created_at?: string | null;
+          name?: string;
+        };
+      };
     }
     Views: {
       [_ in never]: never
