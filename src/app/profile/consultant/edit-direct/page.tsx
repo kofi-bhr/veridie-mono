@@ -189,38 +189,43 @@ const ConsultantProfileEditPage = () => {
     isInitialized.current = false;
   }, [user?.id]);
 
-  // Update the saveApScores function
+  // Helper to clean AP score payloads
+  function cleanApScoreInsert(score: APScore, consultantId: string): { subject: string; score: number; consultant_id: string } | undefined {
+    if (!score.subject || !consultantId || typeof score.score !== 'number' || score.score < 1 || score.score > 5) return undefined;
+    return {
+      subject: score.subject,
+      score: score.score,
+      consultant_id: consultantId,
+    };
+  }
+
+  // Update saveApScores function
   const saveApScores = async (consultantId: string) => {
     if (!consultantId) return;
-    
+    if (!supabase) throw new Error('Supabase client not initialized');
     try {
       // First, delete existing AP scores
       const { error: deleteError } = await supabase
         .from('ap_scores')
         .delete()
         .eq('consultant_id', consultantId);
-        
       if (deleteError) throw deleteError;
-      
       // Then insert new AP scores
       if (apScores.length > 0) {
-        const apScoresWithConsultantId = apScores.map(score => ({
-          ...score,
-          consultant_id: consultantId,
-          id: undefined // Remove any temporary IDs
-        }));
-        
-        const { error: insertError } = await supabase
-          .from('ap_scores')
-          .insert(apScoresWithConsultantId);
-          
-        if (insertError) throw insertError;
+        const apScoresWithConsultantId = apScores
+          .map(score => cleanApScoreInsert(score, consultantId))
+          .filter((s): s is { subject: string; score: number; consultant_id: string } => Boolean(s));
+        if (apScoresWithConsultantId.length > 0) {
+          const { error: insertError } = await supabase
+            .from('ap_scores')
+            .insert(apScoresWithConsultantId);
+          if (insertError) throw insertError;
+        }
       }
-
       console.log('Saving AP scores:', apScores);
     } catch (err) {
-      console.error("Error saving AP scores:", err);
-      throw new Error("Failed to save AP scores");
+      console.error('Error saving AP scores:', err);
+      throw new Error('Failed to save AP scores');
     }
   };
 
@@ -902,15 +907,15 @@ const ConsultantProfileEditPage = () => {
                   <h3 className="font-bold">GPA</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <Label htmlFor="gpa_score">Your GPA</Label>
-                      <Input
+                      <Label htmlFor="gpa_score">Unweighted GPA (0-4.0)</Label>
+                      <Slider
                         id="gpa_score"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={profile.gpa_score || ''}
-                        onChange={(e) => handleGpaScoreChange(e.target.value)}
-                        className="border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                        value={[profile.gpa_score || 0]}
+                        min={0}
+                        max={4}
+                        step={0.01}
+                        onValueChange={value => setProfile({ ...profile, gpa_score: value[0] })}
+                        className="py-4"
                       />
                     </div>
                     <div>
@@ -1171,24 +1176,25 @@ const ConsultantProfileEditPage = () => {
                             </div>
                             
                             <div className="w-24">
-                              <Label htmlFor={`ap-score-${index}`}>Score (0-100)</Label>
-                              <Input
+                              <Label htmlFor={`ap-score-${index}`}>Score (1-5)</Label>
+                              <Select
                                 id={`ap-score-${index}`}
-                                type="number"
-                                min={0}
-                                max={100}
-                                value={ap.score}
-                                onChange={e => {
+                                value={ap.score ? ap.score.toString() : ''}
+                                onValueChange={value => {
                                   const newScores = [...apScores];
-                                  let val = parseInt(e.target.value, 10);
-                                  if (isNaN(val)) val = 0;
-                                  if (val < 0) val = 0;
-                                  if (val > 100) val = 100;
-                                  newScores[index].score = val;
+                                  newScores[index].score = parseInt(value, 10);
                                   setApScores(newScores);
                                 }}
-                                className="border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                              />
+                              >
+                                <SelectTrigger className="border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                                  <SelectValue placeholder="Select Score" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {[1,2,3,4,5].map(val => (
+                                    <SelectItem key={val} value={val.toString()}>{val}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </div>
                             
                             <Button
