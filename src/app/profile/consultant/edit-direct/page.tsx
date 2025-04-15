@@ -43,7 +43,7 @@ interface APScore {
   id?: string;
   consultant_id?: string;
   subject: string;
-  score: number;
+  score: number; // 0-100
 }
 
 interface Award {
@@ -52,6 +52,8 @@ interface Award {
   title: string;
   description?: string;
   date?: string;
+  scope?: string;
+  is_visible?: boolean;
 }
 
 interface Extracurricular {
@@ -214,6 +216,8 @@ const ConsultantProfileEditPage = () => {
           
         if (insertError) throw insertError;
       }
+
+      console.log('Saving AP scores:', apScores);
     } catch (err) {
       console.error("Error saving AP scores:", err);
       throw new Error("Failed to save AP scores");
@@ -268,6 +272,7 @@ const ConsultantProfileEditPage = () => {
         if (insertError) throw insertError;
       }
       
+      console.log('Saving Awards:', awards);
       return true;
     } catch (err) {
       console.error("Error saving awards:", err);
@@ -303,6 +308,7 @@ const ConsultantProfileEditPage = () => {
         if (insertError) throw insertError;
       }
       
+      console.log('Saving Extracurriculars:', extracurriculars);
       return true;
     } catch (err) {
       console.error("Error saving extracurriculars:", err);
@@ -354,6 +360,7 @@ const ConsultantProfileEditPage = () => {
           .from('profile-images')
           .getPublicUrl(filePath);
         imageUrl = publicUrl;
+        profileUpdates.image_url = imageUrl;
       }
 
       // Generate a slug from the user's name if it doesn't exist
@@ -455,6 +462,9 @@ const ConsultantProfileEditPage = () => {
         toast.dismiss(toastId);
         router.push(`/mentors/${slug}`);
       }, 1000);
+
+      console.log('Profile update payload:', profileUpdates);
+      console.log('Consultant update payload:', consultantUpdates);
     } catch (error) {
       console.error('Error saving profile:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to save profile');
@@ -1161,26 +1171,24 @@ const ConsultantProfileEditPage = () => {
                             </div>
                             
                             <div className="w-24">
-                              <Label htmlFor={`ap-score-${index}`}>Score</Label>
-                              <Select
-                                value={ap.score.toString()}
-                                onValueChange={(value) => {
+                              <Label htmlFor={`ap-score-${index}`}>Score (0-100)</Label>
+                              <Input
+                                id={`ap-score-${index}`}
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={ap.score}
+                                onChange={e => {
                                   const newScores = [...apScores];
-                                  newScores[index].score = parseInt(value);
+                                  let val = parseInt(e.target.value, 10);
+                                  if (isNaN(val)) val = 0;
+                                  if (val < 0) val = 0;
+                                  if (val > 100) val = 100;
+                                  newScores[index].score = val;
                                   setApScores(newScores);
                                 }}
-                              >
-                                <SelectTrigger id={`ap-score-${index}`} className="border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="1">1</SelectItem>
-                                  <SelectItem value="2">2</SelectItem>
-                                  <SelectItem value="3">3</SelectItem>
-                                  <SelectItem value="4">4</SelectItem>
-                                  <SelectItem value="5">5</SelectItem>
-                                </SelectContent>
-                              </Select>
+                                className="border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                              />
                             </div>
                             
                             <Button
