@@ -15,6 +15,8 @@ const useSupabaseAuth = () => {
   const router = useRouter();
 
   const handleSignIn = async (email: string, password: string) => {
+    let timeoutId;
+    
     try {
       setLoading(true);
       setError(null);
@@ -22,6 +24,14 @@ const useSupabaseAuth = () => {
       console.log('Attempting to sign in user:', email);
       
       const toastId = toast.loading('Signing in...');
+      
+      // Set a timeout to prevent infinite loading
+      timeoutId = setTimeout(() => {
+        console.error('Sign in operation timed out');
+        setLoading(false);
+        toast.dismiss(toastId);
+        toast.error('Sign in timed out. Please try again.');
+      }, 10000);
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -37,13 +47,33 @@ const useSupabaseAuth = () => {
       }
       
       console.log('Sign in successful:', data);
+      
+      // Fetch the user's profile to get their role
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .single();
+        
+      if (profileError) {
+        console.error('Error fetching user profile:', profileError);
+      }
+      
       toast.dismiss(toastId);
       toast.success('Signed in successfully!');
       
-      // Instead of redirecting immediately, let the auth state update first
-      // and then use Next.js router for a smoother transition
+      // Clear the timeout since we succeeded
+      clearTimeout(timeoutId);
+      
+      // Redirect based on role
       setTimeout(() => {
-        router.push('/');
+        if (profileData?.role === 'consultant') {
+          console.log('Redirecting consultant to profile page');
+          router.push('/profile/consultant');
+        } else {
+          console.log('Redirecting to home page');
+          router.push('/');
+        }
         router.refresh(); // Force a refresh of the Next.js router
       }, 500);
       
@@ -56,7 +86,8 @@ const useSupabaseAuth = () => {
       toast.error(authError.message);
       return { success: false, error: authError.message };
     } finally {
-      setLoading(false);
+      clearTimeout(timeoutId); // Ensure timeout is cleared
+      setLoading(false); // Ensure loading state is reset
     }
   };
 

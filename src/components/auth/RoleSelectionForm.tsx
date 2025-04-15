@@ -58,7 +58,7 @@ const RoleSelectionForm = () => {
         if (consultantError) throw consultantError;
         
         // Redirect to consultant profile setup
-        router.push('/profile/consultant/edit');
+        router.push('/profile/consultant/edit-direct');
       } else {
         // Redirect to homepage for students
         router.push('/');

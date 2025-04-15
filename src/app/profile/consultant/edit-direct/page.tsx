@@ -51,9 +51,7 @@ interface Award {
   consultant_id?: string;
   title: string;
   description?: string;
-  scope?: string;
   date?: string;
-  is_visible?: boolean;
 }
 
 interface Extracurricular {
@@ -86,6 +84,7 @@ interface ConsultantProfile {
   act_composite?: number;
   accepted_university_ids?: string[];
   accepted_schools?: string[];
+  slug?: string;
 }
 
 // AP Subject options
@@ -132,6 +131,9 @@ const ConsultantProfileEditPage = () => {
   const router = useRouter();
   const { user, loading: authLoading, isAuthenticated } = useAuth();
   
+  // Add error boundary state
+  const [error, setError] = useState<string | null>(null);
+  
   // Add a reference to track if we've already attempted to redirect
   const hasAttemptedRedirect = useRef(false);
   // Add a reference to track if we've initialized
@@ -157,16 +159,17 @@ const ConsultantProfileEditPage = () => {
   // UI state
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('basic-info');
-  
-  // Fix TypeScript errors
-  const handleGpaScoreChange = (value: string) => {
-    const parsed = parseFloat(value);
-    setProfile({...profile, gpa_score: isNaN(parsed) ? undefined : parsed});
-  };
 
-  // Add saveApScores function to save AP scores to database
+  // Add error handling for auth
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated && !hasAttemptedRedirect.current) {
+      hasAttemptedRedirect.current = true;
+      router.push('/auth/signin?redirect=/profile/consultant/edit-direct');
+    }
+  }, [authLoading, isAuthenticated, router]);
+
+  // Update the saveApScores function
   const saveApScores = async (consultantId: string) => {
     if (!consultantId) return;
     
@@ -184,7 +187,7 @@ const ConsultantProfileEditPage = () => {
         const apScoresWithConsultantId = apScores.map(score => ({
           ...score,
           consultant_id: consultantId,
-          id: score.id || undefined // Remove temporary IDs
+          id: undefined // Remove any temporary IDs
         }));
         
         const { error: insertError } = await supabase
@@ -193,12 +196,30 @@ const ConsultantProfileEditPage = () => {
           
         if (insertError) throw insertError;
       }
-      
-      return true;
     } catch (err) {
       console.error("Error saving AP scores:", err);
-      return false;
+      throw new Error("Failed to save AP scores");
     }
+  };
+
+  // Update the GPA handling
+  const handleGpaScoreChange = (value: string) => {
+    const parsed = parseFloat(value);
+    if (isNaN(parsed)) {
+      setProfile({...profile, gpa_score: undefined, gpa_scale: undefined});
+      return;
+    }
+    
+    // Calculate GPA on 4.0 scale
+    const gpaScale = profile.gpa_scale || 4.0;
+    const gpaOn4Scale = (parsed / gpaScale) * 4.0;
+    
+    setProfile({
+      ...profile,
+      gpa_score: parsed,
+      gpa_scale: gpaScale,
+      gpa_on_4_scale: gpaOn4Scale
+    });
   };
 
   // Add saveAwards function to save awards to database
@@ -273,269 +294,234 @@ const ConsultantProfileEditPage = () => {
 
   // Update saveProfile function to save related data
   const saveProfile = async () => {
+    if (!user) {
+      toast.error("You must be logged in to save your profile");
+      return;
+    }
+
+    setSaving(true);
+    const userId = user.id;
+
     try {
-      setSaving(true);
-      
-      // Get session directly from Supabase instead of relying on auth context
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        toast.error("You must be signed in to save your profile");
-        setSaving(false);
-        return;
+      // First, update the user's profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          first_name: firstName,
+          last_name: lastName
+        })
+        .eq('id', userId);
+
+      if (profileError) {
+        throw new Error(`Error updating profile: ${profileError.message}`);
       }
-      
-      const userId = session.user.id;
-      
-      // Upload image if changed
+
+      // Handle image upload if a new image was selected
       let imageUrl = profile.image_url;
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
-        const fileName = `${userId}-${Date.now()}.${fileExt}`;
-        
-        const { error: uploadError, data: uploadData } = await supabase.storage
-          .from('profiles')
-          .upload(fileName, imageFile);
-          
+        const filePath = `${userId}/profile.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('profile-images')
+          .upload(filePath, imageFile, {
+            cacheControl: '3600',
+            upsert: true
+          });
+
         if (uploadError) {
           throw new Error(`Error uploading image: ${uploadError.message}`);
         }
-        
-        // Get public URL
+
         const { data: { publicUrl } } = supabase.storage
-          .from('profiles')
-          .getPublicUrl(fileName);
-          
+          .from('profile-images')
+          .getPublicUrl(filePath);
+
         imageUrl = publicUrl;
       }
-      
-      // Update user profile (first name, last name)
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: userId,
-          first_name: firstName,
-          last_name: lastName,
-        });
-        
-      if (profileError) {
-        throw new Error(`Error updating user profile: ${profileError.message}`);
-      }
-      
-      // Update or create consultant profile
-      const consultantData = {
-        user_id: userId,
-        headline: profile.headline || 'Mentor Profile (Coming Soon)',
-        university: profile.university || '',
-        major: selectedMajors,
-        image_url: imageUrl,
-        gpa_score: profile.gpa_score,
-        gpa_scale: profile.gpa_scale || 4.0,
-        is_weighted: profile.is_weighted || false,
-        sat_reading: profile.sat_reading || undefined,
-        sat_math: profile.sat_math || undefined,
-        act_english: profile.act_english || undefined,
-        act_math: profile.act_math || undefined,
-        act_reading: profile.act_reading || undefined,
-        act_science: profile.act_science || undefined,
-        act_composite: profile.act_composite || undefined,
-        accepted_university_ids: selectedUniversities.map(u => u.id),
-        accepted_schools: selectedUniversities.map(u => u.name),
-      };
-      
-      const { data: consultantResult, error: consultantError } = await supabase
+
+      // Generate a slug from the user's name if it doesn't exist
+      const slug = profile.slug || `${firstName.toLowerCase()}-${lastName.toLowerCase()}-${Math.random().toString(36).substring(2, 8)}`;
+
+      // First, check if a consultant profile already exists
+      const { data: existingConsultant } = await supabase
         .from('consultants')
-        .upsert(consultantData)
-        .select()
+        .select('id')
+        .eq('user_id', userId)
         .single();
-        
-      if (consultantError) {
-        throw new Error(`Error updating consultant profile: ${consultantError.message}`);
+
+      let consultantId;
+      if (existingConsultant) {
+        consultantId = existingConsultant.id;
+      } else {
+        // Create new consultant with required fields
+        const { data, error: createError } = await supabase
+          .from('consultants')
+          .insert({
+            user_id: userId,
+            slug: slug,
+            university: profile.university || 'Not specified', // Required field
+            image_url: imageUrl || 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Default_pfp.svg/640px-Default_pfp.svg.png',
+            major: selectedMajors || ['Undecided'],
+            accepted_schools: selectedUniversities.map(u => u.name) || [],
+            created_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          throw new Error(`Error creating consultant profile: ${createError.message}`);
+        }
+        consultantId = data.id;
       }
-      
-      // Update profile state with the result
-      setProfile(consultantResult);
-      
+
+      // Update consultant profile with all fields
+      const { error: updateError } = await supabase
+        .from('consultants')
+        .update({
+          university: profile.university || 'Not specified',
+          headline: profile.headline || '',
+          image_url: imageUrl,
+          major: selectedMajors || ['Undecided'],
+          accepted_schools: selectedUniversities.map(u => u.name) || [],
+          gpa_score: profile.gpa_score,
+          gpa_scale: profile.gpa_scale,
+          is_weighted: profile.is_weighted,
+          sat_reading: profile.sat_reading,
+          sat_math: profile.sat_math,
+          act_english: profile.act_english,
+          act_math: profile.act_math,
+          act_reading: profile.act_reading,
+          act_science: profile.act_science,
+          act_composite: profile.act_composite,
+          accepted_university_ids: selectedUniversities.map(u => u.id) || []
+        })
+        .eq('id', consultantId);
+
+      if (updateError) {
+        throw new Error(`Error updating consultant profile: ${updateError.message}`);
+      }
+
       // Save related data
-      if (consultantResult.id) {
+      if (consultantId) {
         await Promise.all([
-          saveApScores(consultantResult.id),
-          saveAwards(consultantResult.id),
-          saveExtracurriculars(consultantResult.id)
+          saveApScores(consultantId),
+          saveAwards(consultantId),
+          saveExtracurriculars(consultantId)
         ]);
       }
-      
+
       toast.success("Profile saved successfully!");
-    } catch (err) {
-      console.error("Error saving profile:", err);
-      toast.error(err instanceof Error ? err.message : "An error occurred while saving your profile");
+
+      // Force a router refresh to update the data
+      router.refresh();
+
+      // Redirect to the profile view page after a short delay
+      const toastId = toast.loading('Redirecting to your profile...');
+      setTimeout(() => {
+        toast.dismiss(toastId);
+        router.push(`/mentors/${slug}`);
+      }, 1000);
+
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to save profile');
     } finally {
       setSaving(false);
     }
   };
   
-  // Fetch data
-  useEffect(() => {
-    // Skip if already initialized to prevent multiple fetches
+  // Update the fetchData function to properly populate all fields
+  const fetchData = async () => {
     if (isInitialized.current) return;
-    
-    const fetchData = async () => {
-      try {
-        // Mark as initialized to prevent duplicate fetches
-        isInitialized.current = true;
-        setLoading(true);
-        
-        // Force client-side data fetching without waiting for auth context
-        // This is more reliable when there are auth context synchronization issues
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) {
-          console.log("No session found, redirecting to login");
-          if (!hasAttemptedRedirect.current) {
-            hasAttemptedRedirect.current = true;
-            router.push('/auth/signin?redirect=/profile/consultant/edit-direct');
-          }
-          setLoading(false);
-          return;
+    isInitialized.current = true;
+    setLoading(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        if (!hasAttemptedRedirect.current) {
+          hasAttemptedRedirect.current = true;
+          router.push('/auth/signin?redirect=/profile/consultant/edit-direct');
         }
-        
-        const userId = session.user.id;
-        console.log("Fetching data for user:", userId);
-        
-        // Fetch data in parallel to improve performance
-        const [profileResponse, universitiesResponse, consultantResponse] = await Promise.all([
-          // Fetch user profile
-          supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', userId)
-            .single(),
-            
-          // Fetch universities
-          supabase
-            .from('universities')
-            .select('*')
-            .order('name'),
-            
-          // Fetch consultant profile
-          supabase
-            .from('consultants')
-            .select('*')
-            .eq('user_id', userId)
-            .single()
-        ]);
-        
-        // Handle profile data
-        if (profileResponse.error) {
-          console.error("Error fetching user profile:", profileResponse.error);
-        } else {
-          setFirstName(profileResponse.data?.first_name || '');
-          setLastName(profileResponse.data?.last_name || '');
-        }
-        
-        // Handle universities data
-        if (universitiesResponse.error) {
-          console.error("Error fetching universities:", universitiesResponse.error);
-        } else {
-          setUniversities(universitiesResponse.data || []);
-        }
-        
-        // Handle consultant data
-        if (consultantResponse.error && consultantResponse.error.code !== 'PGRST116') {
-          console.error("Error fetching consultant profile:", consultantResponse.error);
-        } else if (consultantResponse.data) {
-          setProfile(consultantResponse.data);
-          setSelectedMajors(consultantResponse.data.major || []);
-          setImagePreview(consultantResponse.data.image_url || null);
-          
-          // If we have a consultant profile, fetch related data in parallel
-          if (consultantResponse.data.id) {
-            const consultantId = consultantResponse.data.id;
-            
-            // Fetch accepted universities if we have IDs
-            if (consultantResponse.data.accepted_university_ids?.length > 0 && universitiesResponse.data) {
-              const selectedUnivs = universitiesResponse.data.filter(univ => 
-                consultantResponse.data.accepted_university_ids?.includes(univ.id)
-              );
-              setSelectedUniversities(selectedUnivs);
-            }
-            
-            // Fetch AP scores, awards, and extracurriculars in parallel
-            const [apResponse, awardsResponse, extracurricularsResponse] = await Promise.all([
-              supabase
-                .from('ap_scores')
-                .select('*')
-                .eq('consultant_id', consultantId),
-                
-              supabase
-                .from('awards')
-                .select('*')
-                .eq('consultant_id', consultantId),
-                
-              supabase
-                .from('extracurriculars')
-                .select('*')
-                .eq('consultant_id', consultantId)
-            ]);
-            
-            // Handle AP scores
-            if (apResponse.error) {
-              console.error("Error fetching AP scores:", apResponse.error);
-            } else {
-              setApScores(apResponse.data || []);
-            }
-            
-            // Handle awards
-            if (awardsResponse.error) {
-              console.error("Error fetching awards:", awardsResponse.error);
-            } else {
-              setAwards(awardsResponse.data || []);
-            }
-            
-            // Handle extracurriculars
-            if (extracurricularsResponse.error) {
-              console.error("Error fetching extracurriculars:", extracurricularsResponse.error);
-            } else {
-              setExtracurriculars(extracurricularsResponse.data || []);
-            }
-          }
-        } else {
-          // If no consultant profile exists yet, create an empty one
-          console.log("No consultant profile found, creating empty state");
-          setProfile({
-            user_id: userId,
-            headline: '',
-            university: '',
-            major: [],
-            accepted_university_ids: [],
-            accepted_schools: []
-          });
-        }
-      } catch (err) {
-        console.error("Error fetching data:", err);
-        setError(err instanceof Error ? err.message : "An error occurred while loading your profile");
-      } finally {
-        setLoading(false);
+        return;
       }
-    };
-    
-    // Execute data fetching immediately without waiting for auth context
-    fetchData();
-  }, [router]); // Remove dependencies on user and authLoading
+
+      const userId = session.user.id;
+
+      // Fetch all data in parallel
+      const [
+        { data: profileData },
+        { data: universitiesData },
+        { data: consultantData }
+      ] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', userId).single(),
+        supabase.from('universities').select('*'),
+        supabase.from('consultants').select('*').eq('user_id', userId).single()
+      ]);
+
+      if (profileData) {
+        setFirstName(profileData.first_name || '');
+        setLastName(profileData.last_name || '');
+      }
+
+      if (universitiesData) {
+        setUniversities(universitiesData);
+      }
+
+      if (consultantData) {
+        setProfile(consultantData);
+        setSelectedMajors(consultantData.major || []);
+        setImagePreview(consultantData.image_url || null);
+        
+        // If we have a consultant profile, fetch related data
+        if (consultantData.id) {
+          const [
+            { data: apScoresData },
+            { data: awardsData },
+            { data: extracurricularsData }
+          ] = await Promise.all([
+            supabase.from('ap_scores').select('*').eq('consultant_id', consultantData.id),
+            supabase.from('awards').select('*').eq('consultant_id', consultantData.id),
+            supabase.from('extracurriculars').select('*').eq('consultant_id', consultantData.id)
+          ]);
+
+          if (apScoresData) setApScores(apScoresData);
+          if (awardsData) setAwards(awardsData);
+          if (extracurricularsData) setExtracurriculars(extracurricularsData);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching data:", err);
+      setError("Failed to load profile data");
+    } finally {
+      setLoading(false);
+    }
+  };
   
-  // Handle image upload
+  // Add handleImageChange function
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
-    // Preview the image
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size should be less than 5MB');
+      return;
+    }
+
+    setImageFile(file);
     const reader = new FileReader();
     reader.onloadend = () => {
       setImagePreview(reader.result as string);
     };
     reader.readAsDataURL(file);
-    
-    setImageFile(file);
   };
   
   // Handle university selection
@@ -577,15 +563,7 @@ const ConsultantProfileEditPage = () => {
     });
   };
   
-  if (loading) {
-    return (
-      <div className="container mx-auto p-4 flex items-center justify-center min-h-[300px]">
-        <div className="w-8 h-8 border-4 border-main border-t-transparent rounded-full animate-spin"></div>
-        <span className="ml-2">Loading profile data...</span>
-      </div>
-    );
-  }
-
+  // Add error display component
   if (error) {
     return (
       <div className="container mx-auto p-4">
@@ -596,7 +574,10 @@ const ConsultantProfileEditPage = () => {
           </div>
           <p className="mb-4">{error}</p>
           <Button 
-            onClick={() => window.location.reload()}
+            onClick={() => {
+              setError(null);
+              window.location.reload();
+            }}
             className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
           >
             Try Again
@@ -604,6 +585,23 @@ const ConsultantProfileEditPage = () => {
         </div>
       </div>
     );
+  }
+
+  // Add loading display
+  if (loading || authLoading) {
+    return (
+      <div className="container mx-auto p-4 flex items-center justify-center min-h-[300px]">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-main border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p>Loading profile data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Add auth check
+  if (!isAuthenticated) {
+    return null; // Let the useEffect handle redirect
   }
 
   return (
@@ -629,8 +627,13 @@ const ConsultantProfileEditPage = () => {
                     <Image 
                       src={imagePreview} 
                       alt="Profile" 
-                      fill 
-                      className="object-cover"
+                      width={128}
+                      height={128}
+                      className="object-cover w-full h-full"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = '/placeholder.svg';
+                      }}
                     />
                   ) : (
                     <div className="w-full h-full bg-gray-200 flex items-center justify-center">
@@ -852,36 +855,46 @@ const ConsultantProfileEditPage = () => {
                 {/* GPA */}
                 <div className="space-y-4">
                   <h3 className="font-bold">GPA</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <Label htmlFor="gpa_score">GPA Score</Label>
+                      <Label htmlFor="gpa_score">Your GPA</Label>
                       <Input
                         id="gpa_score"
                         type="number"
                         step="0.01"
                         min="0"
-                        max={profile.gpa_scale || 4.0}
                         value={profile.gpa_score || ''}
                         onChange={(e) => handleGpaScoreChange(e.target.value)}
                         className="border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="gpa_scale">GPA Scale</Label>
-                      <Select
-                        value={profile.gpa_scale?.toString() || '4.0'}
-                        onValueChange={(value) => setProfile({...profile, gpa_scale: parseFloat(value)})}
-                      >
-                        <SelectTrigger className="border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                          <SelectValue placeholder="Select GPA scale" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="4.0">4.0</SelectItem>
-                          <SelectItem value="5.0">5.0</SelectItem>
-                          <SelectItem value="10.0">10.0</SelectItem>
-                          <SelectItem value="100.0">100.0</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Label htmlFor="gpa_scale">Scale (e.g., 4.0, 5.0, 100)</Label>
+                      <Input
+                        id="gpa_scale"
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={profile.gpa_scale || ''}
+                        onChange={(e) => {
+                          const scale = parseFloat(e.target.value);
+                          if (!isNaN(scale)) {
+                            const gpaOn4Scale = (profile.gpa_score || 0) / scale * 4.0;
+                            setProfile({
+                              ...profile,
+                              gpa_scale: scale,
+                              gpa_on_4_scale: gpaOn4Scale
+                            });
+                          }
+                        }}
+                        className="border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                      />
+                    </div>
+                    <div>
+                      <Label>4.0 Scale GPA</Label>
+                      <div className="p-2 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] rounded-md">
+                        {profile.gpa_on_4_scale ? profile.gpa_on_4_scale.toFixed(2) : 'N/A'}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">

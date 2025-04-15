@@ -1,33 +1,53 @@
+'use client';
+
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://szrjslapdbnzvhtdkbep.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6cmpzbGFwZGJuenZodGRrYmVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzczODgyMDgsImV4cCI6MjA1Mjk2NDIwOH0.B2Q6KZzGaCDK1c3rVWkY6LIa6yg1Wajg7xW0uLC85gI';
+let supabaseInstance: ReturnType<typeof createSupabaseClient> | null = null;
 
-// Add validation and logging for Supabase config
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables!', { 
-    hasUrl: !!supabaseUrl, 
-    hasKey: !!supabaseAnonKey 
-  });
-}
+export const createClient = () => {
+  if (typeof window === 'undefined') {
+    throw new Error('Supabase client cannot be used on the server. Please use the server client instead.');
+  }
 
-console.log('Initializing Supabase client with URL:', supabaseUrl.substring(0, 20) + '...');
+  if (!supabaseInstance) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// Create a singleton Supabase client with proper persistence
-export const supabase = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    storageKey: 'supabase.auth.token',
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-    debug: process.env.NODE_ENV === 'development', // Enable debug logging in development
-  },
-});
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error('Missing required environment variables for Supabase client');
+    }
+
+    supabaseInstance = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+      global: {
+        headers: {
+          'Cache-Control': 'no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      },
+    });
+  }
+
+  return supabaseInstance;
+};
+
+// Export the singleton instance getter as the default client
+export const supabase = typeof window === 'undefined' ? null : createClient();
 
 // Add health check method
 export const checkSupabaseConnection = async () => {
+  if (typeof window === 'undefined') {
+    return { connected: false, error: 'Cannot check connection on server side' };
+  }
+
+  const client = createClient();
   try {
-    const { error } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
+    const { error } = await client.from('profiles').select('count', { count: 'exact', head: true });
     if (error) {
       console.error('Supabase connection check failed:', error);
       return { connected: false, error: error.message };
@@ -37,17 +57,4 @@ export const checkSupabaseConnection = async () => {
     console.error('Error checking Supabase connection:', err);
     return { connected: false, error: err instanceof Error ? err.message : 'Unknown error' };
   }
-};
-
-// Export a function to create a new client with the same config
-export const createClient = () => {
-  return createSupabaseClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: true,
-      storageKey: 'supabase.auth.token',
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-      debug: process.env.NODE_ENV === 'development', // Enable debug logging in development
-    },
-  });
 };

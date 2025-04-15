@@ -401,7 +401,7 @@ const ConsultantProfileForm = ({ initialData, universities, userId, initialTab, 
         onSubmit(values);
       } else {
         // Default behavior: redirect to the consultant profile page
-        router.push('/profile/consultant');
+        router.push('/profile/consultant/edit-direct');
         router.refresh();
       }
     } catch (error: any) {
@@ -452,7 +452,7 @@ const ConsultantProfileForm = ({ initialData, universities, userId, initialTab, 
             type="button" 
             variant="reverse" 
             className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-            onClick={() => router.push('/profile/consultant')}
+            onClick={() => router.push('/profile/consultant/edit-direct')}
           >
             Cancel
           </Button>

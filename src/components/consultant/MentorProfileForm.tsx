@@ -414,7 +414,7 @@ const MentorProfileForm = ({ initialData, universities, userId, initialTab, onSu
       } else {
         // Default behavior: redirect to the consultant profile page
         toast.success('Profile updated successfully');
-        router.push('/profile/consultant');
+        router.push('/profile/consultant/edit-direct');
         router.refresh();
       }
     } catch (error: any) {
@@ -475,7 +475,7 @@ const MentorProfileForm = ({ initialData, universities, userId, initialTab, onSu
             type="button" 
             variant="reverse" 
             className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-            onClick={() => router.push('/profile/consultant')}
+            onClick={() => router.push('/profile/consultant/edit-direct')}
           >
             Cancel
           </Button>

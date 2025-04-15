@@ -151,7 +151,7 @@ const ProfilePage = () => {
                 <Button 
                   variant="default" 
                   className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-                  onClick={() => router.push('/profile/consultant')}
+                  onClick={() => router.push('/profile/consultant/edit-direct')}
                 >
                   Edit Consultant Profile
                 </Button>

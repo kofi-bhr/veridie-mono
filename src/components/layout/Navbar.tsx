@@ -150,7 +150,7 @@ const Navbar = () => {
                               View Your Profile
                             </Link>
                             <Link
-                              href="/profile/consultant/edit"
+                              href="/profile/consultant/edit-direct"
                               onClick={handleLinkClick}
                               className="flex items-center px-4 py-2 text-sm hover:bg-gray-100 rounded-md"
                             >
@@ -243,7 +243,7 @@ const Navbar = () => {
                         <span>View Your Profile</span>
                       </Link>
                       <Link
-                        href="/profile/consultant/edit"
+                        href="/profile/consultant/edit-direct"
                         onClick={() => setIsOpen(false)}
                         className="flex items-center gap-3 p-5 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white hover:bg-gray-50 transition-colors"
                       >
