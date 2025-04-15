@@ -253,32 +253,29 @@ const useSupabaseAuth = () => {
       setLoading(true);
       console.log('Attempting to sign out user');
       const toastId = toast.loading('Signing out...');
-      
-      // Start the sign-out process but don't await it
-      const signOutPromise = supabase.auth.signOut();
-      
-      // Dismiss the loading toast immediately
+
+      // Await the sign-out process
+      const { error } = await supabase.auth.signOut();
+
       toast.dismiss(toastId);
+
+      if (error) {
+        toast.error('Sign out failed: ' + error.message);
+        setError(error.message);
+        return { success: false, error: error.message };
+      }
+
       toast.success('Signed out successfully');
-      
-      // Clear local auth state immediately
+
+      // Clear local auth state
       if (typeof window !== 'undefined') {
-        // Clear any local storage items related to auth
         localStorage.removeItem('supabase.auth.token');
         sessionStorage.removeItem('supabase.auth.token');
       }
-      
-      // Redirect immediately without waiting for the sign-out to complete
+
+      // Redirect after sign-out completes
       console.log('Redirecting to home page');
       window.location.href = '/';
-      
-      // Handle any errors in the background
-      signOutPromise.then(({ error }) => {
-        if (error) {
-          console.error('Background sign-out error:', error);
-        }
-      });
-      
       return { success: true };
     } catch (err) {
       const authError = err as AuthError;

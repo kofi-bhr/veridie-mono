@@ -169,6 +169,18 @@ const ConsultantProfileEditPage = () => {
     }
   }, [authLoading, isAuthenticated, router]);
 
+  // Add this useEffect to call fetchData when authenticated
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      fetchData();
+    }
+  }, [authLoading, isAuthenticated]);
+
+  // Add this useEffect to reset isInitialized if the user changes
+  useEffect(() => {
+    isInitialized.current = false;
+  }, [user?.id]);
+
   // Update the saveApScores function
   const saveApScores = async (consultantId: string) => {
     if (!consultantId) return;
