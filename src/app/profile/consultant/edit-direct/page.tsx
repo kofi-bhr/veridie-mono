@@ -85,6 +85,7 @@ interface ConsultantProfile {
   accepted_university_ids?: string[];
   accepted_schools?: string[];
   slug?: string;
+  gpa_on_4_scale?: number;
 }
 
 // AP Subject options
@@ -129,7 +130,7 @@ const MAJORS = [
 
 const ConsultantProfileEditPage = () => {
   const router = useRouter();
-  const { user, loading: authLoading, isAuthenticated } = useAuth();
+  const { user, isLoading, isAuthenticated } = useAuth();
   
   // Add error boundary state
   const [error, setError] = useState<string | null>(null);
@@ -161,20 +162,25 @@ const ConsultantProfileEditPage = () => {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('basic-info');
 
+  // Store original profile data for dirty checking
+  const [originalProfile, setOriginalProfile] = useState<ConsultantProfile | null>(null);
+  const [originalFirstName, setOriginalFirstName] = useState('');
+  const [originalLastName, setOriginalLastName] = useState('');
+
   // Add error handling for auth
   useEffect(() => {
-    if (!authLoading && !isAuthenticated && !hasAttemptedRedirect.current) {
+    if (!isLoading && !isAuthenticated && !hasAttemptedRedirect.current) {
       hasAttemptedRedirect.current = true;
       router.push('/auth/signin?redirect=/profile/consultant/edit-direct');
     }
-  }, [authLoading, isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, router]);
 
   // Add this useEffect to call fetchData when authenticated
   useEffect(() => {
-    if (!authLoading && isAuthenticated) {
+    if (!isLoading && isAuthenticated) {
       fetchData();
     }
-  }, [authLoading, isAuthenticated]);
+  }, [isLoading, isAuthenticated]);
 
   // Add this useEffect to reset isInitialized if the user changes
   useEffect(() => {
@@ -315,17 +321,19 @@ const ConsultantProfileEditPage = () => {
     const userId = user.id;
 
     try {
-      // First, update the user's profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          first_name: firstName,
-          last_name: lastName
-        })
-        .eq('id', userId);
+      // Dirty check for profile fields
+      const profileUpdates: any = {};
+      if (firstName !== originalFirstName) profileUpdates.first_name = firstName;
+      if (lastName !== originalLastName) profileUpdates.last_name = lastName;
 
-      if (profileError) {
-        throw new Error(`Error updating profile: ${profileError.message}`);
+      if (Object.keys(profileUpdates).length > 0) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update(profileUpdates)
+          .eq('id', userId);
+        if (profileError) {
+          throw new Error(`Error updating profile: ${profileError.message}`);
+        }
       }
 
       // Handle image upload if a new image was selected
@@ -333,22 +341,18 @@ const ConsultantProfileEditPage = () => {
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
         const filePath = `${userId}/profile.${fileExt}`;
-
         const { error: uploadError } = await supabase.storage
           .from('profile-images')
           .upload(filePath, imageFile, {
             cacheControl: '3600',
             upsert: true
           });
-
         if (uploadError) {
           throw new Error(`Error uploading image: ${uploadError.message}`);
         }
-
         const { data: { publicUrl } } = supabase.storage
           .from('profile-images')
           .getPublicUrl(filePath);
-
         imageUrl = publicUrl;
       }
 
@@ -372,7 +376,7 @@ const ConsultantProfileEditPage = () => {
           .insert({
             user_id: userId,
             slug: slug,
-            university: profile.university || 'Not specified', // Required field
+            university: profile.university || 'Not specified',
             image_url: imageUrl || 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Default_pfp.svg/640px-Default_pfp.svg.png',
             major: selectedMajors || ['Undecided'],
             accepted_schools: selectedUniversities.map(u => u.name) || [],
@@ -380,38 +384,59 @@ const ConsultantProfileEditPage = () => {
           })
           .select()
           .single();
-
         if (createError) {
           throw new Error(`Error creating consultant profile: ${createError.message}`);
         }
         consultantId = data.id;
       }
 
-      // Update consultant profile with all fields
-      const { error: updateError } = await supabase
-        .from('consultants')
-        .update({
-          university: profile.university || 'Not specified',
-          headline: profile.headline || '',
-          image_url: imageUrl,
-          major: selectedMajors || ['Undecided'],
-          accepted_schools: selectedUniversities.map(u => u.name) || [],
-          gpa_score: profile.gpa_score,
-          gpa_scale: profile.gpa_scale,
-          is_weighted: profile.is_weighted,
-          sat_reading: profile.sat_reading,
-          sat_math: profile.sat_math,
-          act_english: profile.act_english,
-          act_math: profile.act_math,
-          act_reading: profile.act_reading,
-          act_science: profile.act_science,
-          act_composite: profile.act_composite,
-          accepted_university_ids: selectedUniversities.map(u => u.id) || []
-        })
-        .eq('id', consultantId);
+      // Dirty check for consultant fields
+      const consultantUpdates: any = {};
+      if (originalProfile) {
+        if (profile.university !== originalProfile.university) consultantUpdates.university = profile.university;
+        if (profile.headline !== originalProfile.headline) consultantUpdates.headline = profile.headline;
+        if (imageUrl !== originalProfile.image_url) consultantUpdates.image_url = imageUrl;
+        if (JSON.stringify(selectedMajors) !== JSON.stringify(originalProfile.major)) consultantUpdates.major = selectedMajors;
+        if (JSON.stringify(selectedUniversities.map(u => u.name)) !== JSON.stringify(originalProfile.accepted_schools)) consultantUpdates.accepted_schools = selectedUniversities.map(u => u.name);
+        if (profile.gpa_score !== originalProfile.gpa_score) consultantUpdates.gpa_score = profile.gpa_score;
+        if (profile.gpa_scale !== originalProfile.gpa_scale) consultantUpdates.gpa_scale = profile.gpa_scale;
+        if (profile.is_weighted !== originalProfile.is_weighted) consultantUpdates.is_weighted = profile.is_weighted;
+        if (profile.sat_reading !== originalProfile.sat_reading) consultantUpdates.sat_reading = profile.sat_reading;
+        if (profile.sat_math !== originalProfile.sat_math) consultantUpdates.sat_math = profile.sat_math;
+        if (profile.act_english !== originalProfile.act_english) consultantUpdates.act_english = profile.act_english;
+        if (profile.act_math !== originalProfile.act_math) consultantUpdates.act_math = profile.act_math;
+        if (profile.act_reading !== originalProfile.act_reading) consultantUpdates.act_reading = profile.act_reading;
+        if (profile.act_science !== originalProfile.act_science) consultantUpdates.act_science = profile.act_science;
+        if (profile.act_composite !== originalProfile.act_composite) consultantUpdates.act_composite = profile.act_composite;
+        if (JSON.stringify(selectedUniversities.map(u => u.id)) !== JSON.stringify(originalProfile.accepted_university_ids)) consultantUpdates.accepted_university_ids = selectedUniversities.map(u => u.id);
+      } else {
+        // If no original, update all
+        consultantUpdates.university = profile.university;
+        consultantUpdates.headline = profile.headline;
+        consultantUpdates.image_url = imageUrl;
+        consultantUpdates.major = selectedMajors;
+        consultantUpdates.accepted_schools = selectedUniversities.map(u => u.name);
+        consultantUpdates.gpa_score = profile.gpa_score;
+        consultantUpdates.gpa_scale = profile.gpa_scale;
+        consultantUpdates.is_weighted = profile.is_weighted;
+        consultantUpdates.sat_reading = profile.sat_reading;
+        consultantUpdates.sat_math = profile.sat_math;
+        consultantUpdates.act_english = profile.act_english;
+        consultantUpdates.act_math = profile.act_math;
+        consultantUpdates.act_reading = profile.act_reading;
+        consultantUpdates.act_science = profile.act_science;
+        consultantUpdates.act_composite = profile.act_composite;
+        consultantUpdates.accepted_university_ids = selectedUniversities.map(u => u.id);
+      }
 
-      if (updateError) {
-        throw new Error(`Error updating consultant profile: ${updateError.message}`);
+      if (Object.keys(consultantUpdates).length > 0) {
+        const { error: updateError } = await supabase
+          .from('consultants')
+          .update(consultantUpdates)
+          .eq('id', consultantId);
+        if (updateError) {
+          throw new Error(`Error updating consultant profile: ${updateError.message}`);
+        }
       }
 
       // Save related data
@@ -424,17 +449,12 @@ const ConsultantProfileEditPage = () => {
       }
 
       toast.success("Profile saved successfully!");
-
-      // Force a router refresh to update the data
       router.refresh();
-
-      // Redirect to the profile view page after a short delay
       const toastId = toast.loading('Redirecting to your profile...');
       setTimeout(() => {
         toast.dismiss(toastId);
         router.push(`/mentors/${slug}`);
       }, 1000);
-
     } catch (error) {
       console.error('Error saving profile:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to save profile');
@@ -475,6 +495,8 @@ const ConsultantProfileEditPage = () => {
       if (profileData) {
         setFirstName(profileData.first_name || '');
         setLastName(profileData.last_name || '');
+        setOriginalFirstName(profileData.first_name || '');
+        setOriginalLastName(profileData.last_name || '');
       }
 
       if (universitiesData) {
@@ -483,6 +505,7 @@ const ConsultantProfileEditPage = () => {
 
       if (consultantData) {
         setProfile(consultantData);
+        setOriginalProfile(consultantData);
         setSelectedMajors(consultantData.major || []);
         setImagePreview(consultantData.image_url || null);
         
@@ -600,7 +623,7 @@ const ConsultantProfileEditPage = () => {
   }
 
   // Add loading display
-  if (loading || authLoading) {
+  if (loading || isLoading) {
     return (
       <div className="container mx-auto p-4 flex items-center justify-center min-h-[300px]">
         <div className="text-center">
