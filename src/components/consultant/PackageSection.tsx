@@ -5,6 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
+import { toast } from 'sonner';
+import { loadStripe } from '@stripe/stripe-js';
+
+// Initialize Stripe
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 type Package = {
   id: string;
@@ -22,6 +27,7 @@ const PackageSection = ({ packages }: PackageSectionProps) => {
   const [activePackage, setActivePackage] = useState<string | null>(
     packages.length > 0 ? packages[0].id : null
   );
+  const [isLoading, setIsLoading] = useState(false);
 
   // For mobile carousel
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -40,10 +46,43 @@ const PackageSection = ({ packages }: PackageSectionProps) => {
     }
   };
 
-  const handleBuy = (packageId: string) => {
-    // This will be implemented with Stripe integration
-    console.log(`Buy package: ${packageId}`);
-    // Will redirect to checkout page or open modal
+  const handleBuy = async (packageId: string) => {
+    try {
+      setIsLoading(true);
+      
+      // Create checkout session
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ packageId }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create checkout session');
+      }
+
+      const { sessionId } = await response.json();
+      
+      // Redirect to Stripe Checkout
+      const stripe = await stripePromise;
+      if (!stripe) {
+        throw new Error('Stripe failed to initialize');
+      }
+
+      const { error } = await stripe.redirectToCheckout({ sessionId });
+      
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      toast.error('Failed to start checkout process. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (packages.length === 0) {
@@ -106,8 +145,9 @@ const PackageSection = ({ packages }: PackageSectionProps) => {
                 <Button 
                   onClick={() => handleBuy(pkg.id)}
                   className="w-full mt-auto"
+                  disabled={isLoading}
                 >
-                  Buy Now
+                  {isLoading ? 'Processing...' : 'Buy Now'}
                 </Button>
               </div>
             </Card>
@@ -151,8 +191,9 @@ const PackageSection = ({ packages }: PackageSectionProps) => {
                   <Button 
                     onClick={() => handleBuy(pkg.id)}
                     className="w-full"
+                    disabled={isLoading}
                   >
-                    Buy Now
+                    {isLoading ? 'Processing...' : 'Buy Now'}
                   </Button>
                 </div>
               </Card>
@@ -162,34 +203,16 @@ const PackageSection = ({ packages }: PackageSectionProps) => {
           {/* Carousel navigation */}
           <div className="flex justify-between mt-4">
             <Button
-              variant="outline"
-              size="sm"
               onClick={handlePrev}
               disabled={currentIndex === 0}
-              className="border-2 border-black"
+              variant="outline"
             >
               Previous
             </Button>
-            <div className="flex items-center gap-1">
-              {packages.map((_, index) => (
-                <button
-                  key={index}
-                  className={`w-2 h-2 rounded-full ${
-                    index === currentIndex ? 'bg-main' : 'bg-gray-300'
-                  }`}
-                  onClick={() => {
-                    setCurrentIndex(index);
-                    setActivePackage(packages[index].id);
-                  }}
-                />
-              ))}
-            </div>
             <Button
-              variant="outline"
-              size="sm"
               onClick={handleNext}
               disabled={currentIndex === packages.length - 1}
-              className="border-2 border-black"
+              variant="outline"
             >
               Next
             </Button>
