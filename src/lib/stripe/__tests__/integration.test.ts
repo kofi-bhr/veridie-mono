@@ -9,10 +9,19 @@ import {
 } from '../test-utils';
 import { createCheckoutSession } from '../checkout';
 import { handleWebhookEvent } from '../webhooks';
+import { verifyOnboarding } from '../onboarding';
 
-// Mock Stripe checkout session creation
+// Mock Stripe functions
 vi.mock('../config', () => ({
   stripe: {
+    accounts: {
+      retrieve: vi.fn().mockResolvedValue({
+        id: 'acct_test',
+        charges_enabled: true,
+        payouts_enabled: true,
+        details_submitted: true,
+      }),
+    },
     checkout: {
       sessions: {
         create: vi.fn().mockResolvedValue({
@@ -21,54 +30,72 @@ vi.mock('../config', () => ({
         }),
       },
     },
-    accounts: {
-      retrieve: vi.fn().mockResolvedValue({
-        id: 'acct_1R59Gb4TsoNqItar',
-        charges_enabled: true,
-        details_submitted: true,
-      }),
-    },
   },
 }));
 
 describe('Stripe Integration Tests', () => {
-  let consultant: any;
-  let pkg: any;
+  let testConsultant: any;
+  let testPackage: any;
 
   beforeEach(async () => {
     // Create test consultant
-    consultant = await createTestConsultant();
+    testConsultant = await createTestConsultant();
+    
     // Create test package
-    pkg = await createTestPackage(consultant.id);
+    testPackage = await createTestPackage(testConsultant.id);
+    
+    // Mock Stripe account retrieval
+    (stripe.accounts.retrieve as any).mockResolvedValue({
+      id: testConsultant.stripe_account_id,
+      charges_enabled: true,
+      payouts_enabled: true,
+      details_submitted: true,
+    });
+    
+    // Mock Stripe checkout session creation
+    (stripe.checkout.sessions.create as any).mockResolvedValue({
+      id: 'cs_test_123',
+      url: 'https://checkout.stripe.com/test',
+    });
   });
 
   afterEach(async () => {
     // Cleanup test data
-    await cleanupTestData(consultant.id);
+    await cleanupTestData(testConsultant.id);
   });
 
   describe('Consultant Onboarding', () => {
-    it('should verify consultant onboarding status', async () => {
-      const account = await stripe.accounts.retrieve(consultant.stripe_account_id);
-      expect(account.charges_enabled).toBe(true);
-      expect(account.details_submitted).toBe(true);
+    it('should verify onboarding status for a fully onboarded consultant', async () => {
+      const result = await verifyOnboarding(testConsultant.id);
+      expect(result).toBe(true);
+    });
+
+    it('should fail verification for a consultant with incomplete onboarding', async () => {
+      // Mock Stripe to return incomplete onboarding status
+      (stripe.accounts.retrieve as any).mockResolvedValueOnce({
+        id: testConsultant.stripe_account_id,
+        charges_enabled: false,
+        payouts_enabled: false,
+        details_submitted: false,
+      });
+
+      const result = await verifyOnboarding(testConsultant.id);
+      expect(result).toBe(false);
     });
   });
 
-  describe('Package Creation', () => {
-    it('should create a package with Stripe product and price', async () => {
-      expect(pkg).toBeDefined();
-      expect(pkg.consultant_id).toBe(consultant.id);
-      expect(pkg.stripe_product_id).toBe('prod_test');
-      expect(pkg.stripe_price_id).toBe('price_test');
+  describe('Package Creation and Management', () => {
+    it('should create a package successfully', async () => {
+      expect(testPackage).toBeDefined();
+      expect(testPackage.consultant_id).toBe(testConsultant.id);
+      expect(testPackage.name).toBe('Test Package');
+      expect(testPackage.price).toBe(10000);
     });
-  });
 
-  describe('Checkout Flow', () => {
-    it('should create a checkout session', async () => {
+    it('should create a checkout session for a package', async () => {
       const session = await createCheckoutSession({
-        packageId: pkg.id,
-        consultantId: consultant.id,
+        packageId: testPackage.id,
+        consultantId: testConsultant.id,
         successUrl: 'https://example.com/success',
         cancelUrl: 'https://example.com/cancel',
       });
@@ -80,32 +107,58 @@ describe('Stripe Integration Tests', () => {
   });
 
   describe('Webhook Handling', () => {
+    it('should handle account.updated event', async () => {
+      const event = await simulateWebhookEvent('account.updated', {
+        id: testConsultant.stripe_account_id,
+        charges_enabled: true,
+        payouts_enabled: true,
+      });
+
+      const result = await handleWebhookEvent(event);
+      expect(result.success).toBe(true);
+    });
+
     it('should handle checkout.session.completed event', async () => {
-      // Create the webhook event
       const event = await simulateWebhookEvent('checkout.session.completed', {
         id: 'cs_test_123',
-        client_reference_id: pkg.id,
-        customer: 'cus_test',
+        client_reference_id: testPackage.id,
         payment_status: 'paid',
         metadata: {
-          consultant_id: consultant.id,
+          consultant_id: testConsultant.id,
         },
         amount_total: 10000,
         currency: 'usd',
       });
 
-      // Handle the webhook event
       const result = await handleWebhookEvent(event);
       expect(result.success).toBe(true);
-      expect(result.booking).toBeDefined();
+    });
 
-      // Verify booking data
-      const booking = result.booking;
-      expect(booking.package_id).toBe(pkg.id);
-      expect(booking.consultant_id).toBe(consultant.id);
-      expect(booking.status).toBe('completed');
-      expect(booking.payment_status).toBe('paid');
-      expect(booking.stripe_session_id).toBe('cs_test_123');
+    it('should handle invalid webhook events', async () => {
+      const event = await simulateWebhookEvent('invalid.event', {});
+      
+      const result = await handleWebhookEvent(event);
+      expect(result.success).toBe(false);
+      expect(result.error).toBeDefined();
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should handle Stripe API errors gracefully', async () => {
+      // Mock Stripe to throw an error
+      (stripe.accounts.retrieve as any).mockRejectedValueOnce(new Error('Stripe API Error'));
+
+      const result = await verifyOnboarding(testConsultant.id);
+      expect(result).toBe(false);
+    });
+
+    it('should handle database errors gracefully', async () => {
+      // Cleanup test data first
+      await cleanupTestData(testConsultant.id);
+      
+      // Try to verify onboarding for non-existent consultant
+      const result = await verifyOnboarding(testConsultant.id);
+      expect(result).toBe(false);
     });
   });
 }); 

@@ -1,6 +1,12 @@
+import { createClient } from '@supabase/supabase-js';
 import { stripe } from './config';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+export const supabaseTestClient = createClient(supabaseUrl, supabaseServiceKey);
 
 // Mock data store
 const mockDb = {
@@ -9,102 +15,85 @@ const mockDb = {
   bookings: new Map(),
 };
 
-// Mock Supabase client
-export const supabaseTestClient = {
-  from: (table: string) => ({
-    insert: (data: any) => ({
-      select: () => ({
-        single: async () => {
-          const id = uuidv4();
-          const record = { id, ...data };
-          mockDb[table].set(id, record);
-          return { data: record, error: null };
-        },
-      }),
-    }),
-    select: (columns: string = '*') => ({
-      eq: (column: string, value: string) => ({
-        single: async () => {
-          for (const [_, record] of mockDb[table].entries()) {
-            if (record[column] === value) {
-              return { data: record, error: null };
-            }
-          }
-          return { data: null, error: null };
-        },
-        all: async () => {
-          const records = [];
-          for (const [_, record] of mockDb[table].entries()) {
-            if (record[column] === value) {
-              records.push(record);
-            }
-          }
-          return { data: records, error: null };
-        },
-      }),
-    }),
-    delete: () => ({
-      eq: async (column: string, value: string) => {
-        const toDelete = [];
-        for (const [id, record] of mockDb[table].entries()) {
-          if (record[column] === value) {
-            toDelete.push(id);
-          }
-        }
-        toDelete.forEach(id => mockDb[table].delete(id));
-        return { error: null };
-      },
-    }),
-  }),
-};
-
 // Test Stripe account ID
-export const TEST_STRIPE_ACCOUNT_ID = 'acct_1R59Gb4TsoNqItar';
+export const TEST_STRIPE_ACCOUNT_ID = 'acct_test';
 
 export async function createTestConsultant() {
   const { data: consultant, error } = await supabaseTestClient
     .from('consultants')
     .insert({
       stripe_account_id: TEST_STRIPE_ACCOUNT_ID,
-      onboarding_completed: true,
-      charges_enabled: true,
-      details_submitted: true,
-      name: 'Test Consultant',
-      email: 'test@example.com',
+      headline: 'Test Consultant',
+      university: 'Test University',
+      image_url: 'https://example.com/test.jpg',
+      major: ['Computer Science'],
+      slug: `test-consultant-${Date.now()}`,
+      sat_score: 1500,
+      num_aps: 5,
+      created_at: new Date().toISOString()
     })
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    throw error;
+  }
+
   return consultant;
 }
 
 export async function createTestPackage(consultantId: string) {
+  // Verify consultant exists
+  const { data: consultant, error: consultantError } = await supabaseTestClient
+    .from('consultants')
+    .select()
+    .eq('id', consultantId)
+    .single();
+
+  if (consultantError || !consultant) {
+    throw new Error('Consultant not found');
+  }
+
   const { data: pkg, error } = await supabaseTestClient
     .from('packages')
     .insert({
       consultant_id: consultantId,
       name: 'Test Package',
       description: 'Test package description',
-      price: 10000, // $100.00
-      duration: 60, // 60 minutes
+      price: 10000,
+      duration: 60,
       billing_frequency: 'monthly',
       stripe_product_id: 'prod_test',
       stripe_price_id: 'price_test',
       is_active: true,
+      created_at: new Date().toISOString(),
     })
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    throw error;
+  }
+
   return pkg;
 }
 
 export async function cleanupTestData(consultantId: string) {
-  // Delete database records
-  await supabaseTestClient.from('bookings').delete().eq('consultant_id', consultantId);
-  await supabaseTestClient.from('packages').delete().eq('consultant_id', consultantId);
-  await supabaseTestClient.from('consultants').delete().eq('id', consultantId);
+  // Delete all related data for the consultant
+  await supabaseTestClient
+    .from('bookings')
+    .delete()
+    .eq('consultant_id', consultantId);
+
+  await supabaseTestClient
+    .from('packages')
+    .delete()
+    .eq('consultant_id', consultantId);
+
+  await supabaseTestClient
+    .from('consultants')
+    .delete()
+    .eq('id', consultantId);
 
   // Clear the mock database
   mockDb.bookings.clear();

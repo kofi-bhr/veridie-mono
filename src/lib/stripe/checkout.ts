@@ -14,15 +14,35 @@ export async function createCheckoutSession({
   successUrl,
   cancelUrl,
 }: CreateCheckoutSessionParams) {
+  // Validate inputs
+  if (!packageId || !consultantId) {
+    throw new Error('Package ID and consultant ID are required');
+  }
+
+  if (!successUrl || !cancelUrl) {
+    throw new Error('Success and cancel URLs are required');
+  }
+
   // Get the package details from the database
-  const { data: pkg } = await supabaseTestClient
+  const { data: pkg, error: packageError } = await supabaseTestClient
     .from('packages')
     .select()
     .eq('id', packageId)
     .single();
 
-  if (!pkg) {
+  if (packageError || !pkg) {
     throw new Error('Package not found');
+  }
+
+  // Verify consultant exists
+  const { data: consultant, error: consultantError } = await supabaseTestClient
+    .from('consultants')
+    .select()
+    .eq('id', consultantId)
+    .single();
+
+  if (consultantError || !consultant) {
+    throw new Error('Consultant not found');
   }
 
   // Create a checkout session
