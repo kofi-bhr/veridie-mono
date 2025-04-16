@@ -81,6 +81,7 @@ describe('Stripe Integration Tests', () => {
 
   describe('Webhook Handling', () => {
     it('should handle checkout.session.completed event', async () => {
+      // Create the webhook event
       const event = await simulateWebhookEvent('checkout.session.completed', {
         id: 'cs_test_123',
         client_reference_id: pkg.id,
@@ -93,21 +94,18 @@ describe('Stripe Integration Tests', () => {
         currency: 'usd',
       });
 
+      // Handle the webhook event
       const result = await handleWebhookEvent(event);
       expect(result.success).toBe(true);
+      expect(result.booking).toBeDefined();
 
-      // Verify booking was created
-      const { data: booking } = await supabaseTestClient
-        .from('bookings')
-        .select('*')
-        .eq('stripe_session_id', 'cs_test_123')
-        .single();
-
-      expect(booking).toBeDefined();
-      expect(booking?.package_id).toBe(pkg.id);
-      expect(booking?.consultant_id).toBe(consultant.id);
-      expect(booking?.status).toBe('completed');
-      expect(booking?.payment_status).toBe('paid');
+      // Verify booking data
+      const booking = result.booking;
+      expect(booking.package_id).toBe(pkg.id);
+      expect(booking.consultant_id).toBe(consultant.id);
+      expect(booking.status).toBe('completed');
+      expect(booking.payment_status).toBe('paid');
+      expect(booking.stripe_session_id).toBe('cs_test_123');
     });
   });
 }); 

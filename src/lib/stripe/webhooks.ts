@@ -6,16 +6,26 @@ interface WebhookEvent {
   data: {
     object: any;
   };
+  body?: string;
 }
 
 export async function handleWebhookEvent(event: WebhookEvent) {
   try {
+    // Parse the event body if it's a string
+    if (event.body) {
+      const parsedEvent = JSON.parse(event.body);
+      event = parsedEvent;
+    }
+
+    console.log('Processing event:', event);
+
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
+        console.log('Received session:', session);
         
         // Create a booking record
-        const { error } = await supabaseTestClient
+        const { data: booking, error } = await supabaseTestClient
           .from('bookings')
           .insert({
             package_id: session.client_reference_id,
@@ -36,7 +46,8 @@ export async function handleWebhookEvent(event: WebhookEvent) {
           throw error;
         }
 
-        return { success: true };
+        console.log('Created booking:', booking);
+        return { success: true, booking };
       }
 
       default:
