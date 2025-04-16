@@ -1,43 +1,52 @@
 'use client';
 
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
+import { Database } from '@/types/supabase';
 
-let supabaseInstance: ReturnType<typeof createSupabaseClient> | null = null;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-export const createClient = () => {
-  if (typeof window === 'undefined') {
-    throw new Error('Supabase client cannot be used on the server. Please use the server client instead.');
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables');
+}
+
+let supabaseInstance: ReturnType<typeof createClient<Database>> | null = null;
+
+export const getSupabaseClient = () => {
+  if (supabaseInstance) {
+    return supabaseInstance;
   }
 
-  if (!supabaseInstance) {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    },
+    global: {
+      headers: {
+        'x-application-name': 'veridie-mono',
+      },
+    },
+  });
 
-    if (!supabaseUrl || !supabaseAnonKey) {
-      throw new Error('Missing required environment variables for Supabase client');
+  // Add error handling for auth state changes
+  supabaseInstance.auth.onAuthStateChange((event, session) => {
+    console.log('Supabase auth state changed:', event, session?.user?.id);
+    
+    if (event === 'SIGNED_OUT') {
+      // Clear any cached data
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem('supabase.auth.token');
+      }
     }
-
-    supabaseInstance = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-      },
-      global: {
-        headers: {
-          'Cache-Control': 'no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0',
-        },
-      },
-    });
-  }
+  });
 
   return supabaseInstance;
 };
 
-// Export the singleton instance getter as the default client
-export const supabase = typeof window === 'undefined' ? null : createClient();
+export const supabase = getSupabaseClient();
 
 // Add health check method
 export const checkSupabaseConnection = async () => {
@@ -45,7 +54,7 @@ export const checkSupabaseConnection = async () => {
     return { connected: false, error: 'Cannot check connection on server side' };
   }
 
-  const client = createClient();
+  const client = getSupabaseClient();
   try {
     const { error } = await client.from('profiles').select('count', { count: 'exact', head: true });
     if (error) {

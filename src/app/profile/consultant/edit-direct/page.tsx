@@ -229,6 +229,113 @@ const ConsultantProfileEditPage = () => {
     }
   };
 
+  // Utility to clean and validate extracurriculars payload
+  function cleanExtracurricularInsert(ec: Extracurricular, consultantId: string): {
+    position_name: string;
+    institution: string;
+    years: string[];
+    consultant_id: string;
+    role?: string | null;
+    description?: string | null;
+    is_visible?: boolean | null;
+  } | undefined {
+    if (!ec.position_name || !ec.institution || !Array.isArray(ec.years) || ec.years.length === 0) return undefined;
+    return {
+      position_name: ec.position_name,
+      institution: ec.institution,
+      years: ec.years,
+      consultant_id: consultantId,
+      role: ec.role ?? null,
+      description: ec.description ?? null,
+      is_visible: ec.is_visible ?? null,
+    };
+  }
+
+  // Utility to clean and validate awards payload
+  function cleanAwardInsert(a: Award, consultantId: string): {
+    title: string;
+    date: string;
+    consultant_id: string;
+    is_visible?: boolean | null;
+    scope?: string | null;
+    description?: string | null;
+  } | undefined {
+    if (!a.title || !a.date) return undefined;
+    // Only allow lowercase valid scopes
+    const validScopes = ['school', 'regional', 'national', 'international'];
+    let scope = a.scope ? a.scope.toLowerCase() : null;
+    if (scope && !validScopes.includes(scope)) scope = null;
+    return {
+      title: a.title,
+      date: a.date,
+      consultant_id: consultantId,
+      is_visible: a.is_visible ?? null,
+      scope,
+      description: a.description ?? null,
+    };
+  }
+
+  // Update saveExtracurriculars
+  const saveExtracurriculars = async (consultantId: string) => {
+    if (!consultantId) return;
+    if (!supabase) throw new Error('Supabase client not initialized');
+    try {
+      // First, delete existing extracurriculars
+      const { error: deleteError } = await supabase
+        .from('extracurriculars')
+        .delete()
+        .eq('consultant_id', consultantId);
+      if (deleteError) throw deleteError;
+      // Then insert new extracurriculars
+      if (extracurriculars.length > 0) {
+        const cleaned = extracurriculars
+          .map(ec => cleanExtracurricularInsert(ec, consultantId))
+          .filter((e): e is NonNullable<typeof e> => Boolean(e));
+        if (cleaned.length > 0) {
+          const { error: insertError } = await supabase
+            .from('extracurriculars')
+            .insert(cleaned);
+          if (insertError) throw insertError;
+        }
+      }
+      console.log('Saving Extracurriculars:', extracurriculars);
+    } catch (err) {
+      console.error('Error saving extracurriculars:', err);
+      throw new Error('Failed to save extracurriculars');
+    }
+  };
+
+  // Update saveAwards
+  const saveAwards = async (consultantId: string) => {
+    if (!consultantId) return;
+    if (!supabase) throw new Error('Supabase client not initialized');
+    try {
+      // First, delete existing awards
+      const { error: deleteError } = await supabase
+        .from('awards')
+        .delete()
+        .eq('consultant_id', consultantId);
+      if (deleteError) throw deleteError;
+      // Then insert new awards
+      if (awards.length > 0) {
+        const cleaned = awards
+          .map(a => cleanAwardInsert(a, consultantId))
+          .filter((a): a is NonNullable<typeof a> => Boolean(a));
+        if (cleaned.length > 0) {
+          const { error: insertError } = await supabase
+            .from('awards')
+            .insert(cleaned);
+          if (insertError) throw insertError;
+        }
+      }
+      console.log('Saving Awards:', awards);
+      return true;
+    } catch (err) {
+      console.error('Error saving awards:', err);
+      throw new Error('Failed to save awards');
+    }
+  };
+
   // Update the GPA handling
   const handleGpaScoreChange = (value: string) => {
     const parsed = parseFloat(value);
@@ -247,78 +354,6 @@ const ConsultantProfileEditPage = () => {
       gpa_scale: gpaScale,
       gpa_on_4_scale: gpaOn4Scale
     });
-  };
-
-  // Add saveAwards function to save awards to database
-  const saveAwards = async (consultantId: string) => {
-    if (!consultantId) return;
-    
-    try {
-      // First, delete existing awards
-      const { error: deleteError } = await supabase
-        .from('awards')
-        .delete()
-        .eq('consultant_id', consultantId);
-        
-      if (deleteError) throw deleteError;
-      
-      // Then insert new awards
-      if (awards.length > 0) {
-        const awardsWithConsultantId = awards.map(award => ({
-          ...award,
-          consultant_id: consultantId,
-          id: award.id || undefined // Remove temporary IDs
-        }));
-        
-        const { error: insertError } = await supabase
-          .from('awards')
-          .insert(awardsWithConsultantId);
-          
-        if (insertError) throw insertError;
-      }
-      
-      console.log('Saving Awards:', awards);
-      return true;
-    } catch (err) {
-      console.error("Error saving awards:", err);
-      return false;
-    }
-  };
-
-  // Add saveExtracurriculars function to save extracurriculars to database
-  const saveExtracurriculars = async (consultantId: string) => {
-    if (!consultantId) return;
-    
-    try {
-      // First, delete existing extracurriculars
-      const { error: deleteError } = await supabase
-        .from('extracurriculars')
-        .delete()
-        .eq('consultant_id', consultantId);
-        
-      if (deleteError) throw deleteError;
-      
-      // Then insert new extracurriculars
-      if (extracurriculars.length > 0) {
-        const extracurricularsWithConsultantId = extracurriculars.map(ec => ({
-          ...ec,
-          consultant_id: consultantId,
-          id: ec.id || undefined // Remove temporary IDs
-        }));
-        
-        const { error: insertError } = await supabase
-          .from('extracurriculars')
-          .insert(extracurricularsWithConsultantId);
-          
-        if (insertError) throw insertError;
-      }
-      
-      console.log('Saving Extracurriculars:', extracurriculars);
-      return true;
-    } catch (err) {
-      console.error("Error saving extracurriculars:", err);
-      return false;
-    }
   };
 
   // Update saveProfile function to save related data
@@ -483,8 +518,8 @@ const ConsultantProfileEditPage = () => {
     if (isInitialized.current) return;
     isInitialized.current = true;
     setLoading(true);
-
     try {
+      if (!supabase) throw new Error('Supabase client not initialized');
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         if (!hasAttemptedRedirect.current) {
@@ -493,9 +528,7 @@ const ConsultantProfileEditPage = () => {
         }
         return;
       }
-
       const userId = session.user.id;
-
       // Fetch all data in parallel
       const [
         { data: profileData },
@@ -506,25 +539,39 @@ const ConsultantProfileEditPage = () => {
         supabase.from('universities').select('*'),
         supabase.from('consultants').select('*').eq('user_id', userId).single()
       ]);
-
       if (profileData) {
-        setFirstName(profileData.first_name || '');
-        setLastName(profileData.last_name || '');
-        setOriginalFirstName(profileData.first_name || '');
-        setOriginalLastName(profileData.last_name || '');
+        setFirstName(typeof profileData.first_name === 'string' ? profileData.first_name : '');
+        setLastName(typeof profileData.last_name === 'string' ? profileData.last_name : '');
+        setOriginalFirstName(typeof profileData.first_name === 'string' ? profileData.first_name : '');
+        setOriginalLastName(typeof profileData.last_name === 'string' ? profileData.last_name : '');
       }
-
       if (universitiesData) {
-        setUniversities(universitiesData);
+        setUniversities(Array.isArray(universitiesData) ? universitiesData : []);
       }
-
       if (consultantData) {
-        setProfile(consultantData);
+        // Defensive mapping for all fields
+        setProfile({
+          ...consultantData,
+          gpa_score: typeof consultantData.gpa_score === 'number' ? consultantData.gpa_score : undefined,
+          gpa_on_4_scale: undefined, // not used
+          gpa_scale: undefined, // not used
+          sat_reading: typeof consultantData.sat_reading === 'number' ? consultantData.sat_reading : undefined,
+          sat_math: typeof consultantData.sat_math === 'number' ? consultantData.sat_math : undefined,
+          act_english: typeof consultantData.act_english === 'number' ? consultantData.act_english : undefined,
+          act_math: typeof consultantData.act_math === 'number' ? consultantData.act_math : undefined,
+          act_reading: typeof consultantData.act_reading === 'number' ? consultantData.act_reading : undefined,
+          act_science: typeof consultantData.act_science === 'number' ? consultantData.act_science : undefined,
+          act_composite: typeof consultantData.act_composite === 'number' ? consultantData.act_composite : undefined,
+          image_url: typeof consultantData.image_url === 'string' ? consultantData.image_url : undefined,
+          university: typeof consultantData.university === 'string' ? consultantData.university : undefined,
+          major: Array.isArray(consultantData.major) ? consultantData.major : [],
+          accepted_schools: Array.isArray(consultantData.accepted_schools) ? consultantData.accepted_schools : [],
+          accepted_university_ids: Array.isArray(consultantData.accepted_university_ids) ? consultantData.accepted_university_ids : [],
+        });
         setOriginalProfile(consultantData);
-        setSelectedMajors(consultantData.major || []);
-        setImagePreview(consultantData.image_url || null);
-        
-        // If we have a consultant profile, fetch related data
+        setSelectedMajors(Array.isArray(consultantData.major) ? consultantData.major : []);
+        setImagePreview(typeof consultantData.image_url === 'string' ? consultantData.image_url : null);
+        // Fetch related data
         if (consultantData.id) {
           const [
             { data: apScoresData },
@@ -535,15 +582,14 @@ const ConsultantProfileEditPage = () => {
             supabase.from('awards').select('*').eq('consultant_id', consultantData.id),
             supabase.from('extracurriculars').select('*').eq('consultant_id', consultantData.id)
           ]);
-
-          if (apScoresData) setApScores(apScoresData);
-          if (awardsData) setAwards(awardsData);
-          if (extracurricularsData) setExtracurriculars(extracurricularsData);
+          if (Array.isArray(apScoresData)) setApScores(apScoresData.filter(a => a.subject && typeof a.score === 'number'));
+          if (Array.isArray(awardsData)) setAwards(awardsData.filter(a => a.title && a.date));
+          if (Array.isArray(extracurricularsData)) setExtracurriculars(extracurricularsData.filter(ec => ec.position_name && ec.institution && Array.isArray(ec.years) && ec.years.length > 0));
         }
       }
     } catch (err) {
-      console.error("Error fetching data:", err);
-      setError("Failed to load profile data");
+      console.error('Error fetching data:', err);
+      setError('Failed to load profile data. Please try again or contact support.');
     } finally {
       setLoading(false);
     }
@@ -919,28 +965,6 @@ const ConsultantProfileEditPage = () => {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="gpa_scale">Scale (e.g., 4.0, 5.0, 100)</Label>
-                      <Input
-                        id="gpa_scale"
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        value={profile.gpa_scale || ''}
-                        onChange={(e) => {
-                          const scale = parseFloat(e.target.value);
-                          if (!isNaN(scale)) {
-                            const gpaOn4Scale = (profile.gpa_score || 0) / scale * 4.0;
-                            setProfile({
-                              ...profile,
-                              gpa_scale: scale,
-                              gpa_on_4_scale: gpaOn4Scale
-                            });
-                          }
-                        }}
-                        className="border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                      />
-                    </div>
-                    <div>
                       <Label>4.0 Scale GPA</Label>
                       <div className="p-2 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] rounded-md">
                         {profile.gpa_on_4_scale ? profile.gpa_on_4_scale.toFixed(2) : 'N/A'}
@@ -1178,7 +1202,6 @@ const ConsultantProfileEditPage = () => {
                             <div className="w-24">
                               <Label htmlFor={`ap-score-${index}`}>Score (1-5)</Label>
                               <Select
-                                id={`ap-score-${index}`}
                                 value={ap.score ? ap.score.toString() : ''}
                                 onValueChange={value => {
                                   const newScores = [...apScores];
@@ -1186,8 +1209,8 @@ const ConsultantProfileEditPage = () => {
                                   setApScores(newScores);
                                 }}
                               >
-                                <SelectTrigger className="border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-                                  <SelectValue placeholder="Select Score" />
+                                <SelectTrigger id={`ap-score-${index}`} className="border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                                  <SelectValue placeholder="Select score" />
                                 </SelectTrigger>
                                 <SelectContent>
                                   {[1,2,3,4,5].map(val => (
