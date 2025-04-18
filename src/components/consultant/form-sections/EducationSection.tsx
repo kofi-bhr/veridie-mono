@@ -21,13 +21,18 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { X, Plus } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 
 type EducationSectionProps = {
-  form: UseFormReturn<any>;
+  form: {
+    register: any;
+    errors: any;
+  };
   universities: any[];
 };
 
 const EducationSection = ({ form, universities }: EducationSectionProps) => {
+  const { register, errors } = form;
   const [newMajor, setNewMajor] = useState('');
   
   const handleAddMajor = () => {
@@ -49,26 +54,57 @@ const EducationSection = ({ form, universities }: EducationSectionProps) => {
     <div className="space-y-6">
       <h2 className="text-xl font-bold mb-4">Education Details</h2>
       
-      <FormField
-        control={form.control}
-        name="university"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel className="text-base">University</FormLabel>
-            <FormControl>
-              <Input 
-                {...field} 
-                placeholder="e.g., Harvard University" 
-                className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6 text-base"
-              />
-            </FormControl>
-            <FormDescription>
-              Your current or most recent university
-            </FormDescription>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+      <div className="space-y-4">
+        <div>
+          <Label htmlFor="university">University</Label>
+          <Input
+            id="university"
+            {...register('university')}
+            placeholder="e.g. Harvard University"
+          />
+          {errors.university && (
+            <p className="text-red-500 text-sm mt-1">{errors.university.message}</p>
+          )}
+        </div>
+
+        <div>
+          <Label htmlFor="major">Major</Label>
+          <Input
+            id="major"
+            {...register('major')}
+            placeholder="e.g. Computer Science"
+          />
+          {errors.major && (
+            <p className="text-red-500 text-sm mt-1">{errors.major.message}</p>
+          )}
+        </div>
+
+        <div>
+          <Label htmlFor="sat_score">SAT Score</Label>
+          <Input
+            id="sat_score"
+            type="number"
+            {...register('sat_score')}
+            placeholder="e.g. 1600"
+          />
+          {errors.sat_score && (
+            <p className="text-red-500 text-sm mt-1">{errors.sat_score.message}</p>
+          )}
+        </div>
+
+        <div>
+          <Label htmlFor="num_aps">Number of AP Classes</Label>
+          <Input
+            id="num_aps"
+            type="number"
+            {...register('num_aps')}
+            placeholder="e.g. 10"
+          />
+          {errors.num_aps && (
+            <p className="text-red-500 text-sm mt-1">{errors.num_aps.message}</p>
+          )}
+        </div>
+      </div>
       
       <div className="space-y-4">
         <FormLabel className="text-base">Major(s)</FormLabel>

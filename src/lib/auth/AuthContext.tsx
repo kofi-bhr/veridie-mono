@@ -87,12 +87,18 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           await new Promise(resolve => setTimeout(resolve, 1000));
           return fetchUserProfile(userId, retryCount + 1);
         }
+        // After all retries failed, sign out the user and show error
+        toast.error('Error loading your profile. Please sign in again.');
+        await signOut();
         return null;
       }
 
       if (profile && typeof profile.id === 'string') {
         return profile as UserProfile;
       }
+      // If no profile found, sign out and show error
+      toast.error('Profile not found. Please sign in again.');
+      await signOut();
       return null;
     } catch (err) {
       console.error('Error in fetchUserProfile:', err);
@@ -101,6 +107,9 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         await new Promise(resolve => setTimeout(resolve, 1000));
         return fetchUserProfile(userId, retryCount + 1);
       }
+      // After all retries failed, sign out the user and show error
+      toast.error('Error loading your profile. Please sign in again.');
+      await signOut();
       return null;
     }
   };

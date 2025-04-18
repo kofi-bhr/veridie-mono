@@ -2,6 +2,7 @@
 
 import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import { ConsultantProfile } from '@/types/supabase';
 
 /**
  * Utility for managing consultant profiles
@@ -13,42 +14,25 @@ import { toast } from 'sonner';
  * @param userId The user ID to check
  * @returns The consultant profile data if it exists, null otherwise
  */
-export const checkConsultantProfile = async (userId: string) => {
-  try {
-    console.log('Checking if consultant profile exists for user:', userId);
-    
-    if (!userId) {
-      console.error('Cannot check consultant profile: User ID is undefined');
-      toast.error('User information is missing');
-      return null;
-    }
-    
-    const { data, error } = await supabase
-      .from('consultants')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
-    
-    if (error) {
-      console.error('Error checking consultant profile:', error);
-      console.error('Error details:', JSON.stringify(error));
-      toast.error('Error checking your profile status');
-      return null;
-    }
-    
-    if (data) {
-      console.log('Found existing consultant profile:', data);
-      return data;
-    }
-    
-    console.log('No consultant profile found for user:', userId);
-    return null;
-  } catch (error) {
-    console.error('Exception in checkConsultantProfile:', error);
-    toast.error('An unexpected error occurred while checking your profile');
+export async function checkConsultantProfile(userId: string): Promise<ConsultantProfile | null> {
+  if (!userId) {
+    toast.error('User information is missing');
     return null;
   }
-};
+
+  const { data, error } = await supabase
+    .from('consultants')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    toast.error('Error checking your profile status');
+    return null;
+  }
+
+  return data;
+}
 
 /**
  * Create a consultant profile for a user
@@ -235,3 +219,73 @@ export const navigateToConsultantProfile = async (userId: string, router: any): 
     return false;
   }
 };
+
+export async function updateConsultantProfile(
+  userId: string,
+  profileData: Partial<ConsultantProfile>
+): Promise<ConsultantProfile | null> {
+  try {
+    // First check if profile exists
+    const existingProfile = await checkConsultantProfile(userId);
+
+    if (existingProfile) {
+      // Update existing profile
+      const { data, error } = await supabase
+        .from('consultants')
+        .update({
+          ...profileData,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId)
+        .select('*')
+        .single();
+
+      if (error) throw error;
+      
+      toast.success('Profile updated successfully');
+      return data;
+    } else {
+      // Create new profile
+      const { data, error } = await supabase
+        .from('consultants')
+        .insert({
+          ...profileData,
+          user_id: userId,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      toast.success('Profile created successfully');
+      return data;
+    }
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    toast.error('Error updating profile');
+    return null;
+  }
+}
+
+export async function getConsultantProfile(userId: string): Promise<ConsultantProfile | null> {
+  if (!userId) {
+    toast.error('User information is missing');
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from('consultants')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
+
+  if (error) {
+    console.error('Error fetching profile:', error);
+    toast.error('Error fetching your profile');
+    return null;
+  }
+
+  return data;
+}

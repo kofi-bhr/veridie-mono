@@ -1,12 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 import { stripe } from './config';
-import { v4 as uuidv4 } from 'uuid';
-import crypto from 'crypto';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-export const supabaseTestClient = createClient(supabaseUrl, supabaseServiceKey);
+// Create a test client with the service role key
+export const supabaseTestClient = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // Mock data store
 const mockDb = {
@@ -22,15 +21,22 @@ export async function createTestConsultant() {
   const { data: consultant, error } = await supabaseTestClient
     .from('consultants')
     .insert({
+      user_id: 'test-user',
       stripe_account_id: TEST_STRIPE_ACCOUNT_ID,
       headline: 'Test Consultant',
       university: 'Test University',
-      image_url: 'https://example.com/test.jpg',
-      major: ['Computer Science'],
+      major: ['Test Major'],
+      sat_score: 1600,
+      num_aps: 10,
       slug: `test-consultant-${Date.now()}`,
-      sat_score: 1500,
-      num_aps: 5,
-      created_at: new Date().toISOString()
+      image_url: 'https://example.com/image.jpg',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      stripe_charges_enabled: false,
+      stripe_onboarding_complete: false,
+      is_weighted: false,
+      gpa_scale: 4.0,
+      gpa_score: 4.0,
     })
     .select()
     .single();
@@ -66,6 +72,9 @@ export async function createTestPackage(consultantId: string) {
       stripe_product_id: 'prod_test',
       stripe_price_id: 'price_test',
       is_active: true,
+      position: 1,
+      is_visible: true,
+      features: ['Feature 1', 'Feature 2'],
       created_at: new Date().toISOString(),
     })
     .select()
@@ -102,25 +111,34 @@ export async function cleanupTestData(consultantId: string) {
 }
 
 export async function simulateWebhookEvent(type: string, data: any) {
-  const payload = JSON.stringify({
-    type,
+  const timestamp = Math.floor(Date.now() / 1000);
+  const payload = {
+    id: `evt_test_${Date.now()}`,
+    object: 'event',
+    api_version: '2020-08-27',
+    created: timestamp,
     data: {
       object: data,
     },
+    livemode: false,
+    pending_webhooks: 0,
+    request: {
+      id: null,
+      idempotency_key: null,
+    },
+    type,
+  };
+
+  // Generate a test signature
+  const secret = process.env.STRIPE_WEBHOOK_SECRET || 'test_secret';
+  const signature = stripe.webhooks.generateTestHeaderValue({
+    payload: JSON.stringify(payload),
+    secret,
+    timestamp,
   });
 
-  const secret = 'whsec_test_secret';
-  const timestamp = Math.floor(Date.now() / 1000);
-  const signedPayload = `${timestamp}.${payload}`;
-  const signature = crypto
-    .createHmac('sha256', secret)
-    .update(signedPayload)
-    .digest('hex');
-
   return {
-    body: payload,
-    headers: {
-      'stripe-signature': `t=${timestamp},v1=${signature}`,
-    },
+    payload,
+    signature,
   };
 } 

@@ -164,6 +164,7 @@ export interface Database {
           sat_score: number | null;
           num_aps: number | null;
           created_at: string | null;
+          updated_at: string | null;
           accepted_university_ids: string[] | null;
           sat_reading: number | null;
           sat_math: number | null;
@@ -191,6 +192,7 @@ export interface Database {
           sat_score?: number | null;
           num_aps?: number | null;
           created_at?: string | null;
+          updated_at?: string | null;
           accepted_university_ids?: string[] | null;
           sat_reading?: number | null;
           sat_math?: number | null;
@@ -218,6 +220,7 @@ export interface Database {
           sat_score?: number | null;
           num_aps?: number | null;
           created_at?: string | null;
+          updated_at?: string | null;
           accepted_university_ids?: string[] | null;
           sat_reading?: number | null;
           sat_math?: number | null;
@@ -335,7 +338,10 @@ export interface Database {
           is_visible: boolean | null;
           billing_frequency: string;
           stripe_price_id: string | null;
-          title: string;
+          name: string;
+          description: string | null;
+          duration: number | null;
+          is_active: boolean;
           stripe_product_id: string | null;
           features: string[];
         };
@@ -348,7 +354,10 @@ export interface Database {
           is_visible?: boolean | null;
           billing_frequency: string;
           stripe_price_id?: string | null;
-          title: string;
+          name: string;
+          description?: string | null;
+          duration?: number | null;
+          is_active?: boolean;
           stripe_product_id?: string | null;
           features: string[];
         };
@@ -361,7 +370,10 @@ export interface Database {
           is_visible?: boolean | null;
           billing_frequency?: string;
           stripe_price_id?: string | null;
-          title?: string;
+          name?: string;
+          description?: string | null;
+          duration?: number | null;
+          is_active?: boolean;
           stripe_product_id?: string | null;
           features?: string[];
         };
