@@ -9,8 +9,8 @@ dotenv.config({
 
 export default defineConfig({
   test: {
-    globals: true,
     environment: 'jsdom',
+    globals: true,
     setupFiles: ['./src/test/setup.ts'],
     env: process.env as Record<string, string>,
   },

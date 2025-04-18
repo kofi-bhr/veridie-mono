@@ -1,9 +1,19 @@
 // /Users/kofihairralson/CascadeProjects/neobrutalism-nextjs/veridie-mono/src/lib/auth/__tests__/useSupabaseAuth.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useSupabaseAuth } from '../useSupabaseAuth';
-import { supabase } from '@/lib/supabase/client'; // Adjust path if needed
+import useSupabaseAuth from '../useSupabaseAuth';
+import { supabase } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
+
+// Mock toast
+vi.mock('sonner', () => ({
+  toast: {
+    loading: vi.fn(),
+    success: vi.fn(),
+    error: vi.fn(),
+    dismiss: vi.fn(),
+  },
+}));
 
 // Mock Supabase client methods
 vi.mock('@/lib/supabase/client', () => ({
@@ -30,57 +40,56 @@ vi.mock('@/lib/supabase/client', () => ({
 
 // Mock Next.js router
 vi.mock('next/navigation', () => ({
-  useRouter: vi.fn(),
+  useRouter: () => ({
+    push: vi.fn(),
+    refresh: vi.fn(),
+  }),
 }));
 
-const mockPush = vi.fn();
-const mockRefresh = vi.fn(); // Though we removed it, keep mock if router is used elsewhere
-
 describe('useSupabaseAuth', () => {
-  const mockSignUp = vi.fn();
-  const mockSignIn = vi.fn();
-  const mockSignOut = vi.fn();
-  const mockGetSession = vi.fn();
-  const mockOnAuthStateChange = vi.fn();
-
   beforeEach(() => {
-    vi.resetAllMocks();
+    vi.clearAllMocks();
     
-    // Setup router mock
-    (useRouter as vi.Mock).mockReturnValue({
-      push: mockPush,
-      refresh: mockRefresh,
-    });
-
     // Setup mock implementations
-    mockSignUp.mockResolvedValue({ data: {}, error: null });
-    mockSignIn.mockResolvedValue({ data: {}, error: null });
-    mockSignOut.mockResolvedValue({ error: null });
-    mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
-    mockOnAuthStateChange.mockImplementation((callback) => {
+    vi.mocked(supabase.auth.signUp).mockResolvedValue({ data: { user: { id: 'test-user-id' } }, error: null });
+    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({ 
+      data: { 
+        user: { id: 'test-user-id' },
+        session: { user: { id: 'test-user-id' } }
+      }, 
+      error: null 
+    });
+    vi.mocked(supabase.auth.signOut).mockResolvedValue({ error: null });
+    vi.mocked(supabase.auth.getSession).mockResolvedValue({ data: { session: null }, error: null });
+    vi.mocked(supabase.auth.onAuthStateChange).mockImplementation((callback) => {
       callback('INITIAL_SESSION', null);
       return { data: { subscription: { unsubscribe: vi.fn() } }, error: null };
     });
 
-    // Assign mocks to supabase client
-    const { supabase } = require('@/lib/supabase/client');
-    supabase.auth.signUp = mockSignUp;
-    supabase.auth.signInWithPassword = mockSignIn;
-    supabase.auth.signOut = mockSignOut;
-    supabase.auth.getSession = mockGetSession;
-    supabase.auth.onAuthStateChange = mockOnAuthStateChange;
+    // Mock profiles query response
+    vi.mocked(supabase.from).mockImplementation(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: { role: 'student' }, error: null }),
+      upsert: vi.fn().mockResolvedValue({ error: null }),
+    }));
   });
 
   it('handles sign up', async () => {
     const { result } = renderHook(() => useSupabaseAuth());
 
     await act(async () => {
-      await result.current.handleSignUp('test@example.com', 'password123');
+      await result.current.handleSignUp('test@example.com', 'password123', 'student');
     });
 
-    expect(mockSignUp).toHaveBeenCalledWith({
+    expect(supabase.auth.signUp).toHaveBeenCalledWith({
       email: 'test@example.com',
       password: 'password123',
+      options: {
+        data: {
+          role: 'student',
+        },
+      },
     });
   });
 
@@ -91,7 +100,7 @@ describe('useSupabaseAuth', () => {
       await result.current.handleSignIn('test@example.com', 'password123');
     });
 
-    expect(mockSignIn).toHaveBeenCalledWith({
+    expect(supabase.auth.signInWithPassword).toHaveBeenCalledWith({
       email: 'test@example.com',
       password: 'password123',
     });
@@ -104,18 +113,17 @@ describe('useSupabaseAuth', () => {
       await result.current.handleSignOut();
     });
 
-    expect(mockSignOut).toHaveBeenCalled();
+    expect(supabase.auth.signOut).toHaveBeenCalled();
   });
 
   it('handles auth state changes', async () => {
     renderHook(() => useSupabaseAuth());
-
-    expect(mockOnAuthStateChange).toHaveBeenCalled();
+    expect(supabase.auth.onAuthStateChange).toHaveBeenCalled();
   });
 
   it('handles auth errors', async () => {
     const errorMessage = 'Invalid credentials';
-    mockSignIn.mockResolvedValueOnce({ data: null, error: { message: errorMessage } });
+    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValueOnce({ data: null, error: { message: errorMessage } });
 
     const { result } = renderHook(() => useSupabaseAuth());
 
@@ -127,14 +135,41 @@ describe('useSupabaseAuth', () => {
   });
 
   it('sets loading state during auth operations', async () => {
-    const { result } = renderHook(() => useSupabaseAuth());
-
-    await act(async () => {
-      const signInPromise = result.current.handleSignIn('test@example.com', 'password123');
-      expect(result.current.loading).toBe(true);
-      await signInPromise;
+    let resolveSignIn: (value: any) => void;
+    const signInPromise = new Promise((resolve) => {
+      resolveSignIn = resolve;
     });
 
+    vi.mocked(supabase.auth.signInWithPassword).mockImplementationOnce(() => {
+      return signInPromise as Promise<any>;
+    });
+
+    const { result } = renderHook(() => useSupabaseAuth());
+
+    let signInComplete = false;
+    act(() => {
+      result.current.handleSignIn('test@example.com', 'password123').then(() => {
+        signInComplete = true;
+      });
+    });
+
+    // Loading should be true immediately after starting
+    expect(result.current.loading).toBe(true);
+
+    // Resolve the sign in
+    await act(async () => {
+      resolveSignIn!({ 
+        data: { 
+          user: { id: 'test-user-id' },
+          session: { user: { id: 'test-user-id' } }
+        }, 
+        error: null 
+      });
+      await Promise.resolve(); // Flush promises
+    });
+
+    // Loading should be false after completion
     expect(result.current.loading).toBe(false);
+    expect(signInComplete).toBe(true);
   });
 });

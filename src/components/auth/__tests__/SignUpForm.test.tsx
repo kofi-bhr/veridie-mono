@@ -9,11 +9,11 @@ import { useSupabaseAuth } from '@/lib/auth/useSupabaseAuth';
 vi.mock('@/lib/auth/useSupabaseAuth');
 
 // Mock Next.js Link component
-vi.mock('next/link', () => {
-  return ({ children, href }: { children: React.ReactNode; href: string }) => {
+vi.mock('next/link', () => ({
+  default: ({ children, href }: { children: React.ReactNode; href: string }) => {
     return <a href={href}>{children}</a>;
-  };
-});
+  },
+}));
 
 const mockHandleSignUp = vi.fn();
 const mockUseSupabaseAuth = useSupabaseAuth as unknown as ReturnType<typeof vi.fn>;
