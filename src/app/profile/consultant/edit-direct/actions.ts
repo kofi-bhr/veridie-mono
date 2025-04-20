@@ -1,8 +1,17 @@
-import { stripe } from './config';
-import { supabase } from '@/lib/supabase/client';
+'use server';
+
+import { stripe } from '@/lib/stripe/config';
+import { createServerClient } from '@/lib/supabase/server';
+import { revalidatePath } from 'next/cache';
 
 export async function createOnboardingLink(consultantId: string): Promise<{ success: boolean; url?: string }> {
   try {
+    if (!stripe) {
+      throw new Error('Stripe is not initialized');
+    }
+
+    const supabase = createServerClient();
+
     // First create a Stripe Connect account
     const account = await stripe.accounts.create({
       type: 'express',
@@ -27,13 +36,19 @@ export async function createOnboardingLink(consultantId: string): Promise<{ succ
       return { success: false };
     }
 
+    // Always use HTTPS for Stripe redirects since we're using live mode
+    const baseUrl = `https://${process.env.NEXT_PUBLIC_APP_URL?.replace(/^https?:\/\//, '')}`;
+
     // Create an account link for onboarding
     const accountLink = await stripe.accountLinks.create({
       account: account.id,
-      refresh_url: `${process.env.NEXT_PUBLIC_APP_URL}/profile/consultant/edit-direct?stripe=refresh`,
-      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/profile/consultant/edit-direct?stripe=success`,
+      refresh_url: `${baseUrl}/profile/consultant/edit-direct?stripe=refresh`,
+      return_url: `${baseUrl}/profile/consultant/edit-direct?stripe=success`,
       type: 'account_onboarding'
     });
+
+    // Revalidate the page to show updated status
+    revalidatePath('/profile/consultant/edit-direct');
 
     return {
       success: true,
@@ -45,8 +60,19 @@ export async function createOnboardingLink(consultantId: string): Promise<{ succ
   }
 }
 
-export async function verifyOnboarding(consultantId: string): Promise<{ success: boolean; charges_enabled?: boolean; payouts_enabled?: boolean; details_submitted?: boolean }> {
+export async function verifyOnboardingStatus(consultantId: string): Promise<{ 
+  success: boolean; 
+  charges_enabled?: boolean; 
+  payouts_enabled?: boolean; 
+  details_submitted?: boolean; 
+}> {
   try {
+    if (!stripe) {
+      throw new Error('Stripe is not initialized');
+    }
+
+    const supabase = createServerClient();
+
     // Get consultant's Stripe account ID
     const { data: consultant, error: consultantError } = await supabase
       .from('consultants')
@@ -74,6 +100,9 @@ export async function verifyOnboarding(consultantId: string): Promise<{ success:
     if (updateError) {
       console.error('Error updating consultant status:', updateError);
     }
+
+    // Revalidate the page to show updated status
+    revalidatePath('/profile/consultant/edit-direct');
 
     return {
       success: true,

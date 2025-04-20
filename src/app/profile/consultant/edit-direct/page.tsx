@@ -30,6 +30,7 @@ import {
   Trash2,
   AlertCircle
 } from 'lucide-react';
+import { StripeConnectTab } from '@/components/consultant/StripeConnectTab';
 
 // Define types
 interface University {
@@ -88,6 +89,9 @@ interface ConsultantProfile {
   accepted_schools?: string[];
   slug?: string;
   gpa_on_4_scale?: number;
+  stripe_account_id?: string | null;
+  stripe_charges_enabled?: boolean;
+  stripe_onboarding_complete?: boolean;
 }
 
 // AP Subject options
@@ -162,7 +166,7 @@ const ConsultantProfileEditPage = () => {
   // UI state
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState('basic-info');
+  const [activeTab, setActiveTab] = useState<'profile' | 'education' | 'activities' | 'stripe'>('profile');
 
   // Store original profile data for dirty checking
   const [originalProfile, setOriginalProfile] = useState<ConsultantProfile | null>(null);
@@ -456,6 +460,9 @@ const ConsultantProfileEditPage = () => {
         if (profile.act_science !== originalProfile.act_science) consultantUpdates.act_science = profile.act_science;
         if (profile.act_composite !== originalProfile.act_composite) consultantUpdates.act_composite = profile.act_composite;
         if (JSON.stringify(selectedUniversities.map(u => u.id)) !== JSON.stringify(originalProfile.accepted_university_ids)) consultantUpdates.accepted_university_ids = selectedUniversities.map(u => u.id);
+        if (profile.stripe_account_id !== originalProfile.stripe_account_id) consultantUpdates.stripe_account_id = profile.stripe_account_id;
+        if (profile.stripe_charges_enabled !== originalProfile.stripe_charges_enabled) consultantUpdates.stripe_charges_enabled = profile.stripe_charges_enabled;
+        if (profile.stripe_onboarding_complete !== originalProfile.stripe_onboarding_complete) consultantUpdates.stripe_onboarding_complete = profile.stripe_onboarding_complete;
       } else {
         // If no original, update all
         consultantUpdates.university = profile.university;
@@ -474,6 +481,9 @@ const ConsultantProfileEditPage = () => {
         consultantUpdates.act_science = profile.act_science;
         consultantUpdates.act_composite = profile.act_composite;
         consultantUpdates.accepted_university_ids = selectedUniversities.map(u => u.id);
+        consultantUpdates.stripe_account_id = profile.stripe_account_id;
+        consultantUpdates.stripe_charges_enabled = profile.stripe_charges_enabled;
+        consultantUpdates.stripe_onboarding_complete = profile.stripe_onboarding_complete;
       }
 
       if (Object.keys(consultantUpdates).length > 0) {
@@ -567,6 +577,9 @@ const ConsultantProfileEditPage = () => {
           major: Array.isArray(consultantData.major) ? consultantData.major : [],
           accepted_schools: Array.isArray(consultantData.accepted_schools) ? consultantData.accepted_schools : [],
           accepted_university_ids: Array.isArray(consultantData.accepted_university_ids) ? consultantData.accepted_university_ids : [],
+          stripe_account_id: consultantData.stripe_account_id,
+          stripe_charges_enabled: consultantData.stripe_charges_enabled,
+          stripe_onboarding_complete: consultantData.stripe_onboarding_complete,
         });
         setOriginalProfile(consultantData);
         setSelectedMajors(Array.isArray(consultantData.major) ? consultantData.major : []);
@@ -700,6 +713,23 @@ const ConsultantProfileEditPage = () => {
     return null; // Let the useEffect handle redirect
   }
 
+  // Refresh consultant data
+  const refreshConsultant = async () => {
+    try {
+      const { data: consultant } = await supabase
+        .from('consultants')
+        .select('*')
+        .eq('id', profile.id)
+        .single();
+
+      if (consultant) {
+        setProfile(consultant);
+      }
+    } catch (error) {
+      console.error('Error refreshing consultant data:', error);
+    }
+  };
+
   return (
     <div className="container mx-auto p-4">
       <div className="mb-6">
@@ -779,24 +809,30 @@ const ConsultantProfileEditPage = () => {
             <Card className="p-4 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
               <h3 className="font-bold mb-2">Navigation</h3>
               <div className="space-y-2">
-                <button 
-                  className={`w-full text-left p-2 rounded ${activeTab === 'basic-info' ? 'bg-main text-white' : 'hover:bg-gray-100'}`}
-                  onClick={() => setActiveTab('basic-info')}
+                <Button
+                  onClick={() => setActiveTab('profile')}
+                  variant={activeTab === 'profile' ? 'default' : 'neutral'}
                 >
-                  Basic Information
-                </button>
-                <button 
-                  className={`w-full text-left p-2 rounded ${activeTab === 'education' ? 'bg-main text-white' : 'hover:bg-gray-100'}`}
+                  Profile
+                </Button>
+                <Button
                   onClick={() => setActiveTab('education')}
+                  variant={activeTab === 'education' ? 'default' : 'neutral'}
                 >
-                  Education & Test Scores
-                </button>
-                <button 
-                  className={`w-full text-left p-2 rounded ${activeTab === 'activities' ? 'bg-main text-white' : 'hover:bg-gray-100'}`}
+                  Education
+                </Button>
+                <Button
                   onClick={() => setActiveTab('activities')}
+                  variant={activeTab === 'activities' ? 'default' : 'neutral'}
                 >
                   Activities & Awards
-                </button>
+                </Button>
+                <Button
+                  onClick={() => setActiveTab('stripe')}
+                  variant={activeTab === 'stripe' ? 'default' : 'neutral'}
+                >
+                  Payments
+                </Button>
               </div>
             </Card>
           </div>
@@ -805,10 +841,10 @@ const ConsultantProfileEditPage = () => {
         {/* Main Content */}
         <div className="lg:col-span-2">
           <Card className="p-6 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-            {/* Basic Information */}
-            {activeTab === 'basic-info' && (
+            {/* Profile */}
+            {activeTab === 'profile' && (
               <div className="space-y-6">
-                <h2 className="text-xl font-bold mb-4">Basic Information</h2>
+                <h2 className="text-xl font-bold mb-4">Profile</h2>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -943,10 +979,10 @@ const ConsultantProfileEditPage = () => {
               </div>
             )}
 
-            {/* Education & Test Scores */}
+            {/* Education */}
             {activeTab === 'education' && (
               <div className="space-y-6">
-                <h2 className="text-xl font-bold mb-4">Education & Test Scores</h2>
+                <h2 className="text-xl font-bold mb-4">Education</h2>
                 
                 {/* GPA */}
                 <div className="space-y-4">
@@ -1619,6 +1655,16 @@ const ConsultantProfileEditPage = () => {
                   </AccordionItem>
                 </Accordion>
               </div>
+            )}
+            
+            {activeTab === 'stripe' && profile && profile.id && (
+              <StripeConnectTab
+                consultantId={profile.id}
+                stripeAccountId={profile.stripe_account_id ?? null}
+                stripeChargesEnabled={profile.stripe_charges_enabled ?? false}
+                stripeOnboardingComplete={profile.stripe_onboarding_complete ?? false}
+                onUpdate={refreshConsultant}
+              />
             )}
           </Card>
         </div>

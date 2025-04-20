@@ -1,33 +1,28 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { createServerClient as createSupabaseServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
 // This is a server-side Supabase client for Next.js App Router
-// It uses the same configuration as the client-side version
+// It uses the service role key for admin access
 export const createServerClient = () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!supabaseUrl || !supabaseServiceKey) {
     throw new Error('Missing required environment variables for Supabase server client');
   }
 
-  return createClient(supabaseUrl, supabaseAnonKey, {
+  return createSupabaseClient(supabaseUrl, supabaseServiceKey, {
     auth: {
-      persistSession: false,
       autoRefreshToken: false,
-    },
-    global: {
-      headers: {
-        'Cache-Control': 'no-store, must-revalidate',
-      },
-    },
+      persistSession: false
+    }
   });
 };
 
 // This is a middleware-specific client that handles cookies
-export const createClient = (request?: NextRequest, response?: NextResponse) => {
+export const createAuthClient = async (request?: NextRequest, response?: NextResponse) => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -35,7 +30,7 @@ export const createClient = (request?: NextRequest, response?: NextResponse) => 
     throw new Error('Missing required environment variables for Supabase client');
   }
 
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
 
   return createSupabaseServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
