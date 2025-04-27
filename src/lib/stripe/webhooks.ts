@@ -33,82 +33,49 @@ export async function handleWebhookEvent(event: WebhookEvent) {
         console.log('Received session:', session);
 
         // Validate required fields
-        if (!session.id || !session.client_reference_id || !session.metadata?.consultant_id) {
-          throw new Error('Missing required fields in session');
+        if (!session.metadata?.purchase_id) {
+          throw new Error('Missing purchase ID in session metadata');
         }
 
-        // Validate package exists
-        const { data: pkg } = await supabaseTestClient
-          .from('packages')
-          .select()
-          .eq('id', session.client_reference_id)
-          .single();
-
-        if (!pkg) {
-          throw new Error('Package not found');
-        }
-
-        // Validate consultant exists
-        const { data: consultant } = await supabaseTestClient
-          .from('consultants')
-          .select()
-          .eq('id', session.metadata.consultant_id)
-          .single();
-
-        if (!consultant) {
-          throw new Error('Consultant not found');
-        }
-
-        // Validate payment status
-        if (session.payment_status !== 'paid') {
-          throw new Error('Invalid payment status');
-        }
-
-        // Validate currency
-        if (session.currency !== 'usd') {
-          throw new Error('Invalid currency');
-        }
-
-        // Validate amount
-        if (session.amount_total <= 0) {
-          throw new Error('Invalid amount');
-        }
-
-        // Check for duplicate session
-        const { data: existingBooking } = await supabaseTestClient
-          .from('bookings')
-          .select()
-          .eq('stripe_session_id', session.id)
-          .single();
-
-        if (existingBooking) {
-          throw new Error('Duplicate session ID');
-        }
-        
-        // Create a booking record
-        const { data: booking, error } = await supabaseTestClient
-          .from('bookings')
-          .insert({
-            package_id: session.client_reference_id,
-            consultant_id: session.metadata.consultant_id,
-            stripe_session_id: session.id,
+        // Update purchase status
+        const { data: purchase, error: purchaseError } = await supabaseTestClient
+          .from('purchases')
+          .update({
             status: 'completed',
-            payment_status: session.payment_status,
-            customer_id: session.customer,
-            amount_total: session.amount_total,
-            currency: session.currency,
-            created_at: new Date().toISOString(),
+            stripe_payment_intent_id: session.payment_intent,
+            updated_at: new Date().toISOString(),
           })
+          .eq('id', session.metadata.purchase_id)
           .select()
           .single();
 
-        if (error) {
-          console.error('Error creating booking:', error);
-          throw error;
+        if (purchaseError || !purchase) {
+          console.error('Error updating purchase:', purchaseError);
+          throw new Error('Failed to update purchase status');
         }
 
-        console.log('Created booking:', booking);
-        return { success: true, booking };
+        console.log('Updated purchase:', purchase);
+        return { success: true, purchase };
+      }
+
+      case 'account.updated': {
+        const account = event.data.object;
+        
+        // Update consultant's Stripe status
+        const { error: consultantError } = await supabaseTestClient
+          .from('consultants')
+          .update({
+            stripe_account_status: account.charges_enabled ? 'active' : 'pending',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('stripe_account_id', account.id);
+
+        if (consultantError) {
+          console.error('Error updating consultant:', consultantError);
+          throw new Error('Failed to update consultant status');
+        }
+
+        return { success: true };
       }
 
       default:
@@ -118,4 +85,4 @@ export async function handleWebhookEvent(event: WebhookEvent) {
     console.error('Error handling webhook event:', error);
     return { success: false, error };
   }
-} 
+}

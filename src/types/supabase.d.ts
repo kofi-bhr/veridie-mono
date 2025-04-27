@@ -148,19 +148,17 @@ export interface Database {
       };
       consultants: {
         Row: {
-          slug: string | null;
-          major: string[] | null;
-          stripe_account_id: string | null;
+          id: string;
+          user_id: string | null;
           headline: string | null;
-          accepted_schools: string[] | null;
+          university: string;
+          major: string[] | null;
           image_url: string;
           gpa_scale: number | null;
           is_weighted: boolean | null;
+          stripe_account_id: string | null;
           stripe_charges_enabled: boolean | null;
-          university: string;
           stripe_onboarding_complete: boolean | null;
-          id: string;
-          user_id: string | null;
           sat_score: number | null;
           num_aps: number | null;
           created_at: string | null;
@@ -174,21 +172,24 @@ export interface Database {
           act_science: number | null;
           act_composite: number | null;
           gpa_score: number | null;
+          accepted_schools: string[] | null;
+          slug: string | null;
+          contact_email: string | null;
+          contact_phone: string | null;
+          welcome_template: string | null;
         };
         Insert: {
-          slug?: string | null;
-          major?: string[] | null;
-          stripe_account_id?: string | null;
+          id?: string;
+          user_id?: string | null;
           headline?: string | null;
-          accepted_schools?: string[] | null;
+          university: string;
+          major?: string[] | null;
           image_url: string;
           gpa_scale?: number | null;
           is_weighted?: boolean | null;
+          stripe_account_id?: string | null;
           stripe_charges_enabled?: boolean | null;
-          university: string;
           stripe_onboarding_complete?: boolean | null;
-          id?: string;
-          user_id?: string | null;
           sat_score?: number | null;
           num_aps?: number | null;
           created_at?: string | null;
@@ -202,21 +203,24 @@ export interface Database {
           act_science?: number | null;
           act_composite?: number | null;
           gpa_score?: number | null;
+          accepted_schools?: string[] | null;
+          slug?: string | null;
+          contact_email?: string | null;
+          contact_phone?: string | null;
+          welcome_template?: string | null;
         };
         Update: {
-          slug?: string | null;
-          major?: string[] | null;
-          stripe_account_id?: string | null;
+          id?: string;
+          user_id?: string | null;
           headline?: string | null;
-          accepted_schools?: string[] | null;
+          university?: string;
+          major?: string[] | null;
           image_url?: string;
           gpa_scale?: number | null;
           is_weighted?: boolean | null;
+          stripe_account_id?: string | null;
           stripe_charges_enabled?: boolean | null;
-          university?: string;
           stripe_onboarding_complete?: boolean | null;
-          id?: string;
-          user_id?: string | null;
           sat_score?: number | null;
           num_aps?: number | null;
           created_at?: string | null;
@@ -230,6 +234,11 @@ export interface Database {
           act_science?: number | null;
           act_composite?: number | null;
           gpa_score?: number | null;
+          accepted_schools?: string[] | null;
+          slug?: string | null;
+          contact_email?: string | null;
+          contact_phone?: string | null;
+          welcome_template?: string | null;
         };
       };
       essays: {
@@ -330,7 +339,6 @@ export interface Database {
       };
       packages: {
         Row: {
-          created_at: string | null;
           id: string;
           consultant_id: string | null;
           price: number;
@@ -344,9 +352,9 @@ export interface Database {
           is_active: boolean;
           stripe_product_id: string | null;
           features: string[];
+          calendly_link: string | null;
         };
         Insert: {
-          created_at?: string | null;
           id?: string;
           consultant_id?: string | null;
           price: number;
@@ -360,9 +368,9 @@ export interface Database {
           is_active?: boolean;
           stripe_product_id?: string | null;
           features: string[];
+          calendly_link?: string | null;
         };
         Update: {
-          created_at?: string | null;
           id?: string;
           consultant_id?: string | null;
           price?: number;
@@ -376,29 +384,77 @@ export interface Database {
           is_active?: boolean;
           stripe_product_id?: string | null;
           features?: string[];
+          calendly_link?: string | null;
+        };
+      };
+      purchases: {
+        Row: {
+          id: string;
+          user_id: string;
+          package_id: string;
+          consultant_id: string;
+          stripe_payment_intent_id: string | null;
+          status: string;
+          created_at: string | null;
+          updated_at: string | null;
+          expires_at: string | null;
+          contact_initiated: boolean | null;
+          contact_initiated_at: string | null;
+          calendly_scheduled: boolean | null;
+          calendly_scheduled_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          package_id: string;
+          consultant_id: string;
+          stripe_payment_intent_id?: string | null;
+          status: string;
+          created_at?: string | null;
+          updated_at?: string | null;
+          expires_at?: string | null;
+          contact_initiated?: boolean | null;
+          contact_initiated_at?: string | null;
+          calendly_scheduled?: boolean | null;
+          calendly_scheduled_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          package_id?: string;
+          consultant_id?: string;
+          stripe_payment_intent_id?: string | null;
+          status?: string;
+          created_at?: string | null;
+          updated_at?: string | null;
+          expires_at?: string | null;
+          contact_initiated?: boolean | null;
+          contact_initiated_at?: string | null;
+          calendly_scheduled?: boolean | null;
+          calendly_scheduled_at?: string | null;
         };
       };
       profiles: {
         Row: {
-          first_name: string | null;
-          is_verified: boolean;
           id: string;
-          role: string;
+          first_name: string | null;
           last_name: string | null;
+          role: string;
+          is_verified: boolean;
         };
         Insert: {
-          first_name?: string | null;
-          is_verified: boolean;
           id: string;
-          role: string;
+          first_name?: string | null;
           last_name?: string | null;
+          role: string;
+          is_verified: boolean;
         };
         Update: {
-          first_name?: string | null;
-          is_verified?: boolean;
           id?: string;
-          role?: string;
+          first_name?: string | null;
           last_name?: string | null;
+          role?: string;
+          is_verified?: boolean;
         };
       };
       services: {
@@ -526,15 +582,22 @@ export interface Database {
           name?: string;
         };
       };
-    }
+    };
     Views: {
-      [_ in never]: never
-    }
+      [_ in never]: never;
+    };
     Functions: {
-      [_ in never]: never
-    }
+      validate_consultant_email: {
+        Args: { email: string };
+        Returns: boolean;
+      };
+      validate_calendly_link: {
+        Args: { link: string };
+        Returns: boolean;
+      };
+    };
     Enums: {
-      [_ in never]: never
-    }
-  }
+      [_ in never]: never;
+    };
+  };
 }

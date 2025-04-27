@@ -1,104 +1,112 @@
+import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { stripe } from '@/lib/stripe/config';
-import { createServerClient } from '@/lib/supabase/server';
-import { STRIPE_WEBHOOK_SECRET } from '@/lib/stripe/config';
+import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
+import { updatePurchaseStatus } from '@/lib/payments/purchases';
+import { sendEmail } from '@/lib/email';
 
-export async function POST(request: Request) {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2025-03-31.basil',
+});
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+export async function POST(req: Request) {
+  const body = await req.text();
+  const headersList = headers();
+  const signature = headersList.get('stripe-signature')!;
+
+  let event: Stripe.Event;
+
   try {
-    const body = await request.text();
-    const signature = request.headers.get('stripe-signature');
-
-    if (!signature || !STRIPE_WEBHOOK_SECRET) {
-      return NextResponse.json(
-        { error: 'Missing stripe signature or webhook secret' },
-        { status: 400 }
-      );
-    }
-
-    // Verify the webhook signature
-    const event = stripe.webhooks.constructEvent(
+    event = stripe.webhooks.constructEvent(
       body,
       signature,
-      STRIPE_WEBHOOK_SECRET
+      process.env.STRIPE_WEBHOOK_SECRET!
     );
+  } catch (err) {
+    console.error('Webhook signature verification failed:', err);
+    return new NextResponse('Webhook signature verification failed', { status: 400 });
+  }
 
-    const supabase = createServerClient();
-
-    // Handle different event types
+  try {
     switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object;
+      case 'payment_intent.succeeded': {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
         
-        // Update booking status
-        const { error: bookingError } = await supabase
-          .from('bookings')
-          .update({
-            status: 'completed',
-            payment_status: 'paid',
-            stripe_payment_intent_id: session.payment_intent,
-          })
-          .eq('stripe_session_id', session.id);
+        // Update purchase status
+        await updatePurchaseStatus(paymentIntent.id, 'completed' as const);
 
-        if (bookingError) {
-          console.error('Error updating booking:', bookingError);
-          return NextResponse.json(
-            { error: 'Failed to update booking' },
-            { status: 500 }
-          );
-        }
+        // Get purchase details
+        const { data: purchase } = await supabase
+          .from('purchases')
+          .select(`
+            *,
+            packages:package_id (
+              title,
+              calendly_link,
+              consultants:consultant_id (
+                user_id,
+                users:user_id (
+                  email
+                )
+              )
+            )
+          `)
+          .eq('stripe_payment_intent_id', paymentIntent.id)
+          .single();
 
-        // Create transfer record
-        const { error: transferError } = await supabase
-          .from('transfers')
-          .insert({
-            booking_id: session.metadata.package_id,
-            consultant_id: session.metadata.consultant_id,
-            amount: session.amount_total,
-            status: 'pending',
-            stripe_transfer_id: session.payment_intent,
+        if (purchase) {
+          // Send email to customer
+          await sendEmail({
+            to: purchase.customer_email,
+            subject: 'Payment Confirmation - Veridie',
+            template: 'payment-success',
+            data: {
+              customerName: purchase.customer_name,
+              packageTitle: purchase.packages.title,
+              amount: purchase.amount,
+              calendlyLink: purchase.packages.calendly_link,
+            },
           });
 
-        if (transferError) {
-          console.error('Error creating transfer:', transferError);
-          return NextResponse.json(
-            { error: 'Failed to create transfer' },
-            { status: 500 }
-          );
+          // Send email to consultant
+          await sendEmail({
+            to: purchase.packages.consultants.users.email,
+            subject: 'New Purchase - Veridie',
+            template: 'new-purchase',
+            data: {
+              customerName: purchase.customer_name,
+              customerEmail: purchase.customer_email,
+              packageTitle: purchase.packages.title,
+              amount: purchase.amount,
+            },
+          });
         }
-
         break;
       }
 
       case 'payment_intent.payment_failed': {
-        const paymentIntent = event.data.object;
-        
-        // Update booking status
-        const { error: bookingError } = await supabase
-          .from('bookings')
-          .update({
-            status: 'failed',
-            payment_status: 'failed',
-          })
-          .eq('stripe_payment_intent_id', paymentIntent.id);
+        const failedPayment = event.data.object as Stripe.PaymentIntent;
+        await updatePurchaseStatus(failedPayment.id, 'failed' as const);
+        break;
+      }
 
-        if (bookingError) {
-          console.error('Error updating booking:', bookingError);
-          return NextResponse.json(
-            { error: 'Failed to update booking' },
-            { status: 500 }
-          );
+      case 'charge.refunded': {
+        const refund = event.data.object as Stripe.Charge;
+        if (refund.payment_intent) {
+          await updatePurchaseStatus(refund.payment_intent as string, 'refunded' as const);
         }
-
         break;
       }
     }
 
-    return NextResponse.json({ received: true });
-  } catch (error) {
-    console.error('Error processing webhook:', error);
-    return NextResponse.json(
-      { error: 'Webhook handler failed' },
-      { status: 500 }
-    );
+    return new NextResponse('Webhook processed successfully', { status: 200 });
+  } catch (err) {
+    console.error('Webhook processing failed:', err);
+    return new NextResponse('Webhook processing failed', { status: 500 });
   }
-} 
+}

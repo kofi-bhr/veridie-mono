@@ -9,11 +9,11 @@ if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
   throw new Error('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is not defined in environment variables');
 }
 
-// Only initialize Stripe on the server side
-export const stripe = typeof window === 'undefined' ? new Stripe(process.env.STRIPE_SECRET_KEY!, {
+// Initialize Stripe on the server side
+export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-03-31.basil',
   typescript: true,
-}) : null;
+});
 
 export const PLATFORM_FEE_PERCENTAGE = 10; // 10% platform fee
 

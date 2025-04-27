@@ -28,9 +28,11 @@ import {
   FileText, 
   Save,
   Trash2,
-  AlertCircle
+  AlertCircle,
+  Mail
 } from 'lucide-react';
 import { StripeConnectTab } from '@/components/consultant/StripeConnectTab';
+import { ContactSettingsTab } from '@/components/consultant/ContactSettingsTab';
 
 // Define types
 interface University {
@@ -92,6 +94,9 @@ interface ConsultantProfile {
   stripe_account_id?: string | null;
   stripe_charges_enabled?: boolean;
   stripe_onboarding_complete?: boolean;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  welcome_template?: string | null;
 }
 
 // AP Subject options
@@ -166,7 +171,7 @@ const ConsultantProfileEditPage = () => {
   // UI state
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'education' | 'activities' | 'stripe'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'education' | 'activities' | 'contact' | 'stripe'>('profile');
 
   // Store original profile data for dirty checking
   const [originalProfile, setOriginalProfile] = useState<ConsultantProfile | null>(null);
@@ -580,6 +585,9 @@ const ConsultantProfileEditPage = () => {
           stripe_account_id: consultantData.stripe_account_id,
           stripe_charges_enabled: consultantData.stripe_charges_enabled,
           stripe_onboarding_complete: consultantData.stripe_onboarding_complete,
+          contact_email: consultantData.contact_email,
+          contact_phone: consultantData.contact_phone,
+          welcome_template: consultantData.welcome_template,
         });
         setOriginalProfile(consultantData);
         setSelectedMajors(Array.isArray(consultantData.major) ? consultantData.major : []);
@@ -826,6 +834,12 @@ const ConsultantProfileEditPage = () => {
                   variant={activeTab === 'activities' ? 'default' : 'neutral'}
                 >
                   Activities & Awards
+                </Button>
+                <Button
+                  onClick={() => setActiveTab('contact')}
+                  variant={activeTab === 'contact' ? 'default' : 'neutral'}
+                >
+                  Contact
                 </Button>
                 <Button
                   onClick={() => setActiveTab('stripe')}
@@ -1655,6 +1669,17 @@ const ConsultantProfileEditPage = () => {
                   </AccordionItem>
                 </Accordion>
               </div>
+            )}
+            
+            {activeTab === 'contact' && profile && profile.id && (
+              <ContactSettingsTab
+                consultantId={profile.id}
+                initialData={{
+                  contact_email: profile.contact_email ?? null,
+                  contact_phone: profile.contact_phone ?? null,
+                  welcome_template: profile.welcome_template ?? null,
+                }}
+              />
             )}
             
             {activeTab === 'stripe' && profile && profile.id && (

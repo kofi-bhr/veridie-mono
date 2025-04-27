@@ -1,138 +1,194 @@
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { toast } from 'sonner';
-import { createOnboardingLink, verifyOnboardingStatus } from '@/app/profile/consultant/edit-direct/actions';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { createOnboardingLink, verifyOnboarding, reconnectStripeAccount, getLoginLink } from '@/lib/stripe/onboarding';
+import { useToast } from '@/components/ui/use-toast';
+import { useUser } from '@/lib/auth/useUser';
+import { Loader2, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-interface StripeConnectTabProps {
-  consultantId: string;
-  stripeAccountId: string | null;
-  stripeChargesEnabled: boolean;
-  stripeOnboardingComplete: boolean;
-  onUpdate: () => void;
+interface StripeStatus {
+  charges_enabled?: boolean;
+  payouts_enabled?: boolean;
+  details_submitted?: boolean;
 }
 
-export function StripeConnectTab({
-  consultantId,
-  stripeAccountId,
-  stripeChargesEnabled,
-  stripeOnboardingComplete,
-  onUpdate
-}: StripeConnectTabProps) {
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [verificationStatus, setVerificationStatus] = useState<{
-    charges_enabled?: boolean;
-    payouts_enabled?: boolean;
-    details_submitted?: boolean;
-  }>({});
+export function StripeConnectTab() {
+  const { user, consultant } = useUser();
+  const router = useRouter();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [status, setStatus] = useState<StripeStatus>({});
 
   useEffect(() => {
-    // Check onboarding status when account ID exists but onboarding is not complete
-    if (stripeAccountId && !stripeOnboardingComplete) {
-      handleVerifyStatus();
+    if (consultant?.id) {
+      verifyStatus();
     }
-  }, [stripeAccountId, stripeOnboardingComplete]);
+  }, [consultant?.id]);
 
-  const handleVerifyStatus = async () => {
-    try {
-      setIsVerifying(true);
-      const result = await verifyOnboardingStatus(consultantId);
-      if (result.success) {
-        setVerificationStatus({
-          charges_enabled: result.charges_enabled,
-          payouts_enabled: result.payouts_enabled,
-          details_submitted: result.details_submitted
-        });
-        onUpdate();
-        toast.success('Onboarding Status Updated', {
-          description: 'Your Stripe Connect account has been verified.'
-        });
-      } else {
-        toast.error('Verification Failed', {
-          description: 'Could not verify your Stripe Connect account status.'
-        });
-      }
-    } catch (error) {
-      toast.error('Verification Error', {
-        description: 'An error occurred while verifying your account.'
+  const verifyStatus = async () => {
+    if (!consultant?.id) return;
+    setVerifying(true);
+    const result = await verifyOnboarding(consultant.id);
+    if (result.success) {
+      setStatus({
+        charges_enabled: result.charges_enabled,
+        payouts_enabled: result.payouts_enabled,
+        details_submitted: result.details_submitted,
       });
-    } finally {
-      setIsVerifying(false);
     }
+    setVerifying(false);
   };
 
-  const handleStartOnboarding = async () => {
-    try {
-      setIsConnecting(true);
-      const result = await createOnboardingLink(consultantId);
-      if (result.success && result.url) {
-        window.location.href = result.url;
-      } else {
-        toast.error('Connection Failed', {
-          description: 'Could not start the Stripe Connect onboarding process.'
-        });
-      }
-    } catch (error) {
-      toast.error('Connection Error', {
-        description: 'An error occurred while connecting to Stripe.'
+  const handleConnect = async () => {
+    if (!consultant?.id) return;
+    setLoading(true);
+    const result = await createOnboardingLink(consultant.id);
+    if (result.success && result.url) {
+      window.location.href = result.url;
+    } else {
+      toast({
+        title: 'Error',
+        description: 'Failed to create Stripe Connect account. Please try again.',
+        variant: 'destructive',
       });
-    } finally {
-      setIsConnecting(false);
     }
+    setLoading(false);
   };
+
+  const handleReconnect = async () => {
+    if (!consultant?.id) return;
+    setLoading(true);
+    const result = await reconnectStripeAccount(consultant.id);
+    if (result.success && result.url) {
+      window.location.href = result.url;
+    } else {
+      toast({
+        title: 'Error',
+        description: 'Failed to reconnect Stripe account. Please try again.',
+        variant: 'destructive',
+      });
+    }
+    setLoading(false);
+  };
+
+  const handleManageAccount = async () => {
+    if (!consultant?.id) return;
+    setLoading(true);
+    const result = await getLoginLink(consultant.id);
+    if (result.success && result.url) {
+      window.location.href = result.url;
+    } else {
+      toast({
+        title: 'Error',
+        description: 'Failed to access Stripe account. Please try again.',
+        variant: 'destructive',
+      });
+    }
+    setLoading(false);
+  };
+
+  if (!consultant) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>
+          You must be a consultant to connect a Stripe account.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  const isComplete = status.charges_enabled && status.payouts_enabled && status.details_submitted;
+  const isPartiallyComplete = status.details_submitted && (!status.charges_enabled || !status.payouts_enabled);
 
   return (
-    <div className="space-y-6">
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Stripe Connect Status</h3>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span>Account Connected</span>
-            <span className={stripeAccountId ? 'text-green-600' : 'text-red-600'}>
-              {stripeAccountId ? '✓' : '✗'}
-            </span>
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>Connect with Stripe</CardTitle>
+        <CardDescription>
+          Accept payments from clients by connecting your Stripe account.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {verifying ? (
+          <div className="flex items-center space-x-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Verifying account status...</span>
           </div>
-          <div className="flex items-center justify-between">
-            <span>Details Submitted</span>
-            <span className={verificationStatus.details_submitted ? 'text-green-600' : 'text-red-600'}>
-              {verificationStatus.details_submitted ? '✓' : '✗'}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Charges Enabled</span>
-            <span className={verificationStatus.charges_enabled ? 'text-green-600' : 'text-red-600'}>
-              {verificationStatus.charges_enabled ? '✓' : '✗'}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Payouts Enabled</span>
-            <span className={verificationStatus.payouts_enabled ? 'text-green-600' : 'text-red-600'}>
-              {verificationStatus.payouts_enabled ? '✓' : '✗'}
-            </span>
-          </div>
-        </div>
-      </Card>
-
-      <div className="flex justify-end">
-        {!stripeAccountId ? (
-          <Button
-            onClick={handleStartOnboarding}
-            className="w-full sm:w-auto"
-            disabled={isConnecting}
-          >
-            {isConnecting ? 'Connecting...' : 'Connect with Stripe'}
-          </Button>
-        ) : !stripeOnboardingComplete ? (
-          <Button
-            onClick={handleVerifyStatus}
-            className="w-full sm:w-auto"
-            disabled={isVerifying}
-          >
-            {isVerifying ? 'Verifying...' : 'Verify Onboarding Status'}
-          </Button>
-        ) : null}
-      </div>
-    </div>
+        ) : isComplete ? (
+          <>
+            <Alert variant="success" className="bg-green-50">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertTitle className="text-green-600">Account Connected</AlertTitle>
+              <AlertDescription>
+                Your Stripe account is fully set up and ready to accept payments.
+              </AlertDescription>
+            </Alert>
+            <Button onClick={handleManageAccount} disabled={loading}>
+              {loading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Manage Stripe Account
+            </Button>
+          </>
+        ) : isPartiallyComplete ? (
+          <>
+            <Alert variant="warning" className="bg-yellow-50">
+              <AlertCircle className="h-4 w-4 text-yellow-600" />
+              <AlertTitle className="text-yellow-600">Additional Information Required</AlertTitle>
+              <AlertDescription>
+                Your account is partially set up. Please complete all requirements to start accepting payments.
+              </AlertDescription>
+            </Alert>
+            <div className="flex space-x-2">
+              <Button onClick={handleManageAccount} disabled={loading}>
+                {loading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Complete Setup
+              </Button>
+              <Button onClick={handleReconnect} variant="neutral" disabled={loading}>
+                {loading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Start Over
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            {consultant.stripe_account_id && (
+              <Alert variant="destructive">
+                <XCircle className="h-4 w-4" />
+                <AlertTitle>Setup Incomplete</AlertTitle>
+                <AlertDescription>
+                  Your Stripe account setup is incomplete. Please complete the setup or start over.
+                </AlertDescription>
+              </Alert>
+            )}
+            <div className="flex space-x-2">
+              <Button onClick={handleConnect} disabled={loading}>
+                {loading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Connect with Stripe
+              </Button>
+              {consultant.stripe_account_id && (
+                <Button onClick={handleReconnect} variant="neutral" disabled={loading}>
+                  {loading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : null}
+                  Start Over
+                </Button>
+              )}
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
