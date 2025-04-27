@@ -2,10 +2,11 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
+import { AuthResult } from '@/lib/auth';
 import { supabase } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import useSupabaseAuth from '@/lib/auth/useSupabaseAuth';
+import { useSupabaseAuth } from '@/lib/auth';
 
 // Define the user profile type
 type UserProfile = {
@@ -57,9 +58,9 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { 
-    handleSignIn, 
-    handleSignUp, 
-    handleSignOut,
+    signIn: authSignIn,
+    signUp: authSignUp,
+    signOut: authSignOut,
   } = useSupabaseAuth();
 
   // Function to fetch user profile with retries
@@ -89,7 +90,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
         // After all retries failed, sign out the user and show error
         toast.error('Error loading your profile. Please sign in again.');
-        await signOut();
+        await authSignOut();
         return null;
       }
 
@@ -98,7 +99,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
       // If no profile found, sign out and show error
       toast.error('Profile not found. Please sign in again.');
-      await signOut();
+      await authSignOut();
       return null;
     } catch (err) {
       console.error('Error in fetchUserProfile:', err);
@@ -109,7 +110,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
       // After all retries failed, sign out the user and show error
       toast.error('Error loading your profile. Please sign in again.');
-      await signOut();
+      await authSignOut();
       return null;
     }
   };
@@ -201,7 +202,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Wrap the hook methods to maintain the same interface
   const signIn = async (email: string, password: string) => {
     try {
-      const result = await handleSignIn(email, password);
+      const result = await authSignIn(email, password);
       if (!result.success) {
         throw new Error(result.error);
       }
@@ -225,10 +226,10 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.error('AuthContext: Signup timeout reached, forcing state reset');
         resetState();
       }, 20000);
-      const result = await handleSignUp(email, password, role);
+      const result = await authSignUp({ email, password, role });
       if (!result.success) {
         console.error('AuthContext: Signup failed with error:', result.error);
-        throw new Error(result.error);
+        throw new Error(result.error || 'Unknown error during signup');
       }
       console.log('AuthContext: Signup completed successfully');
       return result;
@@ -245,7 +246,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = async () => {
     try {
       if (!supabase) return; // SSR/Null guard
-      await handleSignOut();
+      await authSignOut();
     } catch (error) {
       console.error('Error signing out:', error);
       throw error;
