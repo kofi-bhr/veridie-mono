@@ -1,3 +1,4 @@
+/// <reference types="cypress" />
 describe('Package Purchase Flow', () => {
   beforeEach(() => {
     // Reset database state
@@ -23,7 +24,7 @@ describe('Package Purchase Flow', () => {
     cy.url().should('include', '/login');
 
     // Should store intended purchase in session storage
-    cy.window().then((win) => {
+    cy.window().then((win: Cypress.AUTWindow) => {
       expect(win.sessionStorage.getItem('intended_purchase')).to.equal('test-package-id');
     });
   });
@@ -67,7 +68,7 @@ describe('Package Purchase Flow', () => {
     cy.findByRole('button', { name: /schedule your session/i }).click();
 
     // Should open Calendly in new tab
-    cy.window().then((win) => {
+    cy.window().then((win: Cypress.AUTWindow) => {
       expect(win.open).to.be.calledWith(
         'https://calendly.com/test/meeting',
         '_blank'

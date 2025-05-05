@@ -1,20 +1,21 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
-import { stripe } from '@/lib/stripe';
+import stripe from '@/lib/stripe';
 import { headers } from 'next/headers';
+import Stripe from 'stripe';
 
 export async function POST(request: Request) {
   try {
     const supabase = createServerClient();
-    const headersList = headers();
-    const origin = headersList.get('origin');
+    const requestHeaders = await headers();
+    const origin = requestHeaders.get('origin');
 
     // Get session to identify user
     const {
-      data: { session },
+      data: { session: authSession },
     } = await supabase.auth.getSession();
 
-    if (!session?.user) {
+    if (!authSession?.user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
     const { data: purchase, error: purchaseError } = await supabase
       .from('purchases')
       .insert({
-        user_id: session.user.id,
+        user_id: authSession.user.id,
         package_id: packageId,
         consultant_id: consultantId,
         status: 'pending',
@@ -84,7 +85,7 @@ export async function POST(request: Request) {
     const platformFee = Math.round(amount * 0.1);
 
     // Create Stripe checkout session
-    const session = await stripe.checkout.sessions.create({
+    const stripeSession: Stripe.Checkout.Session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
         {
@@ -112,7 +113,7 @@ export async function POST(request: Request) {
         purchase_id: purchase.id,
         package_id: packageId,
         consultant_id: consultantId,
-        user_id: session.user.id,
+        user_id: authSession.user.id,
       },
     });
 
@@ -120,11 +121,11 @@ export async function POST(request: Request) {
     await supabase
       .from('purchases')
       .update({
-        stripe_payment_intent_id: session.payment_intent as string,
+        stripe_payment_intent_id: stripeSession.payment_intent as string,
       })
       .eq('id', purchase.id);
 
-    return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: stripeSession.url });
   } catch (error) {
     console.error('Error creating checkout session:', error);
     return NextResponse.json(

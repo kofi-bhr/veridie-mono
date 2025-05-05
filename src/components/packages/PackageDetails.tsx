@@ -26,8 +26,13 @@ export function PackageDetails({ package: pkg, onPurchase }: PackageDetailsProps
     }).format(price);
   };
 
-  const formatDuration = (minutes: number | null) => {
-    if (!minutes) return 'No duration set';
+  const formatDuration = (duration: string) => {
+    if (!duration) return 'No duration set';
+    
+    // Convert string duration to number for calculation
+    const minutes = parseInt(duration, 10);
+    if (isNaN(minutes)) return 'No duration set';
+    
     if (minutes < 60) return `${minutes} minutes`;
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;

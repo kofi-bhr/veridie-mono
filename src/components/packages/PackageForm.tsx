@@ -23,10 +23,11 @@ type PackageFormData = z.infer<typeof packageSchema>;
 interface PackageFormProps {
   initialData?: Package;
   onSubmit: (data: CreatePackageData | UpdatePackageData) => Promise<void>;
+  onCancel?: () => void;
   consultant_id: string;
 }
 
-export function PackageForm({ initialData, onSubmit, consultant_id }: PackageFormProps) {
+export function PackageForm({ initialData, onSubmit, onCancel, consultant_id }: PackageFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [descriptionItems, setDescriptionItems] = useState<string[]>(
     initialData?.description || ['']

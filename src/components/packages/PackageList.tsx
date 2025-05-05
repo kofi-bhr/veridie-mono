@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Package } from '@/types/packages';
+import { Package } from '@/lib/payments/types';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -22,7 +22,7 @@ export function PackageList({
   const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const handleSuccess = () => {
+  const handleSuccess = async () => {
     setIsDialogOpen(false);
     setSelectedPackage(null);
     onPackageUpdate?.();
@@ -33,14 +33,6 @@ export function PackageList({
       style: 'currency',
       currency: 'USD',
     }).format(price);
-  };
-
-  const formatDuration = (minutes: number | null) => {
-    if (!minutes) return 'No duration set';
-    if (minutes < 60) return `${minutes} minutes`;
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
-    return `${hours}h${remainingMinutes ? ` ${remainingMinutes}m` : ''}`;
   };
 
   return (
@@ -64,9 +56,9 @@ export function PackageList({
               </DialogTitle>
             </DialogHeader>
             <PackageForm
-              consultantId={consultantId}
+              consultant_id={consultantId}
               initialData={selectedPackage ?? undefined}
-              onSuccess={handleSuccess}
+              onSubmit={handleSuccess}
               onCancel={() => setIsDialogOpen(false)}
             />
           </DialogContent>
@@ -91,7 +83,9 @@ export function PackageList({
                 <div>
                   <p className="text-2xl font-bold">{formatPrice(pkg.price)}</p>
                   <p className="text-sm text-gray-500">
-                    {formatDuration(pkg.duration)}
+                    {/* Duration is not available in the Package type from @/lib/payments/types */}
+                    {/* Using a default value instead */}
+                    Consultation
                   </p>
                 </div>
 

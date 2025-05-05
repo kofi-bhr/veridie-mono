@@ -2,18 +2,33 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth/AuthContext';
-import AuthForm from './AuthForm';
+import { Button } from '@/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { AlertCircle } from 'lucide-react';
 
+// Define the profile schema using Zod
 const profileSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
 });
 
-type ProfileFormValues = z.infer<typeof profileSchema>;
+// Create a type from the schema
+export type ProfileFormValues = z.infer<typeof profileSchema>;
 
+// Define props for the ProfileForm component
 type ProfileFormProps = {
   initialRole?: string | null;
   onSuccess?: () => void;
@@ -25,6 +40,16 @@ const ProfileForm = ({ initialRole = null, onSuccess }: ProfileFormProps) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Initialize the form with react-hook-form
+  const form = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+    },
+  });
+
+  // Handle form submission
   const onSubmit = async (values: ProfileFormValues) => {
     if (!user) {
       setError('You must be logged in to update your profile');
@@ -80,21 +105,6 @@ const ProfileForm = ({ initialRole = null, onSuccess }: ProfileFormProps) => {
     }
   };
 
-  const fields = [
-    {
-      name: 'firstName',
-      label: 'First Name',
-      type: 'text',
-      placeholder: 'Enter your first name',
-    },
-    {
-      name: 'lastName',
-      label: 'Last Name',
-      type: 'text',
-      placeholder: 'Enter your last name',
-    },
-  ];
-
   return (
     <div className="w-full max-w-md mx-auto space-y-8">
       {!onSuccess && (
@@ -108,14 +118,62 @@ const ProfileForm = ({ initialRole = null, onSuccess }: ProfileFormProps) => {
         </div>
       )}
 
-      <AuthForm
-        onSubmit={onSubmit}
-        formSchema={profileSchema}
-        fields={fields}
-        submitText="Save Profile"
-        isLoading={loading}
-        error={error}
-      />
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          {error && (
+            <div className="p-4 border-2 border-red-500 bg-red-50 rounded-md flex items-center gap-2 text-red-600">
+              <AlertCircle className="h-5 w-5" />
+              <p>{error}</p>
+            </div>
+          )}
+
+          <FormField
+            control={form.control}
+            name="firstName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-base">First Name</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    type="text"
+                    placeholder="Enter your first name"
+                    className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6 text-base"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="lastName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-base">Last Name</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    type="text"
+                    placeholder="Enter your last name"
+                    className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6 text-base"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <Button
+            type="submit"
+            disabled={loading}
+            className="w-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6 text-base font-bold"
+          >
+            {loading ? 'Loading...' : 'Save Profile'}
+          </Button>
+        </form>
+      </Form>
     </div>
   );
 };

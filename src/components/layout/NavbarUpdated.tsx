@@ -17,42 +17,14 @@ import { supabase } from "@/lib/supabase/client";
 const Navbar = () => {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
-  const { user, signOut, isConsultant } = useAuth();
-  const [profileData, setProfileData] = useState<{ first_name: string; last_name: string; role: string; id: string } | null>(null);
-  const [consultantData, setConsultantData] = useState<{ slug: string } | null>(null);
+  const { user, signOut, isConsultant, profile } = useAuth();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const getProfileData = async () => {
-      if (!user) return;
-      
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('first_name, last_name, role, id')
-        .eq('id', user.id)
-        .single();
-      
-      if (!error && data) {
-        setProfileData(data);
-        
-        // If user is a consultant, get their slug
-        if (data.role === 'consultant') {
-          const { data: consultantData, error: consultantError } = await supabase
-            .from('consultants')
-            .select('slug')
-            .eq('user_id', user.id)
-            .maybeSingle();
-          
-          if (!consultantError && consultantData) {
-            setConsultantData(consultantData);
-          }
-        }
-      }
-    };
-    
-    getProfileData();
-  }, [user]);
+  const handleSignOut = async () => {
+    await signOut();
+    setIsOpen(false);
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -62,10 +34,13 @@ const Navbar = () => {
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const handleLinkClick = () => {
+    setShowProfileMenu(false);
+    setIsOpen(false);
+  };
 
   const navItems = [
     { name: "Home", href: "/" },
@@ -74,15 +49,6 @@ const Navbar = () => {
   ];
 
   const isActive = (path: string) => pathname === path;
-
-  const handleSignOut = async () => {
-    await signOut();
-    setIsOpen(false);
-  };
-
-  const handleLinkClick = () => {
-    setShowProfileMenu(false);
-  };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b-2 border-black">
@@ -124,16 +90,16 @@ const Navbar = () => {
                 }}
               >
                 <User className="h-5 w-5" />
-                {profileData && (
-                  <span>{profileData.first_name || 'Profile'}</span>
+                {profile && (
+                  <span>{profile.first_name || 'Profile'}</span>
                 )}
               </Button>
               
               {showProfileMenu && (
                 <div className="absolute right-0 mt-2 w-56 bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] rounded-md z-50">
                   <div className="p-3 border-b-2 border-black">
-                    <p className="font-bold">{profileData?.first_name || ''} {profileData?.last_name || ''}</p>
-                    <p className="text-sm text-gray-600 capitalize">{profileData?.role || 'User'}</p>
+                    <p className="font-bold">{profile?.first_name || ''} {profile?.last_name || ''}</p>
+                    <p className="text-sm text-gray-600 capitalize">{profile?.role || 'User'}</p>
                   </div>
                   
                   <div className="p-2">
@@ -142,7 +108,7 @@ const Navbar = () => {
                         {isConsultant && (
                           <>
                             <Link
-                              href={`/mentors/${consultantData?.slug || ''}`}
+                              href={`/mentors/${profile?.consultant?.slug || ''}`}
                               onClick={handleLinkClick}
                               className="flex items-center px-4 py-2 text-sm hover:bg-gray-100 rounded-md"
                             >
@@ -235,8 +201,8 @@ const Navbar = () => {
                   <div className="flex flex-col space-y-2 py-2">
                     <>
                       <Link
-                        href={`/mentors/${consultantData?.slug || ''}`}
-                        onClick={() => setIsOpen(false)}
+                        href={`/mentors/${profile?.consultant?.slug || ''}`}
+                        onClick={handleLinkClick}
                         className="flex items-center gap-3 p-5 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white hover:bg-gray-50 transition-colors"
                       >
                         <User className="h-5 w-5" />
@@ -244,7 +210,7 @@ const Navbar = () => {
                       </Link>
                       <Link
                         href="/profile/consultant/edit-direct"
-                        onClick={() => setIsOpen(false)}
+                        onClick={handleLinkClick}
                         className="flex items-center gap-3 p-5 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white hover:bg-gray-50 transition-colors"
                       >
                         <Settings className="h-5 w-5" />
@@ -263,7 +229,7 @@ const Navbar = () => {
                   <div className="flex flex-col space-y-2 py-2">
                     <Link
                       href="/profile"
-                      onClick={() => setIsOpen(false)}
+                      onClick={handleLinkClick}
                       className="flex items-center gap-3 p-5 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white hover:bg-gray-50 transition-colors"
                     >
                       <User className="h-5 w-5" />

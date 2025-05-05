@@ -15,51 +15,44 @@ import {
 import { Input } from '@/components/ui/input';
 import { AlertCircle } from 'lucide-react';
 
-// Define specific types for form values
-interface AuthFormValues {
-  email: string;
-  password: string;
-}
+// Define the auth schema
+export const authSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+});
 
+// Define the auth form values type
+export type AuthFormValues = z.infer<typeof authSchema>;
+
+// Define the auth form props
 type AuthFormProps = {
   onSubmit: (values: AuthFormValues) => Promise<void>;
-  formSchema: z.ZodType<AuthFormValues>;
-  fields: {
-    name: string;
-    label: string;
-    type: string;
-    placeholder: string;
-  }[];
   submitText: string;
   isLoading: boolean;
   error: string | null;
+  showPassword?: boolean;
 };
 
 const AuthForm = ({
   onSubmit,
-  formSchema,
-  fields,
   submitText,
   isLoading,
   error,
+  showPassword = true,
 }: AuthFormProps) => {
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: fields.reduce((acc, field) => {
-      acc[field.name] = '';
-      return acc;
-    }, {} as Record<string, string>),
+  // Initialize the form
+  const form = useForm<AuthFormValues>({
+    resolver: zodResolver(authSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
   });
 
-  const handleSubmit = async (values: z.infer<typeof formSchema>) => {
+  // Handle form submission
+  const handleSubmit = async (values: AuthFormValues) => {
     await onSubmit(values);
   };
-
-  // Ensure form fields are correctly typed
-  const authFields: { name: keyof AuthFormValues; label: string; type: string; placeholder: string }[] = [
-    { name: 'email', label: 'Email', type: 'email', placeholder: 'Enter your email' },
-    { name: 'password', label: 'Password', type: 'password', placeholder: 'Enter your password' },
-  ];
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -72,28 +65,45 @@ const AuthForm = ({
             </div>
           )}
 
-          {authFields.map((field) => (
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-base">Email</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    type="email"
+                    placeholder="Enter your email"
+                    className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6 text-base"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {showPassword && (
             <FormField
-              key={field.name}
               control={form.control}
-              name={field.name}
-              render={({ field: formField }) => (
+              name="password"
+              render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-base">{field.label}</FormLabel>
+                  <FormLabel className="text-base">Password</FormLabel>
                   <FormControl>
                     <Input
-                      {...formField}
-                      type={field.type}
-                      placeholder={field.placeholder}
+                      {...field}
+                      type="password"
+                      placeholder="Enter your password"
                       className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6 text-base"
-                      value={formField.value ?? ''}
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-          ))}
+          )}
 
           <Button
             type="submit"

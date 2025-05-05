@@ -11,6 +11,16 @@ export type PurchaseUpdate = Database['public']['Tables']['purchases']['Update']
 export type PurchaseStatus = 'pending' | 'completed' | 'refunded' | 'cancelled';
 
 export interface PackageWithConsultant extends Package {
+  // These properties are explicitly defined to ensure type safety
+  id: string; // Using string type as seen in component usage
+  consultant_id: string; // Using string type as seen in component usage
+  title: string;
+  description: string;
+  price: number;
+  duration: string; // Changed to string to match the base Package type
+  calendly_link: string | null;
+  is_active: boolean;
+  // Consultant information
   consultant: {
     contact_email: string | null;
     contact_phone: string | null;
@@ -23,6 +33,9 @@ export interface PackageWithConsultant extends Package {
 }
 
 export interface PurchaseWithDetails extends Purchase {
+  id: string; // Explicitly defining id as string based on Supabase schema
+  contact_initiated: boolean; // Changed from boolean | null to boolean to match the base type
+  calendly_scheduled: boolean; // Changed from boolean | null to boolean to match the base type
   package: Package;
   consultant: {
     contact_email: string | null;

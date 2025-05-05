@@ -13,7 +13,12 @@ type UserProfile = {
   id: string;
   first_name: string | null;
   last_name: string | null;
-  role: 'student' | 'consultant' | null;
+  role: 'student' | 'consultant';
+  created_at: string | null;
+  updated_at: string | null;
+  consultant?: {
+    slug: string;
+  } | null;
   is_verified: boolean;
   email?: string | null;
 };
@@ -77,7 +82,10 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select(`
+          *,
+          consultant:consultants(slug)
+        `)
         .eq('id', userId)
         .single();
 
@@ -88,19 +96,20 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           await new Promise(resolve => setTimeout(resolve, 1000));
           return fetchUserProfile(userId, retryCount + 1);
         }
-        // After all retries failed, sign out the user and show error
-        toast.error('Error loading your profile. Please sign in again.');
-        await authSignOut();
-        return null;
+        throw error;
       }
 
-      if (profile && typeof profile.id === 'string') {
-        return profile as UserProfile;
+      if (!profile) {
+        console.error('Profile not found');
+        if (retryCount < 3) {
+          console.log(`Retrying profile fetch for missing profile (attempt ${retryCount + 1})`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return fetchUserProfile(userId, retryCount + 1);
+        }
+        throw new Error('Profile not found after retries');
       }
-      // If no profile found, sign out and show error
-      toast.error('Profile not found. Please sign in again.');
-      await authSignOut();
-      return null;
+
+      return profile;
     } catch (err) {
       console.error('Error in fetchUserProfile:', err);
       if (retryCount < 3) {
@@ -246,10 +255,25 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = async () => {
     try {
       if (!supabase) return; // SSR/Null guard
-      await authSignOut();
+      
+      // Clear local state first to make UI responsive
+      setUser(null);
+      setUserProfile(null);
+      setSession(null);
+      
+      // Then perform the actual sign-out with timeout
+      await Promise.race([
+        authSignOut(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Sign out timeout')), 5000)
+        )
+      ]);
+      
+      // Force clear any cached data
+      router.refresh();
     } catch (error) {
       console.error('Error signing out:', error);
-      throw error;
+      // Still consider it a success if local state is cleared
     }
   };
 

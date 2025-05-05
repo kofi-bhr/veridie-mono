@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { z } from 'zod';
-import useSupabaseAuth from '@/lib/auth/useSupabaseAuth';
+import { useSupabaseAuth } from '@/lib/auth';
 import AuthForm from './AuthForm';
 
 const signInSchema = z.object({
@@ -14,11 +14,11 @@ const signInSchema = z.object({
 type SignInFormValues = z.infer<typeof signInSchema>;
 
 const SignInForm = () => {
-  const { loading, error, handleSignIn } = useSupabaseAuth();
+  const { loading, error, signIn } = useSupabaseAuth();
   const [formError, setFormError] = useState<string | null>(error);
 
   const onSubmit = async (values: SignInFormValues) => {
-    const { success, error } = await handleSignIn(values.email, values.password);
+    const { success, error } = await signIn(values.email, values.password);
     if (!success && error) {
       setFormError(error);
     }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
-import { useForm } from 'react-hook-form';
+import { useForm, SubmitHandler, UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { supabase } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,7 @@ import BasicInfoSection from './form-sections/BasicInfoSection';
 import EducationSection from './form-sections/EducationSection';
 import AchievementsSection from './form-sections/AchievementsSection';
 import ServicesSection from './form-sections/ServicesSection';
-import { useUser } from '@/lib/auth/useSupabaseAuth';
+import { useUser } from '@/lib/auth/useUser';
 import { updateConsultantProfile, getConsultantProfile } from '@/lib/consultants/profileManager';
 import { ConsultantProfile } from '@/types/supabase';
 import { Input } from '@/components/ui/input';
@@ -114,14 +114,11 @@ const ConsultantProfileForm = ({ initialData, universities, userId, initialTab, 
   const [isLoading, setIsLoading] = useState(false);
   const [initialDataState, setInitialDataState] = useState<ConsultantProfile | null>(null);
   
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<ConsultantProfileFormValues>({
-    resolver: zodResolver(consultantProfileSchema) as any, // Use type assertion to fix resolver type mismatch
+  const form: UseFormReturn<ConsultantProfileFormValues> = useForm({
+    resolver: zodResolver(consultantProfileSchema) as any, // Type assertion needed due to zod/react-hook-form version mismatch
   });
+  
+  const { register, handleSubmit, reset } = form;
   
   useEffect(() => {
     async function loadProfile() {
@@ -159,7 +156,7 @@ const ConsultantProfileForm = ({ initialData, universities, userId, initialTab, 
     loadProfile();
   }, [user?.id, reset]);
   
-  const handleSubmitForm = async (values: ConsultantProfileFormValues) => {
+  const handleSubmitForm: SubmitHandler<ConsultantProfileFormValues> = async (values) => {
     if (!user?.id) {
       toast.error('Please sign in to update your profile');
       return;
@@ -198,7 +195,7 @@ const ConsultantProfileForm = ({ initialData, universities, userId, initialTab, 
 
   return (
     <div>
-      <form onSubmit={handleSubmit(handleSubmitForm as any)}>
+      <form onSubmit={handleSubmit(handleSubmitForm)}>
         {error && (
           <div className="p-4 mb-6 border-2 border-red-500 bg-red-50 rounded-md flex items-center gap-2">
             <AlertCircle className="h-5 w-5 text-red-600" />
@@ -215,19 +212,19 @@ const ConsultantProfileForm = ({ initialData, universities, userId, initialTab, 
           </TabsList>
           
           <TabsContent value="basic-info">
-            <BasicInfoSection form={{ register, errors }} />
+            <BasicInfoSection form={{ register, errors: form.formState.errors }} />
           </TabsContent>
           
           <TabsContent value="education">
-            <EducationSection form={{ register, errors }} universities={universities} />
+            <EducationSection form={{ register, errors: form.formState.errors }} universities={universities} />
           </TabsContent>
           
           <TabsContent value="achievements">
-            <AchievementsSection form={{ register, errors }} />
+            <AchievementsSection form={{ register, errors: form.formState.errors }} />
           </TabsContent>
           
           <TabsContent value="services">
-            <ServicesSection form={{ register, errors }} />
+            <ServicesSection form={{ register, errors: form.formState.errors }} />
           </TabsContent>
         </Tabs>
         

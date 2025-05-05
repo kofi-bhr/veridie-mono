@@ -1,18 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
-import { User } from '@supabase/supabase-js';
-
-interface Consultant {
-  id: string;
-  user_id: string;
-  stripe_account_id: string | null;
-  stripe_charges_enabled: boolean;
-  stripe_onboarding_complete: boolean;
-}
+import { User as SupabaseUser } from '@supabase/supabase-js';
+import { Consultant } from '@/types/supabase';
 
 interface UseUserReturn {
-  user: User | null;
+  user: SupabaseUser | null;
   consultant: Consultant | null;
   loading: boolean;
   error: Error | null;
@@ -20,7 +13,7 @@ interface UseUserReturn {
 
 export function useUser(): UseUserReturn {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
   const [consultant, setConsultant] = useState<Consultant | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
