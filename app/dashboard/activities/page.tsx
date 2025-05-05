@@ -22,6 +22,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
+// Maximum number of activities allowed per consultant
+const MAX_ACTIVITIES = 10
+
 export default function ActivitiesPage() {
   const { user } = useAuth()
   const { toast } = useToast()
@@ -127,6 +130,13 @@ export default function ActivitiesPage() {
     }
 
     try {
+      // Check if the user has reached the maximum number of activities
+      if (activities.length >= MAX_ACTIVITIES) {
+        throw new Error(
+          `You can only add up to ${MAX_ACTIVITIES} activities. Please delete some existing activities first.`,
+        )
+      }
+
       // Validate form data
       if (!formData.title || !formData.organization || !formData.years || !formData.description) {
         throw new Error("All fields are required")
@@ -243,85 +253,94 @@ export default function ActivitiesPage() {
     )
   }
 
+  const hasReachedLimit = activities.length >= MAX_ACTIVITIES
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Activities</h1>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Add Activity
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Activity</DialogTitle>
-              <DialogDescription>
-                Add details about your extracurricular activities, leadership roles, or work experience.
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Position/Title</Label>
-                <Input
-                  id="title"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleChange}
-                  placeholder="e.g., President, Research Assistant"
-                  required
-                />
-              </div>
+        <div>
+          {hasReachedLimit && (
+            <p className="text-sm text-amber-600 mb-2">
+              You have reached the maximum of {MAX_ACTIVITIES} activities. Delete some to add more.
+            </p>
+          )}
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button disabled={hasReachedLimit}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add Activity
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Activity</DialogTitle>
+                <DialogDescription>
+                  Add details about your extracurricular activities, leadership roles, or work experience.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="title">Position/Title</Label>
+                  <Input
+                    id="title"
+                    name="title"
+                    value={formData.title}
+                    onChange={handleChange}
+                    placeholder="e.g., President, Research Assistant"
+                    required
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="organization">Organization/Company</Label>
-                <Input
-                  id="organization"
-                  name="organization"
-                  value={formData.organization}
-                  onChange={handleChange}
-                  placeholder="e.g., Computer Science Club, Research Lab"
-                  required
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="organization">Organization/Company</Label>
+                  <Input
+                    id="organization"
+                    name="organization"
+                    value={formData.organization}
+                    onChange={handleChange}
+                    placeholder="e.g., Computer Science Club, Research Lab"
+                    required
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="years">Time Period</Label>
-                <Input
-                  id="years"
-                  name="years"
-                  value={formData.years}
-                  onChange={handleChange}
-                  placeholder="e.g., 2021-Present, Fall 2022"
-                  required
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="years">Time Period</Label>
+                  <Input
+                    id="years"
+                    name="years"
+                    value={formData.years}
+                    onChange={handleChange}
+                    placeholder="e.g., 2021-Present, Fall 2022"
+                    required
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  placeholder="Describe your responsibilities, achievements, and impact"
-                  rows={3}
-                  required
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    name="description"
+                    value={formData.description}
+                    onChange={handleChange}
+                    placeholder="Describe your responsibilities, achievements, and impact"
+                    rows={3}
+                    required
+                  />
+                </div>
 
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Add Activity"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Add Activity"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="grid gap-4">

@@ -20,7 +20,7 @@ interface MentorCardProps {
     awards?: Array<{
       title: string
       issuer: string
-      year: string
+      year?: string
       description?: string
     }>
     specialties: string[]
@@ -68,7 +68,7 @@ export function MentorCard({ mentor }: MentorCardProps) {
           {topAward && (
             <div className="mb-4">
               <div className="text-xs font-medium px-3 py-2 rounded-md bg-primary/10 text-primary border border-primary/20">
-                {topAward.title} - {topAward.issuer}
+                {topAward.title}
               </div>
             </div>
           )}

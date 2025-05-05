@@ -22,6 +22,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
+// Maximum number of awards allowed per consultant
+const MAX_AWARDS = 10
+
 export default function AwardsPage() {
   const { user } = useAuth()
   const { toast } = useToast()
@@ -63,7 +66,7 @@ export default function AwardsPage() {
         .from("awards")
         .select("*")
         .eq("mentor_id", user.id)
-        .order("created_at", { ascending: false })
+        .order("created_at", { ascending: true })
 
       if (error) throw error
       setAwards(data || [])
@@ -127,6 +130,11 @@ export default function AwardsPage() {
     }
 
     try {
+      // Check if the user has reached the maximum number of awards
+      if (awards.length >= MAX_AWARDS) {
+        throw new Error(`You can only add up to ${MAX_AWARDS} awards. Please delete some existing awards first.`)
+      }
+
       // Validate form data - only title and issuer are required now
       if (!formData.title || !formData.issuer) {
         throw new Error("Title and issuer are required")
@@ -243,81 +251,90 @@ export default function AwardsPage() {
     )
   }
 
+  const hasReachedLimit = awards.length >= MAX_AWARDS
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Awards</h1>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Add Award
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Award</DialogTitle>
-              <DialogDescription>Add details about awards, honors, or recognition you've received.</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Award Title</Label>
-                <Input
-                  id="title"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleChange}
-                  placeholder="e.g., Dean's List, National Merit Scholar"
-                  required
-                />
-              </div>
+        <div>
+          {hasReachedLimit && (
+            <p className="text-sm text-amber-600 mb-2">
+              You have reached the maximum of {MAX_AWARDS} awards. Delete some to add more.
+            </p>
+          )}
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button disabled={hasReachedLimit}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add Award
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Award</DialogTitle>
+                <DialogDescription>Add details about awards, honors, or recognition you've received.</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="title">Award Title</Label>
+                  <Input
+                    id="title"
+                    name="title"
+                    value={formData.title}
+                    onChange={handleChange}
+                    placeholder="e.g., Dean's List, National Merit Scholar"
+                    required
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="issuer">Issuing Organization</Label>
-                <Input
-                  id="issuer"
-                  name="issuer"
-                  value={formData.issuer}
-                  onChange={handleChange}
-                  placeholder="e.g., University, Professional Organization"
-                  required
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="issuer">Issuing Organization</Label>
+                  <Input
+                    id="issuer"
+                    name="issuer"
+                    value={formData.issuer}
+                    onChange={handleChange}
+                    placeholder="e.g., University, Professional Organization"
+                    required
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="year">Year Received (Optional)</Label>
-                <Input
-                  id="year"
-                  name="year"
-                  value={formData.year}
-                  onChange={handleChange}
-                  placeholder="e.g., 2022, 2020-2023"
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="year">Year Received (Optional)</Label>
+                  <Input
+                    id="year"
+                    name="year"
+                    value={formData.year}
+                    onChange={handleChange}
+                    placeholder="e.g., 2022, 2020-2023"
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="description">Description (Optional)</Label>
-                <Textarea
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  placeholder="Describe the award and its significance"
-                  rows={3}
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description (Optional)</Label>
+                  <Textarea
+                    id="description"
+                    name="description"
+                    value={formData.description}
+                    onChange={handleChange}
+                    placeholder="Describe the award and its significance"
+                    rows={3}
+                  />
+                </div>
 
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Add Award"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Add Award"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="grid gap-4">
