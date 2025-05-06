@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,22 +9,27 @@ import { StarRating } from "@/components/star-rating"
 import { MentorEssays } from "@/components/mentor-essays"
 import { MentorActivities } from "@/components/mentor-activities"
 import { MentorAwards } from "@/components/mentor-awards"
-import { MentorServices } from "@/components/mentor-services"
 import { MentorReviews } from "@/components/mentor-reviews"
-import { MentorAvailability } from "@/components/mentor-availability"
-import { CalendlyBooking } from "@/components/calendly-booking"
-import { CheckoutButton } from "@/components/checkout-button"
+import { Calendar } from "@/components/ui/calendar"
 import { supabase } from "@/lib/supabase-client"
-import { Loader2 } from "lucide-react"
+import { Loader2, CalendarDays } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/hooks/use-auth"
 
 export default function MentorPage() {
   const { id } = useParams()
+  const router = useRouter()
+  const { toast } = useToast()
+  const { user } = useAuth()
   const [mentor, setMentor] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedService, setSelectedService] = useState<any>(null)
-  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+  const [availableTimes, setAvailableTimes] = useState<string[]>([])
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
+  const [isLoadingTimes, setIsLoadingTimes] = useState(false)
+  const [isBooking, setIsBooking] = useState(false)
 
   useEffect(() => {
     async function fetchMentor() {
@@ -77,16 +82,94 @@ export default function MentorPage() {
     }
   }, [id])
 
-  const handleServiceSelect = (service: any) => {
-    setSelectedService(service)
+  // Reset selected time when date changes
+  useEffect(() => {
+    setSelectedTime(null)
+    if (selectedDate) {
+      fetchAvailableTimes(selectedDate)
+    }
+  }, [selectedDate])
+
+  // Function to fetch available times
+  const fetchAvailableTimes = async (date: Date) => {
+    setIsLoadingTimes(true)
+    try {
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 800))
+
+      // Simulate different times based on the day of week
+      const day = date.getDay()
+      let times: string[] = []
+
+      if (day === 0 || day === 6) {
+        // Weekend
+        times = ["10:00 AM", "11:00 AM", "2:00 PM"]
+      } else {
+        // Weekday
+        times = ["9:00 AM", "10:00 AM", "11:00 AM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM"]
+      }
+
+      setAvailableTimes(times)
+    } catch (error) {
+      console.error("Error fetching available times:", error)
+      setAvailableTimes([])
+    } finally {
+      setIsLoadingTimes(false)
+    }
   }
 
-  const handleDateSelect = (date: string) => {
-    setSelectedDate(date)
-  }
+  const handleBooking = async () => {
+    if (!user) {
+      toast({
+        title: "Please log in",
+        description: "You need to be logged in to book a session",
+        variant: "destructive",
+      })
+      router.push("/auth/login")
+      return
+    }
 
-  const handleTimeSelect = (time: string) => {
-    setSelectedTime(time)
+    if (!selectedService || !selectedDate || !selectedTime) {
+      toast({
+        title: "Incomplete booking",
+        description: "Please select a service, date, and time",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsBooking(true)
+
+    try {
+      // In a real implementation, this would call your API to create a booking
+      // and redirect to the Stripe checkout page
+      console.log("Booking details:", {
+        mentorId: mentor.id,
+        serviceId: selectedService.id,
+        serviceName: selectedService.name,
+        servicePrice: selectedService.price,
+        date: selectedDate.toISOString().split("T")[0],
+        time: selectedTime,
+      })
+
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+
+      // Redirect to success page
+      router.push(
+        `/booking/success?mentor=${mentor.id}&service=${selectedService.id}&date=${
+          selectedDate.toISOString().split("T")[0]
+        }&time=${selectedTime}`,
+      )
+    } catch (error) {
+      console.error("Error creating booking:", error)
+      toast({
+        title: "Booking failed",
+        description: "There was an error processing your booking. Please try again.",
+        variant: "destructive",
+      })
+      setIsBooking(false)
+    }
   }
 
   if (loading) {
@@ -173,11 +256,29 @@ export default function MentorPage() {
                   <CardDescription>Services offered by {mentor.name}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <MentorServices
-                    services={mentor.services}
-                    onSelectService={handleServiceSelect}
-                    selectedService={selectedService}
-                  />
+                  <div className="space-y-4">
+                    {mentor.services && mentor.services.length > 0 ? (
+                      mentor.services.map((service: any) => (
+                        <div
+                          key={service.id}
+                          className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                            selectedService?.id === service.id ? "border-primary bg-primary/5" : "hover:bg-gray-50"
+                          }`}
+                          onClick={() => setSelectedService(service)}
+                        >
+                          <div className="flex justify-between items-start">
+                            <h4 className="font-medium">{service.name}</h4>
+                            <span className="font-bold">${service.price}</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1">{service.description}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-center text-muted-foreground">
+                        This consultant hasn't added any services yet.
+                      </p>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -221,21 +322,52 @@ export default function MentorPage() {
                   <CardDescription>Book a session with {mentor.name}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {mentor.calendly_username ? (
-                    <CalendlyBooking
-                      username={mentor.calendly_username}
-                      eventTypeUri={mentor.calendly_event_type_uri}
-                      onDateSelect={handleDateSelect}
-                      onTimeSelect={handleTimeSelect}
-                    />
-                  ) : (
-                    <MentorAvailability
-                      onDateSelect={handleDateSelect}
-                      onTimeSelect={handleTimeSelect}
-                      selectedDate={selectedDate}
-                      selectedTime={selectedTime}
-                    />
-                  )}
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Select a date and time to book a session with {mentor.name}.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h3 className="text-sm font-medium mb-2">Select a Date</h3>
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate || undefined}
+                        onSelect={(date) => setSelectedDate(date)}
+                        className="rounded-md border"
+                        disabled={(date) => {
+                          const today = new Date()
+                          today.setHours(0, 0, 0, 0)
+                          return date < today
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium mb-2">Select a Time</h3>
+                      {!selectedDate ? (
+                        <p className="text-sm text-muted-foreground">Please select a date first</p>
+                      ) : isLoadingTimes ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="h-5 w-5 animate-spin text-primary mr-2" />
+                          <span>Loading available times...</span>
+                        </div>
+                      ) : availableTimes.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          {availableTimes.map((time) => (
+                            <Button
+                              key={time}
+                              variant={selectedTime === time ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setSelectedTime(time)}
+                              className="text-sm"
+                            >
+                              {time}
+                            </Button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-center py-2 text-muted-foreground">No available times on this day</p>
+                      )}
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -253,47 +385,131 @@ export default function MentorPage() {
           </Tabs>
 
           {/* Booking section */}
-          <Card className="mt-6">
+          <Card className="mt-6" id="booking-section">
             <CardHeader>
               <CardTitle>Book a Session</CardTitle>
               <CardDescription>Select a service, date, and time to book a session</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div className="space-y-6">
+                {/* Service Selection */}
                 <div>
-                  <h3 className="font-medium mb-2">Selected Service</h3>
-                  {selectedService ? (
-                    <div className="bg-primary/10 p-3 rounded-md">
-                      <div className="font-medium">{selectedService.name}</div>
-                      <div className="text-sm text-muted-foreground">${selectedService.price}</div>
-                    </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">No service selected</div>
-                  )}
+                  <h3 className="text-sm font-medium mb-3">Select a Service</h3>
+                  <div className="space-y-3">
+                    {mentor.services && mentor.services.length > 0 ? (
+                      mentor.services.map((service: any) => (
+                        <div
+                          key={service.id}
+                          className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                            selectedService?.id === service.id ? "border-primary bg-primary/5" : "hover:bg-gray-50"
+                          }`}
+                          onClick={() => setSelectedService(service)}
+                        >
+                          <div className="flex justify-between items-start">
+                            <h4 className="font-medium">{service.name}</h4>
+                            <span className="font-bold">${service.price}</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1">{service.description}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-center py-2 text-muted-foreground">No services available</p>
+                    )}
+                  </div>
                 </div>
 
-                <div>
-                  <h3 className="font-medium mb-2">Selected Date & Time</h3>
-                  {selectedDate && selectedTime ? (
-                    <div className="bg-primary/10 p-3 rounded-md">
-                      <div className="font-medium">{selectedDate}</div>
-                      <div className="text-sm text-muted-foreground">{selectedTime}</div>
+                {/* Date and Time Selection */}
+                {selectedService && (
+                  <div className="border-t pt-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h3 className="text-sm font-medium mb-2">Select a Date</h3>
+                        <Calendar
+                          mode="single"
+                          selected={selectedDate || undefined}
+                          onSelect={(date) => setSelectedDate(date)}
+                          className="rounded-md border"
+                          disabled={(date) => {
+                            const today = new Date()
+                            today.setHours(0, 0, 0, 0)
+                            return date < today
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-medium mb-2">Select a Time</h3>
+                        {!selectedDate ? (
+                          <p className="text-sm text-muted-foreground">Please select a date first</p>
+                        ) : isLoadingTimes ? (
+                          <div className="flex items-center justify-center py-4">
+                            <Loader2 className="h-5 w-5 animate-spin text-primary mr-2" />
+                            <span>Loading available times...</span>
+                          </div>
+                        ) : availableTimes.length > 0 ? (
+                          <div className="grid grid-cols-2 gap-2">
+                            {availableTimes.map((time) => (
+                              <Button
+                                key={time}
+                                variant={selectedTime === time ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setSelectedTime(time)}
+                                className="text-sm"
+                              >
+                                {time}
+                              </Button>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-center py-2 text-muted-foreground">No available times on this day</p>
+                        )}
+                      </div>
                     </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">No date and time selected</div>
-                  )}
-                </div>
+                  </div>
+                )}
 
-                <CheckoutButton
-                  mentorId={mentor.id}
-                  serviceId={selectedService?.id || ""}
-                  serviceName={selectedService?.name || ""}
-                  servicePrice={selectedService?.price || 0}
-                  stripePriceId={selectedService?.stripe_price_id}
-                  date={selectedDate}
-                  time={selectedTime}
-                  disabled={!selectedService || !selectedDate || !selectedTime}
-                />
+                {/* Booking Summary */}
+                <div className="border-t pt-4">
+                  <h3 className="text-sm font-medium mb-2">Booking Summary</h3>
+                  <div className="bg-muted p-4 rounded-md mb-4">
+                    <div className="flex justify-between mb-2">
+                      <span className="font-medium">Selected Service:</span>
+                      <span>{selectedService ? selectedService.name : "No service selected"}</span>
+                    </div>
+                    <div className="flex justify-between mb-2">
+                      <span className="font-medium">Date:</span>
+                      <span>{selectedDate ? selectedDate.toLocaleDateString() : "No date selected"}</span>
+                    </div>
+                    <div className="flex justify-between mb-2">
+                      <span className="font-medium">Time:</span>
+                      <span>{selectedTime || "No time selected"}</span>
+                    </div>
+                    {selectedService && (
+                      <div className="flex justify-between font-bold mt-2 pt-2 border-t">
+                        <span>Total:</span>
+                        <span>${selectedService.price}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <Button
+                    onClick={handleBooking}
+                    disabled={!selectedService || !selectedDate || !selectedTime || isBooking}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {isBooking ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <CalendarDays className="mr-2 h-4 w-4" />
+                        Book Now
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

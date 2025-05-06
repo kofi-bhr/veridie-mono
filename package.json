@@ -62,7 +62,9 @@
     "@stripe/stripe-js": "latest",
     "@supabase/auth-helpers-nextjs": "latest",
     "stripe": "latest",
-    "react-calendly": "latest"
+    "react-calendly": "latest",
+    "fs": "latest",
+    "path": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

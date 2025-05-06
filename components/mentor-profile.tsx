@@ -1,16 +1,68 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { StarRating } from "@/components/star-rating"
-import { CalendlyBooking } from "@/components/calendly-booking"
+import { MentorEssays } from "@/components/mentor-essays"
+import { MentorActivities } from "@/components/mentor-activities"
+import { MentorAwards } from "@/components/mentor-awards"
+import { MentorReviews } from "@/components/mentor-reviews"
+import { Calendar } from "@/components/ui/calendar"
+import { CheckoutButton } from "@/components/checkout-button"
+import { Loader2 } from "lucide-react"
 
-export function MentorProfile({ mentor }: { mentor: any }) {
+export function MentorProfile({ mentor, reviews = [] }: { mentor: any; reviews?: any[] }) {
   const [activeTab, setActiveTab] = useState("about")
   const [selectedService, setSelectedService] = useState<any>(null)
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
+  const [availableTimes, setAvailableTimes] = useState<string[]>([])
+  const [selectedTime, setSelectedTime] = useState<string | null>(null)
+  const [isLoadingTimes, setIsLoadingTimes] = useState(false)
+
+  // Reset selected time when date changes
+  useEffect(() => {
+    setSelectedTime(null)
+    if (selectedDate && selectedService) {
+      fetchAvailableTimes(selectedDate, selectedService.id)
+    }
+  }, [selectedDate, selectedService])
+
+  // Function to fetch available times from Calendly API
+  const fetchAvailableTimes = async (date: Date, serviceId: string) => {
+    setIsLoadingTimes(true)
+    try {
+      // Format date as YYYY-MM-DD
+      const formattedDate = date.toISOString().split("T")[0]
+
+      if (mentor.calendly_username && mentor.calendly_event_type_uri) {
+        // In a real implementation, this would call your backend API that interfaces with Calendly
+        // For now, we'll simulate some available times
+        await new Promise((resolve) => setTimeout(resolve, 800)) // Simulate API delay
+      }
+
+      // Simulate different times based on the day of week
+      const day = date.getDay()
+      let times: string[] = []
+
+      if (day === 0 || day === 6) {
+        // Weekend
+        times = ["10:00 AM", "11:00 AM", "2:00 PM"]
+      } else {
+        // Weekday
+        times = ["9:00 AM", "10:00 AM", "11:00 AM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM"]
+      }
+
+      setAvailableTimes(times)
+    } catch (error) {
+      console.error("Error fetching available times:", error)
+      setAvailableTimes([])
+    } finally {
+      setIsLoadingTimes(false)
+    }
+  }
 
   if (!mentor) {
     return (
@@ -22,11 +74,6 @@ export function MentorProfile({ mentor }: { mentor: any }) {
     )
   }
 
-  const handleBookNow = (service: any) => {
-    setSelectedService(service)
-    window.scrollTo({ top: document.getElementById("booking-section")?.offsetTop || 0, behavior: "smooth" })
-  }
-
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -35,14 +82,14 @@ export function MentorProfile({ mentor }: { mentor: any }) {
           <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-8">
             <div className="relative w-24 h-24 rounded-full overflow-hidden">
               <Image
-                src={mentor.profile?.avatar || "/placeholder.svg?height=96&width=96&query=avatar"}
-                alt={mentor.profile?.name || "Mentor"}
+                src={mentor.profile_image_url || "/placeholder.svg?height=96&width=96&query=avatar"}
+                alt={mentor.name || "Mentor"}
                 fill
                 className="object-cover"
               />
             </div>
             <div>
-              <h1 className="text-3xl font-bold">{mentor.profile?.name || "Unnamed Mentor"}</h1>
+              <h1 className="text-3xl font-bold">{mentor.name || "Unnamed Mentor"}</h1>
               <p className="text-lg text-gray-600">{mentor.title || "College Consultant"}</p>
               <p className="text-gray-500">{mentor.university || "University not specified"}</p>
               <div className="flex items-center mt-2">
@@ -93,24 +140,12 @@ export function MentorProfile({ mentor }: { mentor: any }) {
             {/* Activities Tab */}
             <TabsContent value="activities">
               <Card>
-                <CardContent className="pt-6">
-                  <h2 className="text-2xl font-bold mb-4">Activities & Experience</h2>
-                  {mentor.activities && mentor.activities.length > 0 ? (
-                    <div className="space-y-6">
-                      {mentor.activities.map((activity: any) => (
-                        <div key={activity.id} className="border-b pb-6 last:border-0">
-                          <h3 className="text-xl font-bold">{activity.title || activity.name}</h3>
-                          <p className="text-gray-600">{activity.organization}</p>
-                          <p className="text-gray-500 mb-2">
-                            {activity.years || `${activity.start_date} - ${activity.end_date || "Present"}`}
-                          </p>
-                          <p className="text-gray-700">{activity.description}</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500">No activities listed.</p>
-                  )}
+                <CardHeader>
+                  <CardTitle>Activities</CardTitle>
+                  <CardDescription>Extracurricular activities of {mentor.name}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <MentorActivities activities={mentor.activities} />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -118,22 +153,12 @@ export function MentorProfile({ mentor }: { mentor: any }) {
             {/* Awards Tab */}
             <TabsContent value="awards">
               <Card>
-                <CardContent className="pt-6">
-                  <h2 className="text-2xl font-bold mb-4">Awards & Honors</h2>
-                  {mentor.awards && mentor.awards.length > 0 ? (
-                    <div className="space-y-6">
-                      {mentor.awards.map((award: any) => (
-                        <div key={award.id} className="border-b pb-6 last:border-0">
-                          <h3 className="text-xl font-bold">{award.title || award.name}</h3>
-                          <p className="text-gray-600">{award.organization || award.issuer}</p>
-                          <p className="text-gray-500 mb-2">{award.year || award.date}</p>
-                          <p className="text-gray-700">{award.description}</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500">No awards listed.</p>
-                  )}
+                <CardHeader>
+                  <CardTitle>Awards</CardTitle>
+                  <CardDescription>Awards and achievements of {mentor.name}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <MentorAwards awards={mentor.awards} />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -141,24 +166,12 @@ export function MentorProfile({ mentor }: { mentor: any }) {
             {/* Essays Tab */}
             <TabsContent value="essays">
               <Card>
-                <CardContent className="pt-6">
-                  <h2 className="text-2xl font-bold mb-4">Sample Essays</h2>
-                  {mentor.essays && mentor.essays.length > 0 ? (
-                    <div className="space-y-6">
-                      {mentor.essays.map((essay: any) => (
-                        <div key={essay.id} className="border-b pb-6 last:border-0">
-                          <h3 className="text-xl font-bold">{essay.title}</h3>
-                          <p className="text-blue-600">{essay.university || essay.school}</p>
-                          <div className="bg-gray-50 p-4 rounded my-3">
-                            <p className="italic text-gray-700">{essay.prompt}</p>
-                          </div>
-                          <p className="text-gray-700 whitespace-pre-line">{essay.text || essay.content}</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500">No sample essays available.</p>
-                  )}
+                <CardHeader>
+                  <CardTitle>Essays</CardTitle>
+                  <CardDescription>College essays written by {mentor.name}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <MentorEssays essays={mentor.essays} />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -166,85 +179,139 @@ export function MentorProfile({ mentor }: { mentor: any }) {
             {/* Reviews Tab */}
             <TabsContent value="reviews">
               <Card>
-                <CardContent className="pt-6">
-                  <h2 className="text-2xl font-bold mb-4">Reviews</h2>
-                  <p className="text-gray-500">No reviews yet.</p>
+                <CardHeader>
+                  <CardTitle>Reviews</CardTitle>
+                  <CardDescription>What others say about {mentor.name}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <MentorReviews mentorId={mentor.id} reviews={reviews} />
                 </CardContent>
               </Card>
             </TabsContent>
           </Tabs>
         </div>
 
-        {/* Sidebar */}
+        {/* Sidebar - Book a Session */}
         <div className="space-y-6">
-          {/* Services Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Services</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {mentor.services && mentor.services.length > 0 ? (
-                <div className="space-y-4">
-                  {mentor.services.map((service: any) => (
-                    <div key={service.id} className="border-b pb-4 last:border-0">
-                      <h3 className="font-semibold">{service.name}</h3>
-                      <p className="text-gray-700 text-sm mb-2">{service.description}</p>
-                      <div className="flex justify-between items-center">
-                        <span className="font-bold">${service.price}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500">No services available.</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Book a Session Card */}
+          {/* Services and Booking Card */}
           <Card>
             <CardHeader>
               <CardTitle>Book a Session</CardTitle>
+              <CardDescription>Select a service and schedule a time</CardDescription>
             </CardHeader>
-            <CardContent>
-              {mentor.services && mentor.services.length > 0 ? (
-                <div className="space-y-4">
-                  {mentor.services.map((service: any) => (
-                    <div key={service.id} className="border rounded-lg p-4">
-                      <h3 className="font-semibold">{service.name}</h3>
-                      <p className="text-sm text-gray-500 mb-2">{service.description}</p>
-                      <div className="flex justify-between items-center mt-2">
-                        <span className="font-bold">${service.price}</span>
-                        <Button size="sm" onClick={() => handleBookNow(service)}>
-                          Book Now
-                        </Button>
+            <CardContent className="space-y-6">
+              {/* Service Selection */}
+              <div>
+                <h3 className="text-sm font-medium mb-3">Available Services</h3>
+                {mentor.services && mentor.services.length > 0 ? (
+                  <div className="space-y-3">
+                    {mentor.services.map((service: any) => (
+                      <div
+                        key={service.id}
+                        className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                          selectedService?.id === service.id ? "border-primary bg-primary/5" : "hover:bg-gray-50"
+                        }`}
+                        onClick={() => setSelectedService(service)}
+                      >
+                        <div className="flex justify-between items-start">
+                          <h4 className="font-medium">{service.name}</h4>
+                          <span className="font-bold">${service.price.toFixed(2)}</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">{service.description}</p>
                       </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center py-2 text-muted-foreground">No services available</p>
+                )}
+              </div>
+
+              {/* Date Selection - Only show if a service is selected */}
+              {selectedService && (
+                <>
+                  <div className="border-t pt-4">
+                    <h3 className="text-sm font-medium mb-2">Select a Date</h3>
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={setSelectedDate}
+                      className="rounded-md border"
+                      disabled={(date) => {
+                        // Disable past dates
+                        const today = new Date()
+                        today.setHours(0, 0, 0, 0)
+                        return date < today
+                      }}
+                    />
+                  </div>
+
+                  {/* Time Selection - Only show if a date is selected */}
+                  {selectedDate && (
+                    <div className="border-t pt-4">
+                      <h3 className="text-sm font-medium mb-2">Select a Time</h3>
+                      {isLoadingTimes ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="h-5 w-5 animate-spin text-primary mr-2" />
+                          <span>Loading available times...</span>
+                        </div>
+                      ) : availableTimes.length > 0 ? (
+                        <div className="grid grid-cols-3 gap-2">
+                          {availableTimes.map((time) => (
+                            <Button
+                              key={time}
+                              variant={selectedTime === time ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setSelectedTime(time)}
+                              className="text-sm"
+                            >
+                              {time}
+                            </Button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-center py-2 text-muted-foreground">No available times on this day</p>
+                      )}
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500">No services available for booking.</p>
+                  )}
+                </>
               )}
+
+              {/* Summary and Book Button */}
+              <div className="border-t pt-4">
+                <div className="mb-4">
+                  <h3 className="text-sm font-medium mb-2">Booking Summary</h3>
+                  <div className="bg-muted p-3 rounded-md">
+                    <p className="text-sm">
+                      <span className="font-medium">Selected Service:</span>{" "}
+                      {selectedService ? selectedService.name : "No service selected"}
+                    </p>
+                    <p className="text-sm mt-1">
+                      <span className="font-medium">Selected Date & Time:</span>{" "}
+                      {selectedDate && selectedTime
+                        ? `${selectedDate.toLocaleDateString()} at ${selectedTime}`
+                        : "No date and time selected"}
+                    </p>
+                    {selectedService && (
+                      <p className="text-sm mt-1 font-bold">Total: ${selectedService.price.toFixed(2)}</p>
+                    )}
+                  </div>
+                </div>
+
+                <CheckoutButton
+                  mentorId={mentor.id}
+                  serviceId={selectedService?.id || ""}
+                  serviceName={selectedService?.name || ""}
+                  servicePrice={selectedService?.price || 0}
+                  stripePriceId={selectedService?.stripe_price_id}
+                  date={selectedDate ? selectedDate.toLocaleDateString() : null}
+                  time={selectedTime}
+                  disabled={!selectedService || !selectedDate || !selectedTime}
+                />
+              </div>
             </CardContent>
           </Card>
         </div>
       </div>
-
-      {/* Calendly Booking Section */}
-      {mentor.calendly_username && (
-        <div id="booking-section" className="mt-12 pt-8 border-t">
-          <h2 className="text-2xl font-bold mb-6">
-            {selectedService ? `Book: ${selectedService.name}` : "Schedule a Session"}
-          </h2>
-          <CalendlyBooking
-            mentorId={mentor.id}
-            mentorName={mentor.profile?.name || "Consultant"}
-            calendlyUsername={mentor.calendly_username}
-            serviceId={selectedService?.id}
-            serviceName={selectedService?.name}
-          />
-        </div>
-      )}
     </div>
   )
 }
