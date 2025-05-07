@@ -64,7 +64,8 @@
     "react-calendly": "latest",
     "fs": "latest",
     "path": "latest",
-    "stripe": "latest"
+    "stripe": "latest",
+    "@supabase/ssr": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

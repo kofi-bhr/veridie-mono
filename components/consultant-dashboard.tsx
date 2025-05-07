@@ -150,11 +150,6 @@ export function ConsultantDashboard({ user, mentorData }: { user: any; mentorDat
                         </div>
                         <div className="text-right">
                           <p className="font-medium">${service.price}</p>
-                          {service.calendly_event_type_uri && (
-                            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                              Calendly Connected
-                            </span>
-                          )}
                         </div>
                       </div>
                     </div>

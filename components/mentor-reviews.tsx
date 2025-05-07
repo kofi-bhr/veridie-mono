@@ -14,7 +14,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { addReview } from "@/lib/actions"
 import { supabase } from "@/lib/supabase-client"
 import { Skeleton } from "@/components/ui/skeleton"
-import { supabaseAdmin } from "@/lib/supabase-admin"
+import { supabaseAdmin, isAdminClientConfigured } from "@/lib/supabase-admin"
 
 interface MentorReviewsProps {
   mentorId: string
@@ -112,6 +112,7 @@ export function MentorReviews({ mentorId }: MentorReviewsProps) {
 
       if (tableCheckError && tableCheckError.message.includes('relation "reviews" does not exist')) {
         // Table doesn't exist, create it first
+        console.log("Reviews table doesn't exist, creating it...")
         const createTableResult = await fetch("/api/setup/reviews-table", {
           method: "POST",
         })
@@ -121,28 +122,42 @@ export function MentorReviews({ mentorId }: MentorReviewsProps) {
         }
       }
 
-      // Try to insert directly into the reviews table using admin client to bypass RLS
-      const { data, error } = await supabaseAdmin
-        .from("reviews")
-        .insert([
-          {
-            mentor_id: mentorId,
-            client_id: user.id,
-            name: user.name,
-            rating: rating,
-            service: service,
-            text: reviewText,
-          },
-        ])
-        .select()
+      let success = false
 
-      if (error) {
-        console.error("Error inserting review with admin client:", error)
+      // Check if admin client is configured before trying to use it
+      if (isAdminClientConfigured()) {
+        console.log("Attempting to use admin client for review submission...")
+        try {
+          const { error } = await supabaseAdmin.from("reviews").insert([
+            {
+              mentor_id: mentorId,
+              client_id: user.id,
+              name: user.name,
+              rating: rating,
+              service: service,
+              text: reviewText,
+            },
+          ])
 
-        // If admin client fails, try the server action as fallback
+          if (error) {
+            console.error("Error inserting review with admin client:", error)
+          } else {
+            success = true
+            console.log("Review successfully submitted with admin client")
+          }
+        } catch (adminError) {
+          console.error("Admin client operation failed:", adminError)
+        }
+      } else {
+        console.log("Admin client not configured, skipping admin client attempt")
+      }
+
+      // If admin client failed or isn't configured, use the server action
+      if (!success) {
+        console.log("Using server action for review submission...")
         const formData = new FormData()
         formData.append("mentorId", mentorId)
-        formData.append("name", user.name)
+        formData.append("name", user.name || "Anonymous")
         formData.append("rating", rating.toString())
         formData.append("service", service)
         formData.append("text", reviewText)
@@ -150,8 +165,10 @@ export function MentorReviews({ mentorId }: MentorReviewsProps) {
         const result = await addReview(formData)
 
         if (!result.success) {
-          throw new Error(result.message)
+          throw new Error(result.message || "Failed to submit review via server action")
         }
+
+        console.log("Review successfully submitted with server action")
       }
 
       toast({

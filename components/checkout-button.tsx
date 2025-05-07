@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Loader2, CalendarCheck } from "lucide-react"
+import { toast } from "@/components/ui/use-toast"
 
 interface CheckoutButtonProps {
   mentorId: string
@@ -29,35 +30,49 @@ export function CheckoutButton({
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
-  const handleBooking = async () => {
+  const handleCheckout = async () => {
+    setLoading(true)
     try {
-      setLoading(true)
-      console.log("Booking details:", {
-        mentorId,
-        serviceId,
-        serviceName,
-        servicePrice,
-        stripePriceId,
-        date,
-        time,
+      // Create a checkout session
+      const response = await fetch("/api/stripe/create-checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          mentorId,
+          serviceId,
+          serviceName,
+          servicePrice,
+          stripePriceId,
+          date,
+          time,
+        }),
       })
 
-      // In the real implementation, this would call your API to create a booking
-      // and redirect to the Stripe checkout page
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to create checkout session")
+      }
 
-      // For now, we'll just simulate the process with a delay
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      const data = await response.json()
 
-      // Redirect to a success page or Stripe checkout
-      router.push(`/booking/success?mentor=${mentorId}&service=${serviceId}&date=${date}&time=${time}`)
+      // Redirect to Stripe Checkout
+      window.location.href = data.url
     } catch (error) {
-      console.error("Error creating checkout session:", error)
+      console.error("Checkout error:", error)
+      toast({
+        title: "Checkout Failed",
+        description: error instanceof Error ? error.message : "Something went wrong",
+        variant: "destructive",
+      })
+    } finally {
       setLoading(false)
     }
   }
 
   return (
-    <Button onClick={handleBooking} disabled={disabled || loading} className="w-full">
+    <Button onClick={handleCheckout} disabled={disabled || loading} className="w-full">
       {loading ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -25,6 +25,11 @@ interface Mentor {
     name: string
     price: number
   }[]
+  awards?: {
+    title: string
+    issuer: string
+    year?: string
+  }[]
 }
 
 export default function MentorsDirectoryPage() {
@@ -50,7 +55,8 @@ export default function MentorsDirectoryPage() {
             review_count,
             profile_image_url,
             profile:profiles(name, email, avatar),
-            services(name, price)
+            services(name, price),
+            awards(title, issuer, year)
           `)
           .order("rating", { ascending: false })
 
@@ -64,6 +70,7 @@ export default function MentorsDirectoryPage() {
             ...mentor,
             profile: mentor.profile,
             services: mentor.services || [],
+            awards: mentor.awards || [],
           })) || []
 
         console.log(
@@ -156,6 +163,14 @@ export default function MentorsDirectoryPage() {
                   <StarRating rating={mentor.rating} />
                   <span className="text-sm text-muted-foreground">({mentor.review_count} reviews)</span>
                 </div>
+
+                {mentor.awards && mentor.awards.length > 0 && (
+                  <div className="mb-4">
+                    <div className="text-xs font-medium px-3 py-2 rounded-md bg-gray-700 text-white">
+                      {mentor.awards[0].title}
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between">
                   <div>

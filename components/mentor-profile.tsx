@@ -35,26 +35,38 @@ export function MentorProfile({ mentor, reviews = [] }: { mentor: any; reviews?:
     try {
       // Format date as YYYY-MM-DD
       const formattedDate = date.toISOString().split("T")[0]
+      console.log("Fetching available times for:", { mentorId: mentor.id, date: formattedDate, serviceId })
 
-      if (mentor.calendly_username && mentor.calendly_event_type_uri) {
-        // In a real implementation, this would call your backend API that interfaces with Calendly
-        // For now, we'll simulate some available times
-        await new Promise((resolve) => setTimeout(resolve, 800)) // Simulate API delay
+      // Call our backend API that interfaces with Calendly
+      const response = await fetch("/api/calendly/available-times", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          mentorId: mentor.id,
+          date: formattedDate,
+          serviceId: serviceId,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`API error (${response.status}): ${errorText}`)
+        throw new Error(`Failed to fetch available times: ${response.status}`)
       }
 
-      // Simulate different times based on the day of week
-      const day = date.getDay()
-      let times: string[] = []
+      const data = await response.json()
+      console.log("Available times response:", data)
 
-      if (day === 0 || day === 6) {
-        // Weekend
-        times = ["10:00 AM", "11:00 AM", "2:00 PM"]
+      // Check if we got real Calendly data or simulated data
+      if (data.source === "calendly") {
+        console.log("Using real Calendly data for available times")
       } else {
-        // Weekday
-        times = ["9:00 AM", "10:00 AM", "11:00 AM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM"]
+        console.log("Using simulated data for available times")
       }
 
-      setAvailableTimes(times)
+      setAvailableTimes(data.times || [])
     } catch (error) {
       console.error("Error fetching available times:", error)
       setAvailableTimes([])

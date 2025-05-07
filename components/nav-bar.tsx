@@ -33,11 +33,11 @@ export function NavBar() {
   const [showSearch, setShowSearch] = useState(false)
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b bg-white shadow-sm">
       <div className="container flex h-16 items-center">
         <div className="mr-4 flex">
           <Link href="/" className="flex items-center">
-            <span className="font-bold text-xl">Veridie</span>
+            <span className="font-bold text-xl text-gray-900">Veridie</span>
           </Link>
         </div>
 

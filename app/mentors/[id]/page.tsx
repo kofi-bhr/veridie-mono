@@ -314,18 +314,30 @@ export default function MentorPage() {
                     mentor.services.map((service: any) => (
                       <div
                         key={service.id}
-                        className={`bg-[#1C2127] rounded-lg p-4 cursor-pointer transition-all hover:shadow-md ${
+                        className={`rounded-lg p-4 cursor-pointer transition-all hover:shadow-md ${
                           selectedService?.id === service.id
-                            ? "border-2 border-white shadow-sm"
-                            : "border border-transparent hover:border-white/50"
+                            ? "bg-[#1C2127] border-2 border-gray-600 text-white shadow-sm"
+                            : "bg-white border border-gray-200 text-gray-800 hover:border-gray-300"
                         }`}
                         onClick={() => setSelectedService(service)}
                       >
                         <div className="flex justify-between items-start">
-                          <h4 className="font-medium text-white">{service.name}</h4>
-                          <span className="font-bold text-white">${service.price}</span>
+                          <h4
+                            className={`font-medium ${selectedService?.id === service.id ? "text-white" : "text-gray-800"}`}
+                          >
+                            {service.name}
+                          </h4>
+                          <span
+                            className={`font-bold ${selectedService?.id === service.id ? "text-white" : "text-gray-800"}`}
+                          >
+                            ${service.price}
+                          </span>
                         </div>
-                        <p className="text-sm text-white mt-1">{service.description}</p>
+                        <p
+                          className={`text-sm mt-1 ${selectedService?.id === service.id ? "text-white/90" : "text-gray-600"}`}
+                        >
+                          {service.description}
+                        </p>
                       </div>
                     ))
                   ) : (
