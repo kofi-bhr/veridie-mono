@@ -1,6 +1,7 @@
 'use client';
 
-import { supabase } from '@/lib/supabase/client';
+import supabase from '@/lib/supabase/browser';
+import logger from '@/lib/utils/logger';
 import { toast } from 'sonner';
 import { ConsultantProfile } from '@/types/supabase';
 
@@ -41,7 +42,7 @@ export async function checkConsultantProfile(userId: string): Promise<Consultant
  */
 export const createConsultantProfile = async (userId: string) => {
   try {
-    console.log('Creating consultant profile for user:', userId);
+    logger.info('Creating consultant profile for user:', userId);
     
     if (!userId) {
       console.error('Cannot create consultant profile: User ID is undefined');
@@ -65,11 +66,11 @@ export const createConsultantProfile = async (userId: string) => {
     
     // If profile already exists, return it immediately
     if (existingProfile) {
-      console.log('Consultant profile already exists, returning existing profile:', existingProfile);
+      logger.info('Consultant profile already exists, returning existing profile:', existingProfile);
       return existingProfile;
     }
     
-    console.log('No existing profile found, creating a new one...');
+    logger.info('No existing profile found, creating a new one...');
     
     // Generate a unique slug
     let slug = `mentor-${userId.substring(0, 8)}`;
@@ -91,7 +92,7 @@ export const createConsultantProfile = async (userId: string) => {
     if (existingSlug) {
       // Make the slug unique by adding a random suffix
       slug = `${slug}-${Math.random().toString(36).substring(2, 7)}`;
-      console.log('Slug already exists, using new slug:', slug);
+      logger.info('Slug already exists, using new slug:', slug);
     }
     
     // Create a default consultant profile - NO description field
@@ -106,7 +107,7 @@ export const createConsultantProfile = async (userId: string) => {
       num_aps: 0, // Default value for required field
     };
     
-    console.log('Creating new consultant profile with data:', defaultProfile);
+    logger.info('Creating new consultant profile with data:', defaultProfile);
     
     // Insert the new profile
     const { data, error } = await supabase
@@ -122,7 +123,7 @@ export const createConsultantProfile = async (userId: string) => {
       return null;
     }
     
-    console.log('Successfully created consultant profile:', data);
+    logger.info('Successfully created consultant profile:', data);
     toast.success('Mentor profile created successfully');
     return data;
   } catch (error) {
@@ -151,7 +152,7 @@ export const getConsultantProfileUrl = async (userId: string): Promise<string | 
     
     // If no profile exists, create one
     if (!profile) {
-      console.log('No profile found, creating one...');
+      logger.info('No profile found, creating one...');
       profile = await createConsultantProfile(userId);
     }
     
@@ -190,14 +191,14 @@ export const navigateToConsultantProfile = async (userId: string, router: any): 
     
     // If no profile exists, create one
     if (!profile) {
-      console.log('No profile found, creating one...');
+      logger.info('No profile found, creating one...');
       profile = await createConsultantProfile(userId);
     }
     
     // If we have a profile, navigate to it
     if (profile && profile.slug) {
       const profileUrl = `/mentors/${profile.slug}`;
-      console.log('Navigating to consultant profile:', profileUrl);
+      logger.info('Navigating to consultant profile:', profileUrl);
       
       // Use window.location for a full page navigation to ensure it works
       if (typeof window !== 'undefined') {

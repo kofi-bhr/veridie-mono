@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { X, ChevronDown, ChevronUp, Filter, AlertCircle } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
@@ -76,10 +76,11 @@ const MentorsPage = () => {
       }
     };
 
-    const fetchMentors = async () => {
+    const fetchMentors = useCallback(async () => {
+      setIsLoading(true);
+      setError(null);
       try {
-        // Simple query to get consultants with their profiles
-        const { data, error } = await supabase
+        const { data: consultants, error: consultantsError } = await supabase
           .from('consultants')
           .select(`
             id, 
@@ -89,7 +90,7 @@ const MentorsPage = () => {
             headline,
             image_url,
             major,
-            accepted_university_ids,
+            accepted_schools,
             profiles!user_id(
               id,
               first_name,
@@ -98,91 +99,76 @@ const MentorsPage = () => {
             )
           `);
         
-        if (error) {
-          console.error('Error fetching consultants:', error.message);
-          setError(`Error fetching mentors: ${error.message}`);
-          setIsLoading(false);
+        if (consultantsError) {
+          console.error('Error fetching consultants:', consultantsError);
+          setError('Failed to load mentors');
           return;
         }
-        
-        if (!data || data.length === 0) {
-          setMentors([]);
-          setFilteredMentors([]);
-          setIsLoading(false);
-          return;
-        }
-        
-        // Process the consultants data
-        const processedMentors: Mentor[] = [];
-        const uniqueMajors: string[] = [];
-        
-        for (const consultant of data) {
-          try {
-            // Get profile data
-            const profile = Array.isArray(consultant.profiles) 
-              ? consultant.profiles[0] 
-              : consultant.profiles;
-            
-            // Get university name
-            const universityName = consultant.university || 'Unknown University';
-            
-            // Process majors
-            let majors: string[] = [];
-            if (consultant.major) {
-              if (typeof consultant.major === 'string') {
-                try {
-                  majors = JSON.parse(consultant.major);
-                } catch {
-                  majors = [consultant.major];
-                }
-              } else if (Array.isArray(consultant.major)) {
-                majors = consultant.major;
+
+        // Process consultants data
+        const processedMentors = consultants.map(consultant => {
+          // Get profile data
+          const profile = Array.isArray(consultant.profiles) 
+            ? consultant.profiles[0] 
+            : consultant.profiles;
+          
+          // Get university name
+          const universityName = consultant.university || 'Unknown University';
+          
+          // Process majors
+          let majors: string[] = [];
+          if (consultant.major) {
+            if (typeof consultant.major === 'string') {
+              try {
+                majors = JSON.parse(consultant.major);
+              } catch {
+                majors = [consultant.major];
               }
-              
-              // Add unique majors to the filter list
-              majors.forEach(major => {
-                if (!uniqueMajors.includes(major)) {
-                  uniqueMajors.push(major);
-                }
-              });
+            } else if (Array.isArray(consultant.major)) {
+              majors = consultant.major;
             }
             
-            // Process accepted schools
-            let acceptedSchools: string[] = [];
-            if (consultant.accepted_university_ids) {
-              if (typeof consultant.accepted_university_ids === 'string') {
-                try {
-                  acceptedSchools = JSON.parse(consultant.accepted_university_ids);
-                } catch {
-                  acceptedSchools = [consultant.accepted_university_ids];
-                }
-              } else if (Array.isArray(consultant.accepted_university_ids)) {
-                acceptedSchools = consultant.accepted_university_ids;
+            // Add unique majors to the filter list
+            majors.forEach(major => {
+              if (!allMajors.includes(major)) {
+                allMajors.push(major);
               }
-            }
-            
-            // Create mentor object
-            const mentorItem: Mentor = {
-              id: consultant.id,
-              slug: consultant.slug || `mentor-${consultant.id.substring(0, 8)}`,
-              first_name: profile?.first_name || 'Anonymous',
-              last_name: profile?.last_name || 'Mentor',
-              university: universityName,
-              headline: consultant.headline || 'College Mentor',
-              image_url: consultant.image_url || '/placeholder-profile.png',
-              top_award: null,
-              major: majors,
-              accepted_schools: acceptedSchools,
-              is_verified: profile?.is_verified || false
-            };
-            
-            processedMentors.push(mentorItem);
-          } catch (error) {
-            console.error('Error processing consultant:', error);
+            });
           }
-        }
-        
-        setAllMajors(uniqueMajors);
+          
+          // Process accepted schools
+          let acceptedSchools: string[] = [];
+          if (consultant.accepted_schools) {
+            if (typeof consultant.accepted_schools === 'string') {
+              try {
+                acceptedSchools = JSON.parse(consultant.accepted_schools);
+              } catch {
+                acceptedSchools = [consultant.accepted_schools];
+              }
+            } else if (Array.isArray(consultant.accepted_schools)) {
+              acceptedSchools = consultant.accepted_schools;
+            }
+          }
+          
+          // Create mentor object
+          const mentorItem: Mentor = {
+            id: consultant.id,
+            slug: consultant.slug || `mentor-${consultant.id.substring(0, 8)}`,
+            first_name: profile?.first_name || 'Anonymous',
+            last_name: profile?.last_name || 'Mentor',
+            university: universityName,
+            headline: consultant.headline || 'College Mentor',
+            image_url: consultant.image_url || '/placeholder-profile.png',
+            top_award: null,
+            major: majors,
+            accepted_schools: acceptedSchools,
+            is_verified: profile?.is_verified || false
+          };
+          
+          return mentorItem;
+        });
+
+        setAllMajors(allMajors);
         setMentors(processedMentors);
         setFilteredMentors(processedMentors);
       } catch (error: any) {
@@ -191,7 +177,7 @@ const MentorsPage = () => {
       } finally {
         setIsLoading(false);
       }
-    };
+    }, [supabase]);
 
     fetchUniversities();
   }, [retryCount]);

@@ -73,30 +73,45 @@ interface Extracurricular {
 interface ConsultantProfile {
   id?: string;
   user_id?: string;
-  headline?: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  bio?: string;
+  title?: string;
   university?: string;
   major?: string[];
+  accepted_schools?: string[];
+  hourly_rate?: number;
   image_url?: string;
+  is_verified?: boolean;
   gpa_score?: number;
   gpa_scale?: number;
   is_weighted?: boolean;
   sat_reading?: number;
   sat_math?: number;
+  sat_score?: number;
   act_english?: number;
   act_math?: number;
   act_reading?: number;
   act_science?: number;
   act_composite?: number;
-  accepted_university_ids?: string[];
-  accepted_schools?: string[];
-  slug?: string;
-  gpa_on_4_scale?: number;
   stripe_account_id?: string | null;
   stripe_charges_enabled?: boolean;
   stripe_onboarding_complete?: boolean;
+  stripe_details_submitted?: boolean;
+  stripe_payouts_enabled?: boolean;
+  slug?: string;
   contact_email?: string | null;
   contact_phone?: string | null;
   welcome_template?: string | null;
+}
+
+interface StripeOnboardingProps {
+  consultantId: string;
+  stripeAccountId: string | null;
+  stripeChargesEnabled: boolean;
+  stripeOnboardingComplete: boolean;
+  onUpdate: () => Promise<void>;
 }
 
 // AP Subject options
@@ -361,7 +376,7 @@ const ConsultantProfileEditPage = () => {
       ...profile,
       gpa_score: parsed,
       gpa_scale: gpaScale,
-      gpa_on_4_scale: gpaOn4Scale
+      // Removed gpa_on_4_scale
     });
   };
 
@@ -447,13 +462,20 @@ const ConsultantProfileEditPage = () => {
       }
 
       // Dirty check for consultant fields
-      const consultantUpdates: any = {};
+      const consultantUpdates: Partial<ConsultantProfile> = {};
+
+      // Compare and update only changed fields
+      if (selectedUniversities.length > 0) {
+        if (JSON.stringify(selectedUniversities.map(u => u.id)) !== JSON.stringify(originalProfile?.accepted_schools)) {
+          consultantUpdates.accepted_schools = selectedUniversities.map(u => u.id);
+        }
+      }
+
       if (originalProfile) {
         if (profile.university !== originalProfile.university) consultantUpdates.university = profile.university;
-        if (profile.headline !== originalProfile.headline) consultantUpdates.headline = profile.headline;
+        // Removed headline
         if (imageUrl !== originalProfile.image_url) consultantUpdates.image_url = imageUrl;
         if (JSON.stringify(selectedMajors) !== JSON.stringify(originalProfile.major)) consultantUpdates.major = selectedMajors;
-        if (JSON.stringify(selectedUniversities.map(u => u.name)) !== JSON.stringify(originalProfile.accepted_schools)) consultantUpdates.accepted_schools = selectedUniversities.map(u => u.name);
         if (profile.gpa_score !== originalProfile.gpa_score) consultantUpdates.gpa_score = profile.gpa_score;
         if (profile.gpa_scale !== originalProfile.gpa_scale) consultantUpdates.gpa_scale = profile.gpa_scale;
         if (profile.is_weighted !== originalProfile.is_weighted) consultantUpdates.is_weighted = profile.is_weighted;
@@ -464,14 +486,13 @@ const ConsultantProfileEditPage = () => {
         if (profile.act_reading !== originalProfile.act_reading) consultantUpdates.act_reading = profile.act_reading;
         if (profile.act_science !== originalProfile.act_science) consultantUpdates.act_science = profile.act_science;
         if (profile.act_composite !== originalProfile.act_composite) consultantUpdates.act_composite = profile.act_composite;
-        if (JSON.stringify(selectedUniversities.map(u => u.id)) !== JSON.stringify(originalProfile.accepted_university_ids)) consultantUpdates.accepted_university_ids = selectedUniversities.map(u => u.id);
         if (profile.stripe_account_id !== originalProfile.stripe_account_id) consultantUpdates.stripe_account_id = profile.stripe_account_id;
         if (profile.stripe_charges_enabled !== originalProfile.stripe_charges_enabled) consultantUpdates.stripe_charges_enabled = profile.stripe_charges_enabled;
         if (profile.stripe_onboarding_complete !== originalProfile.stripe_onboarding_complete) consultantUpdates.stripe_onboarding_complete = profile.stripe_onboarding_complete;
       } else {
         // If no original, update all
         consultantUpdates.university = profile.university;
-        consultantUpdates.headline = profile.headline;
+        // Removed headline
         consultantUpdates.image_url = imageUrl;
         consultantUpdates.major = selectedMajors;
         consultantUpdates.accepted_schools = selectedUniversities.map(u => u.name);
@@ -485,7 +506,6 @@ const ConsultantProfileEditPage = () => {
         consultantUpdates.act_reading = profile.act_reading;
         consultantUpdates.act_science = profile.act_science;
         consultantUpdates.act_composite = profile.act_composite;
-        consultantUpdates.accepted_university_ids = selectedUniversities.map(u => u.id);
         consultantUpdates.stripe_account_id = profile.stripe_account_id;
         consultantUpdates.stripe_charges_enabled = profile.stripe_charges_enabled;
         consultantUpdates.stripe_onboarding_complete = profile.stripe_onboarding_complete;
@@ -568,7 +588,7 @@ const ConsultantProfileEditPage = () => {
         setProfile({
           ...consultantData,
           gpa_score: typeof consultantData.gpa_score === 'number' ? consultantData.gpa_score : undefined,
-          gpa_on_4_scale: undefined, // not used
+          // Removed gpa_on_4_scale
           gpa_scale: undefined, // not used
           sat_reading: typeof consultantData.sat_reading === 'number' ? consultantData.sat_reading : undefined,
           sat_math: typeof consultantData.sat_math === 'number' ? consultantData.sat_math : undefined,
@@ -882,21 +902,51 @@ const ConsultantProfileEditPage = () => {
                 </div>
                 
                 <div>
-                  <Label htmlFor="headline">Headline</Label>
-                  <Input
-                    id="headline"
-                    value={profile.headline || ''}
-                    onChange={(e) => setProfile({...profile, headline: e.target.value})}
-                    placeholder="e.g., Computer Science Student at Stanford University"
-                    className="border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                  />
-                  <p className="text-sm text-gray-500 mt-1">
-                    A brief description that appears under your name
+                  <Label>Interests/Major</Label>
+                  <p className="text-sm text-gray-500 mb-2">
+                    Select interests related to your high school activities or college major
                   </p>
+                  
+                  <div className="border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] p-2 h-48 overflow-y-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {MAJORS.map((major) => (
+                        <div key={major} className="flex items-center space-x-2">
+                          <Checkbox 
+                            id={`major-${major}`} 
+                            checked={selectedMajors.includes(major)}
+                            onCheckedChange={() => handleMajorToggle(major)}
+                          />
+                          <label
+                            htmlFor={`major-${major}`}
+                            className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {major}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedMajors.map((major) => (
+                      <Badge 
+                        key={major}
+                        className="flex items-center gap-1 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-white text-black hover:bg-white"
+                      >
+                        {major}
+                        <button 
+                          onClick={() => handleMajorToggle(major)}
+                          className="ml-1 rounded-full hover:bg-gray-200 p-1"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
                 
                 <div>
-                  <Label htmlFor="university">University</Label>
+                  <Label>University</Label>
                   <Select
                     value={profile.university ? universities.find(u => u.name === profile.university)?.id : ''}
                     onValueChange={handleUniversityChange}
@@ -946,50 +996,6 @@ const ConsultantProfileEditPage = () => {
                     ))}
                   </div>
                 </div>
-                
-                <div>
-                  <Label>Interests/Major</Label>
-                  <p className="text-sm text-gray-500 mb-2">
-                    Select interests related to your high school activities or college major
-                  </p>
-                  
-                  <div className="border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] p-2 h-48 overflow-y-auto">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {MAJORS.map((major) => (
-                        <div key={major} className="flex items-center space-x-2">
-                          <Checkbox 
-                            id={`major-${major}`} 
-                            checked={selectedMajors.includes(major)}
-                            onCheckedChange={() => handleMajorToggle(major)}
-                          />
-                          <label
-                            htmlFor={`major-${major}`}
-                            className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                          >
-                            {major}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedMajors.map((major) => (
-                      <Badge 
-                        key={major}
-                        className="flex items-center gap-1 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-white text-black hover:bg-white"
-                      >
-                        {major}
-                        <button 
-                          onClick={() => handleMajorToggle(major)}
-                          className="ml-1 rounded-full hover:bg-gray-200 p-1"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
               </div>
             )}
 
@@ -1017,7 +1023,7 @@ const ConsultantProfileEditPage = () => {
                     <div>
                       <Label>4.0 Scale GPA</Label>
                       <div className="p-2 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] rounded-md">
-                        {profile.gpa_on_4_scale ? profile.gpa_on_4_scale.toFixed(2) : 'N/A'}
+                        {profile.gpa_score ? profile.gpa_score.toFixed(2) : 'N/A'}
                       </div>
                     </div>
                   </div>

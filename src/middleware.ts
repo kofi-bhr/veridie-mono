@@ -1,84 +1,74 @@
-import { createClient } from '@/lib/supabase/server';
+import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import logger from '@/lib/utils/logger';
 
-// Define public routes that don't require authentication
+// Public routes that don't require authentication
 const publicRoutes = [
   '/',
   '/auth/signin',
   '/auth/signup',
-  '/auth/reset-password',
-  '/auth/callback',
+  '/auth/reset',
   '/mentors',
-  '/about',
-  '/contact',
-  '/privacy',
-  '/terms',
+  '/api/edge-health'
 ];
 
-// Define role-specific routes
-const consultantRoutes = ['/profile/consultant', '/profile/consultant/edit-direct'];
-const studentRoutes = ['/profile/student'];
+// Routes that require specific roles
+const roleRoutes = {
+  consultant: ['/profile/consultant', '/profile/consultant/edit'],
+  student: ['/profile/student', '/profile/student/edit']
+};
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next();
-  const supabase = createClient(req, res);
+  try {
+    const res = NextResponse.next();
+    const supabase = createMiddlewareClient({ req, res });
+    const { data: { session }, error } = await supabase.auth.getSession();
 
-  // Check if the user is authenticated
-  const { data: { session } } = await supabase.auth.getSession();
-  const { pathname } = req.nextUrl;
-
-  // Check if the current path starts with any of the public routes
-  const isPublicRoute = publicRoutes.some(route => 
-    pathname === route || pathname.startsWith(`${route}/`)
-  );
-
-  // Always allow access to public routes
-  if (isPublicRoute) {
-    return res;
-  }
-
-  // If user is not authenticated, redirect to login
-  if (!session) {
-    const redirectUrl = new URL('/auth/signin', req.url);
-    redirectUrl.searchParams.set('redirect', pathname);
-    return NextResponse.redirect(redirectUrl);
-  }
-
-  // Get user role from session
-  const userRole = session.user?.user_metadata?.role;
-
-  // Handle consultant-specific routes
-  if (pathname.startsWith('/profile/consultant') || pathname.startsWith('/profile/consultant/edit-direct')) {
-    if (userRole !== 'consultant') {
-      return NextResponse.redirect(new URL('/', req.url));
+    // Check if current path is a public route
+    const isPublicRoute = publicRoutes.some(route => req.nextUrl.pathname.startsWith(route));
+    if (isPublicRoute) {
+      return res;
     }
-    return res;
-  }
 
-  // Handle student-specific routes
-  if (pathname.startsWith('/profile/student')) {
-    if (userRole !== 'student') {
-      return NextResponse.redirect(new URL('/', req.url));
+    // Check if user is authenticated
+    if (!session) {
+      const redirectUrl = new URL('/auth/signin', req.url);
+      redirectUrl.searchParams.set('redirectTo', req.nextUrl.pathname);
+      return NextResponse.redirect(redirectUrl);
     }
-    return res;
-  }
 
-  // For all other authenticated routes, allow access
-  return res;
+    // Get user's role from metadata
+    const userRole = session.user.user_metadata.role;
+
+    // Check if user has required role for the route
+    for (const [role, paths] of Object.entries(roleRoutes)) {
+      if (paths.some(path => req.nextUrl.pathname.startsWith(path))) {
+        if (userRole !== role) {
+          logger.warn(`User with role ${userRole} attempted to access ${role} route: ${req.nextUrl.pathname}`);
+          return NextResponse.redirect(new URL('/', req.url));
+        }
+      }
+    }
+
+    return res;
+  } catch (error) {
+    logger.error('Middleware error:', error);
+    // In case of error, redirect to home page
+    return NextResponse.redirect(new URL('/', req.url));
+  }
 }
 
-// Export config to specify which routes the middleware applies to
+// Configure middleware to run on specific paths
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for:
+     * Match all request paths except for the ones starting with:
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
-     * - api routes
      */
-    '/((?:^|\\/)(?!_next\\/static|_next\\/image|favicon\\.ico|api|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|public).*)',
   ],
 };

@@ -3,7 +3,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { AuthResult } from '@/lib/auth';
-import { supabase } from '@/lib/supabase/client';
+import supabase from '@/lib/supabase/browser';
+import logger from '@/lib/utils/logger';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useSupabaseAuth } from '@/lib/auth';
@@ -38,6 +39,16 @@ type AuthContextType = {
   refreshProfile: () => Promise<void>;
 };
 
+// Define status type for loading states
+type Status = 'idle'|'loading'|'ready'|'error';
+
+// Constants for retries
+const RETRIES = 3;
+const BACKOFF_MS = 1000;
+
+// Create throw function for default context
+const throwFn = () => { throw new Error('AuthContext not provided'); };
+
 // Create the auth context with default values
 const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -47,20 +58,19 @@ const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
   isConsultant: false,
   isStudent: false,
-  signIn: async () => ({ success: false }),
-  signUp: async () => ({ success: false }),
-  signOut: async () => {},
-  refreshProfile: async () => {},
+  signIn: throwFn,
+  signUp: throwFn,
+  signOut: throwFn,
+  refreshProfile: throwFn
 });
 
 // Create the auth provider component
 const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
-  const [initialLoading, setInitialLoading] = useState(true);
+  const [status, setStatus] = useState<Status>('loading');
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { 
     signIn: authSignIn,
@@ -71,11 +81,7 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Function to fetch user profile with retries
   const fetchUserProfile = async (userId: string | undefined | null, retryCount = 0): Promise<UserProfile | null> => {
     if (!userId) {
-      console.log('No userId provided to fetchUserProfile');
-      return null;
-    }
-    if (!supabase) {
-      console.log('Supabase client not available');
+      logger.info('No userId provided to fetchUserProfile');
       return null;
     }
 
@@ -90,20 +96,20 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .single();
 
       if (error) {
-        console.error('Error fetching user profile:', error);
-        if (retryCount < 3) {
-          console.log(`Retrying profile fetch (attempt ${retryCount + 1})`);
-          await new Promise(resolve => setTimeout(resolve, 1000));
+        logger.error('Error fetching user profile:', error);
+        if (retryCount < RETRIES) {
+          logger.info(`Retrying profile fetch (attempt ${retryCount + 1})`);
+          await new Promise(resolve => setTimeout(resolve, BACKOFF_MS));
           return fetchUserProfile(userId, retryCount + 1);
         }
         throw error;
       }
 
       if (!profile) {
-        console.error('Profile not found');
-        if (retryCount < 3) {
-          console.log(`Retrying profile fetch for missing profile (attempt ${retryCount + 1})`);
-          await new Promise(resolve => setTimeout(resolve, 1000));
+        logger.error('Profile not found');
+        if (retryCount < RETRIES) {
+          logger.info(`Retrying profile fetch for missing profile (attempt ${retryCount + 1})`);
+          await new Promise(resolve => setTimeout(resolve, BACKOFF_MS));
           return fetchUserProfile(userId, retryCount + 1);
         }
         throw new Error('Profile not found after retries');
@@ -111,10 +117,10 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       return profile;
     } catch (err) {
-      console.error('Error in fetchUserProfile:', err);
-      if (retryCount < 3) {
-        console.log(`Retrying profile fetch after error (attempt ${retryCount + 1})`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      logger.error('Error in fetchUserProfile:', err);
+      if (retryCount < RETRIES) {
+        logger.info(`Retrying profile fetch after error (attempt ${retryCount + 1})`);
+        await new Promise(resolve => setTimeout(resolve, BACKOFF_MS));
         return fetchUserProfile(userId, retryCount + 1);
       }
       // After all retries failed, sign out the user and show error
@@ -126,79 +132,57 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Function to refresh user profile with error handling
   const refreshUserProfile = async () => {
-    if (!user?.id) {
-      console.log('No user ID available for profile refresh');
-      return;
-    }
     try {
+      setStatus('loading');
+      if (!user?.id) return;
+      
       const profile = await fetchUserProfile(user.id);
       if (profile) {
         setUserProfile(profile);
+        setStatus('ready');
       } else {
-        console.log('Failed to fetch profile during refresh');
-        setUserProfile(null);
+        setStatus('error');
       }
     } catch (err) {
-      console.error('Error refreshing profile:', err);
-      setUserProfile(null);
+      logger.error('Error refreshing profile:', err);
+      setStatus('error');
     }
   };
 
+  // Handle auth state changes
+  const handleAuthChange = async (event: string, currentSession: Session | null) => {
+    logger.info('Auth state changed:', event, currentSession?.user?.id);
+    setSession(currentSession);
+    setUser(currentSession?.user ?? null);
+
+    if (currentSession?.user) {
+      const profile = await fetchUserProfile(currentSession.user.id);
+      setUserProfile(profile);
+      setStatus('ready');
+    } else {
+      setUserProfile(null);
+      setStatus('idle');
+    }
+  };
+
+  // Set up auth state listener
   useEffect(() => {
-    if (!supabase) return;
-
     let mounted = true;
-
-    const handleAuthChange = async (event: string, currentSession: Session | null) => {
-      console.log('Auth state changed:', event, currentSession?.user?.id);
-      
-      if (!mounted) return;
-
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
-      
-      if (currentSession?.user) {
-        const profile = await fetchUserProfile(currentSession.user.id);
-        if (mounted) {
-          setUserProfile(profile);
-        }
-      } else {
-        if (mounted) {
-          setUserProfile(null);
-        }
-      }
-      
-      if (mounted) {
-        setInitialLoading(false);
-      }
-    };
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(handleAuthChange);
 
-    // Initial session check with error handling
-    supabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
+    // Initial session check
+    supabase.auth.getSession().then(({ data: { session: initialSession } }: { data: { session: Session | null } }) => {
       if (!mounted) return;
 
-      console.log('Initial session check:', initialSession?.user?.id);
-      setSession(initialSession);
-      setUser(initialSession?.user ?? null);
-      
-      if (initialSession?.user) {
-        const profile = await fetchUserProfile(initialSession.user.id);
-        if (mounted) {
-          setUserProfile(profile);
-        }
-      }
-      
+      logger.info('Initial session check:', initialSession?.user?.id);
+      handleAuthChange('INITIAL', initialSession);
+    }).catch((err: Error) => {
+      logger.error('Error during initial session check:', err);
       if (mounted) {
-        setInitialLoading(false);
-      }
-    }).catch(err => {
-      console.error('Error during initial session check:', err);
-      if (mounted) {
-        setInitialLoading(false);
+        setStatus('error');
       }
     });
 
@@ -211,69 +195,66 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Wrap the hook methods to maintain the same interface
   const signIn = async (email: string, password: string) => {
     try {
+      setStatus('loading');
       const result = await authSignIn(email, password);
       if (!result.success) {
         throw new Error(result.error);
       }
       return result;
     } catch (error) {
-      console.error('Error signing in:', error);
+      logger.error('Error signing in:', error);
+      setStatus('error');
       throw error;
     }
   };
 
   const signUp = async (email: string, password: string, role: 'student' | 'consultant') => {
-    let timeoutId: NodeJS.Timeout | undefined;
     try {
-      console.log('AuthContext: Starting signup process for:', email);
-      const resetState = () => {
-        console.log('AuthContext: Resetting loading state');
-        setInitialLoading(false);
-        if (timeoutId) clearTimeout(timeoutId);
-      };
-      timeoutId = setTimeout(() => {
-        console.error('AuthContext: Signup timeout reached, forcing state reset');
-        resetState();
-      }, 20000);
+      setStatus('loading');
+      logger.info('AuthContext: Starting signup process for:', email);
+      
       const result = await authSignUp({ email, password, role });
       if (!result.success) {
-        console.error('AuthContext: Signup failed with error:', result.error);
+        logger.error('AuthContext: Signup failed with error:', result.error);
         throw new Error(result.error || 'Unknown error during signup');
       }
-      console.log('AuthContext: Signup completed successfully');
+      
+      logger.info('AuthContext: Signup completed successfully');
       return result;
     } catch (error) {
-      console.error('Error in AuthContext signUp:', error);
-      setInitialLoading(false);
+      logger.error('Error in AuthContext signUp:', error);
+      setStatus('error');
       throw error;
-    } finally {
-      if (timeoutId) clearTimeout(timeoutId);
-      setInitialLoading(false);
     }
   };
 
   const signOut = async () => {
     try {
-      if (!supabase) return; // SSR/Null guard
+      setStatus('loading');
       
-      // Clear local state first to make UI responsive
-      setUser(null);
-      setUserProfile(null);
-      setSession(null);
-      
-      // Then perform the actual sign-out with timeout
+      // Perform the actual sign-out first
       await Promise.race([
         authSignOut(),
         new Promise((_, reject) => 
           setTimeout(() => reject(new Error('Sign out timeout')), 5000)
         )
       ]);
+
+      // Then clear local state
+      setUser(null);
+      setUserProfile(null);
+      setSession(null);
+      setStatus('idle');
       
       // Force clear any cached data
       router.refresh();
     } catch (error) {
-      console.error('Error signing out:', error);
-      // Still consider it a success if local state is cleared
+      logger.error('Error signing out:', error);
+      setStatus('error');
+      // Still consider it a success if we can clear state
+      setUser(null);
+      setUserProfile(null);
+      setSession(null);
     }
   };
 
@@ -282,8 +263,8 @@ const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const isConsultant = isAuthenticated && userProfile?.role === 'consultant';
   const isStudent = isAuthenticated && userProfile?.role === 'student';
   
-  // Combine loading states
-  const isLoading = initialLoading || loading;
+  // Map status to isLoading
+  const isLoading = status === 'loading';
 
   return (
     <AuthContext.Provider

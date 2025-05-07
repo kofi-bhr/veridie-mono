@@ -21,7 +21,7 @@ declare module './MentorCard' {
     top_award: string | null;
     major: string[];
     accepted_schools: string[];
-    verified: boolean;
+    is_verified: boolean;
   };
   
   type MentorCardProps = {

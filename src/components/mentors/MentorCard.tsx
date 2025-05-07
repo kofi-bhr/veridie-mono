@@ -14,7 +14,7 @@ type University = {
   color_hex: string;
 };
 
-type MentorProps = {
+export interface MentorProps {
   mentor: {
     id: string;
     slug: string;
@@ -26,11 +26,10 @@ type MentorProps = {
     top_award: string | null;
     major: string[];
     accepted_schools: string[];
-    is_verified?: boolean;
-    verified?: boolean;
+    is_verified: boolean;
   };
   universities: University[];
-};
+}
 
 const MentorCard = ({ mentor, universities }: MentorProps) => {
   const {
@@ -44,12 +43,10 @@ const MentorCard = ({ mentor, universities }: MentorProps) => {
     top_award,
     major = [],
     accepted_schools = [],
-    is_verified,
-    verified
+    is_verified
   } = mentor;
 
-  // Use either is_verified or verified property, whichever is available
-  const isVerified = is_verified !== undefined ? is_verified : verified !== undefined ? verified : false;
+  const isVerified = Boolean(is_verified);
 
   const majorScrollRef = useRef<HTMLDivElement>(null);
   const schoolsScrollRef = useRef<HTMLDivElement>(null);

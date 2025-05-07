@@ -1,7 +1,8 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import supabase from '@/lib/supabase/browser';
+import logger from '@/lib/utils/logger';
 
 export interface SignUpData {
   email: string;
@@ -18,8 +19,11 @@ export type AuthResult = {
   };
 };
 
+// Constants for retries
+const RETRIES = 3;
+const BACKOFF_MS = 1000;
+
 export function useSupabaseAuth() {
-  const supabase = createClientComponentClient();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +34,7 @@ export function useSupabaseAuth() {
       setLoading(true);
       setError(null);
       
-      console.log('Starting signup process for:', email, 'with role:', role);
+      logger.info('Starting signup process for:', email, 'with role:', role);
       toastId = toast.loading('Creating your account...');
 
       const { data, error: signUpError } = await supabase.auth.signUp({
@@ -42,17 +46,17 @@ export function useSupabaseAuth() {
         console.error('Supabase Auth signup error:', signUpError);
         toast.dismiss(toastId);
         toast.error('Failed to create account: ' + signUpError.message);
-        throw signUpError;
+        return { success: false, error: signUpError.message };
       }
 
       if (!data.user) {
         console.error('No user data returned after signup');
         toast.dismiss(toastId);
         toast.error('Failed to create account: No user data returned');
-        throw new Error('No user data returned after signup');
+        return { success: false, error: 'No user data returned after signup' };
       }
 
-      console.log('User created successfully with ID:', data.user.id);
+      logger.info('User created successfully with ID:', data.user.id);
       toast.dismiss(toastId);
       toast.success('Account created successfully!');
 
@@ -60,7 +64,7 @@ export function useSupabaseAuth() {
       toastId = toast.loading('Setting up your profile...');
 
       let profileError;
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < RETRIES; i++) {
         const { error: err } = await supabase.from('profiles').upsert({
           id: data.user.id,
           role: role,
@@ -74,14 +78,24 @@ export function useSupabaseAuth() {
 
         console.error(`Profile creation attempt ${i + 1} failed:`, err);
         profileError = err;
-        if (i < 2) await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+        if (i < RETRIES - 1) await new Promise(resolve => setTimeout(resolve, BACKOFF_MS));
       }
 
       if (profileError) {
         console.error('All profile creation attempts failed:', profileError);
         toast.dismiss(toastId);
         toast.error('Error setting up profile: ' + profileError.message);
-        throw profileError;
+        return { success: false, error: profileError.message };
+      }
+
+      // Update user metadata with role
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: { role }
+      });
+
+      if (updateError) {
+        console.error('Failed to update user metadata:', updateError);
+        toast.error('Warning: Failed to update user role metadata');
       }
 
       toast.dismiss(toastId);
@@ -97,11 +111,11 @@ export function useSupabaseAuth() {
       setError(message);
       if (toastId) toast.dismiss(toastId);
       toast.error(message);
-      throw err;
+      return { success: false, error: message };
     } finally {
       setLoading(false);
     }
-  }, [supabase, router]);
+  }, [router]);
 
   const signIn = useCallback(async (email: string, password: string): Promise<AuthResult> => {
     let toastId;
@@ -109,7 +123,7 @@ export function useSupabaseAuth() {
       setLoading(true);
       setError(null);
 
-      console.log('Attempting to sign in user:', email);
+      logger.info('Attempting to sign in user:', email);
       toastId = toast.loading('Signing in...');
 
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
@@ -121,18 +135,25 @@ export function useSupabaseAuth() {
         console.error('Sign in error:', signInError);
         toast.dismiss(toastId);
         toast.error('Sign in failed: ' + signInError.message);
-        setError(signInError.message);
         return { success: false, error: signInError.message };
       }
 
-      // Fetch the user's profile with retries
+      if (!data.user) {
+        const message = 'No user data returned after sign in';
+        console.error(message);
+        toast.dismiss(toastId);
+        toast.error('Sign in failed: ' + message);
+        return { success: false, error: message };
+      }
+
+      // Get user profile with retries
       let profileData;
       let profileError;
-
-      for (let i = 0; i < 3; i++) {
+      
+      for (let i = 0; i < RETRIES; i++) {
         const { data: profile, error: err } = await supabase
           .from('profiles')
-          .select('role')
+          .select('*')
           .eq('id', data.user.id)
           .single();
 
@@ -143,25 +164,26 @@ export function useSupabaseAuth() {
 
         console.error(`Profile fetch attempt ${i + 1} failed:`, err);
         profileError = err;
-        if (i < 2) await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+        if (i < RETRIES - 1) await new Promise(resolve => setTimeout(resolve, BACKOFF_MS));
       }
 
-      if (profileError) {
-        console.error('All profile fetch attempts failed:', profileError);
+      if (profileError || !profileData) {
+        const message = profileError?.message || 'Failed to fetch user profile';
+        console.error('All profile fetch attempts failed:', message);
         toast.dismiss(toastId);
-        toast.error('Error fetching profile: ' + profileError.message);
-        return { success: false, error: profileError.message };
+        toast.error('Error fetching profile: ' + message);
+        return { success: false, error: message };
       }
 
       toast.dismiss(toastId);
       toast.success('Signed in successfully!');
 
       // Redirect based on role
-      if (profileData?.role === 'consultant') {
-        console.log('Redirecting consultant to profile page');
+      if (profileData.role === 'consultant') {
+        logger.info('Redirecting consultant to profile page');
         router.push('/profile/consultant');
       } else {
-        console.log('Redirecting to home page');
+        logger.info('Redirecting to home page');
         router.push('/');
       }
       router.refresh();
@@ -172,11 +194,11 @@ export function useSupabaseAuth() {
       setError(message);
       if (toastId) toast.dismiss(toastId);
       toast.error(message);
-      throw err;
+      return { success: false, error: message };
     } finally {
       setLoading(false);
     }
-  }, [supabase, router]);
+  }, [router]);
 
   const signOut = useCallback(async (): Promise<AuthResult> => {
     let toastId;
@@ -190,7 +212,7 @@ export function useSupabaseAuth() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         // If no session, just redirect to home
-        console.log('No session found during sign out, redirecting to home');
+        logger.info('No session found during sign out, redirecting to home');
         toast.dismiss(toastId);
         router.push('/');
         router.refresh();
@@ -203,7 +225,7 @@ export function useSupabaseAuth() {
         console.error('Sign out error:', signOutError);
         toast.dismiss(toastId);
         toast.error('Sign out failed: ' + signOutError.message);
-        throw signOutError;
+        return { success: false, error: signOutError.message };
       }
 
       toast.dismiss(toastId);
@@ -219,11 +241,11 @@ export function useSupabaseAuth() {
       setError(message);
       if (toastId) toast.dismiss(toastId);
       toast.error(message);
-      throw err;
+      return { success: false, error: message };
     } finally {
       setLoading(false);
     }
-  }, [supabase, router]);
+  }, [router]);
 
   const updatePassword = useCallback(async (password: string): Promise<AuthResult> => {
     let toastId;
@@ -241,7 +263,7 @@ export function useSupabaseAuth() {
         console.error('Password update error:', updateError);
         toast.dismiss(toastId);
         toast.error('Failed to update password: ' + updateError.message);
-        throw updateError;
+        return { success: false, error: updateError.message };
       }
 
       toast.dismiss(toastId);
@@ -255,11 +277,11 @@ export function useSupabaseAuth() {
       setError(message);
       if (toastId) toast.dismiss(toastId);
       toast.error(message);
-      throw err;
+      return { success: false, error: message };
     } finally {
       setLoading(false);
     }
-  }, [supabase, router]);
+  }, [router]);
 
   const resetPassword = useCallback(async (email: string): Promise<AuthResult> => {
     let toastId;
@@ -277,7 +299,7 @@ export function useSupabaseAuth() {
         console.error('Password reset error:', resetError);
         toast.dismiss(toastId);
         toast.error('Failed to send reset email: ' + resetError.message);
-        throw resetError;
+        return { success: false, error: resetError.message };
       }
 
       toast.dismiss(toastId);
@@ -288,11 +310,11 @@ export function useSupabaseAuth() {
       setError(message);
       if (toastId) toast.dismiss(toastId);
       toast.error(message);
-      throw err;
+      return { success: false, error: message };
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, [router]);
 
   return {
     signUp,

@@ -27,7 +27,7 @@ const mentorProfileSchema = z.object({
   
   // Education
   university: z.string().min(1, "University is required"),
-  accepted_university_ids: z.array(z.string()).min(1, "At least one accepted university is required"),
+  accepted_schools: z.array(z.string()).min(1, "At least one accepted university is required"),
   interests: z.array(z.string()).min(1, "At least one interest is required"),
   
   // Test Scores
@@ -104,7 +104,7 @@ const MentorProfileForm = ({ initialData, universities, userId, initialTab, onSu
     last_name: initialData?.last_name || '',
     image_url: initialData?.image_url || '',
     university: initialData?.university || '',
-    accepted_university_ids: initialData?.accepted_university_ids || [],
+    accepted_schools: initialData?.accepted_schools || [],
     interests: initialData?.major || [], // Using major field as interests
     sat_score: initialData?.sat_score || null,
     act_composite: initialData?.act_composite || null,
@@ -180,7 +180,7 @@ const MentorProfileForm = ({ initialData, universities, userId, initialTab, onSu
         sat_score: values.sat_score || 0,
         act_composite: values.act_composite || null,
         image_url: values.image_url || '',
-        accepted_university_ids: values.accepted_university_ids,
+        accepted_schools: values.accepted_schools,
         major: values.interests,
         num_aps: values.ap_scores?.length || 0,
       };

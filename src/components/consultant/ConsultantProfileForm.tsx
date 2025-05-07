@@ -37,7 +37,7 @@ const consultantProfileSchema = z.object({
   sat_reading: z.number().nullable().optional(),
   sat_math: z.number().nullable().optional(),
   act_composite: z.number().nullable().optional(),
-  accepted_university_ids: z.array(z.string()).optional(),
+  accepted_schools: z.array(z.string()).optional(),
   
   // Essays
   essays: z.array(
@@ -142,7 +142,7 @@ const ConsultantProfileForm = ({ initialData, universities, userId, initialTab, 
           sat_reading: profile.sat_reading || null,
           sat_math: profile.sat_math || null,
           act_composite: profile.act_composite || null,
-          accepted_university_ids: profile.accepted_university_ids || [],
+          accepted_schools: profile.accepted_schools || [],
           essays: profile.essays || [],
           extracurriculars: profile.extracurriculars || [],
           awards: profile.awards || [],

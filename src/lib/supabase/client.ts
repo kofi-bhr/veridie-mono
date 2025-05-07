@@ -2,6 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '@/types/supabase';
+import logger from '@/lib/utils/logger';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -18,12 +19,12 @@ export const checkSupabaseConnection = async () => {
   try {
     const { error } = await client.from('profiles').select('count', { count: 'exact', head: true });
     if (error) {
-      console.error('Supabase connection check failed:', error);
+      logger.error('Supabase connection check failed:', error);
       return { connected: false, error: error.message };
     }
     return { connected: true };
   } catch (err) {
-    console.error('Error checking Supabase connection:', err);
+    logger.error('Error checking Supabase connection:', err);
     return { connected: false, error: err instanceof Error ? err.message : 'Unknown error' };
   }
 };

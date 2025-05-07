@@ -63,7 +63,8 @@ const ProfileForm = ({ initialRole = null, onSuccess }: ProfileFormProps) => {
       console.log('ProfileForm: Updating profile for user:', user.id);
       console.log('ProfileForm: Values:', values);
       
-      const { error } = await supabase
+      // Update profile in database
+      const { error: profileError } = await supabase
         .from('profiles')
         .upsert({
           id: user.id,
@@ -73,9 +74,19 @@ const ProfileForm = ({ initialRole = null, onSuccess }: ProfileFormProps) => {
           email: user.email,
         });
 
-      if (error) {
-        console.error('ProfileForm: Error updating profile:', error);
-        throw error;
+      if (profileError) {
+        console.error('ProfileForm: Error updating profile:', profileError);
+        throw profileError;
+      }
+
+      // Update user metadata with role
+      const { error: metadataError } = await supabase.auth.updateUser({
+        data: { role: initialRole || 'student' }
+      });
+
+      if (metadataError) {
+        console.error('ProfileForm: Error updating user metadata:', metadataError);
+        throw metadataError;
       }
       
       console.log('ProfileForm: Profile updated successfully');

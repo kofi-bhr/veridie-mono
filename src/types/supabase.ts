@@ -15,7 +15,7 @@ export interface ConsultantProfile {
   sat_reading?: number | null;
   sat_math?: number | null;
   act_composite?: number | null;
-  accepted_university_ids?: string[];
+  accepted_schools?: string[];
   essays?: {
     prompt: string;
     content: string;

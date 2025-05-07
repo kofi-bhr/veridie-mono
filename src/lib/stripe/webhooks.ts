@@ -1,5 +1,6 @@
 import { stripe } from './config';
 import { supabaseTestClient } from './test-utils';
+import logger from '@/lib/utils/logger';
 
 interface WebhookEvent {
   type: string;
@@ -20,7 +21,7 @@ export async function handleWebhookEvent(event: WebhookEvent) {
       event = parsedEvent;
     }
 
-    console.log('Processing event:', event);
+    logger.info('Processing event:', event);
 
     // Validate webhook signature
     if (event.headers?.['stripe-signature'] === 'invalid_signature') {
@@ -30,7 +31,7 @@ export async function handleWebhookEvent(event: WebhookEvent) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
-        console.log('Received session:', session);
+        logger.info('Received session:', session);
 
         // Validate required fields
         if (!session.metadata?.purchase_id) {
@@ -54,7 +55,7 @@ export async function handleWebhookEvent(event: WebhookEvent) {
           throw new Error('Failed to update purchase status');
         }
 
-        console.log('Updated purchase:', purchase);
+        logger.info('Updated purchase:', purchase);
         return { success: true, purchase };
       }
 

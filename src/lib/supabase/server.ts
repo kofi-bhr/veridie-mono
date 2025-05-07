@@ -1,62 +1,54 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { createServerClient as createSupabaseServerClient } from '@supabase/ssr';
-import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { createServerClient as createSSRSClient } from '@supabase/ssr';
+import type { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { Database } from '@/types/supabase';
 
 // This is a server-side Supabase client for Next.js App Router
 // It uses the service role key for admin access
 export const createServerClient = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-  if (!supabaseUrl || !supabaseServiceKey) {
+  if (!url || !key) {
     throw new Error('Missing required environment variables for Supabase server client');
   }
 
-  return createSupabaseClient(supabaseUrl, supabaseServiceKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  });
+  return createClient<Database>(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
 };
 
-// This is a middleware-specific client that handles cookies
-export const createAuthClient = async (request?: NextRequest, response?: NextResponse) => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
+/* Edge-middleware safe anon client */
+export const createMiddlewareClient = (req: NextRequest, res: NextResponse) => {
+  const url  = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  
+  if (!url || !key) {
     throw new Error('Missing required environment variables for Supabase client');
   }
 
-  const cookieStore = await cookies();
-
-  return createSupabaseServerClient(supabaseUrl, supabaseAnonKey, {
+  return createSSRSClient<Database>(url, key, {
     cookies: {
-      get(name) {
-        return cookieStore.get(name)?.value;
-      },
-      set(name, value, options) {
-        cookieStore.set({
-          name,
+      get: (key) => req.cookies.get(key)?.value,
+      set: (key, value, options) => {
+        res.cookies.set({
+          name: key,
           value,
-          ...options,
           path: '/',
+          ...options,
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
+          sameSite: 'lax'
         });
       },
-      remove(name, options) {
-        cookieStore.set({
-          name,
+      remove: (key, options) => {
+        res.cookies.set({
+          name: key,
           value: '',
-          ...options,
           path: '/',
           maxAge: 0,
+          ...options
         });
-      },
-    },
+      }
+    }
   });
 };

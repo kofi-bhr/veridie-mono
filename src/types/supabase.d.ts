@@ -163,7 +163,7 @@ export interface Database {
           num_aps: number | null;
           created_at: string | null;
           updated_at: string | null;
-          accepted_university_ids: string[] | null;
+          accepted_schools: string[] | null;
           sat_reading: number | null;
           sat_math: number | null;
           act_english: number | null;
@@ -172,7 +172,6 @@ export interface Database {
           act_science: number | null;
           act_composite: number | null;
           gpa_score: number | null;
-          accepted_schools: string[] | null;
           slug: string | null;
           contact_email: string | null;
           contact_phone: string | null;
@@ -194,7 +193,7 @@ export interface Database {
           num_aps?: number | null;
           created_at?: string | null;
           updated_at?: string | null;
-          accepted_university_ids?: string[] | null;
+          accepted_schools?: string[] | null;
           sat_reading?: number | null;
           sat_math?: number | null;
           act_english?: number | null;
@@ -203,7 +202,6 @@ export interface Database {
           act_science?: number | null;
           act_composite?: number | null;
           gpa_score?: number | null;
-          accepted_schools?: string[] | null;
           slug?: string | null;
           contact_email?: string | null;
           contact_phone?: string | null;
@@ -225,7 +223,7 @@ export interface Database {
           num_aps?: number | null;
           created_at?: string | null;
           updated_at?: string | null;
-          accepted_university_ids?: string[] | null;
+          accepted_schools?: string[] | null;
           sat_reading?: number | null;
           sat_math?: number | null;
           act_english?: number | null;
@@ -234,7 +232,6 @@ export interface Database {
           act_science?: number | null;
           act_composite?: number | null;
           gpa_score?: number | null;
-          accepted_schools?: string[] | null;
           slug?: string | null;
           contact_email?: string | null;
           contact_phone?: string | null;

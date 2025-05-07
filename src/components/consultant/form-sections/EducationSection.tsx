@@ -22,32 +22,36 @@ import {
 } from '@/components/ui/select';
 import { X, Plus } from 'lucide-react';
 import { Label } from '@/components/ui/label';
+import { MultiSelect } from '@/components/ui/multi-select';
 
 type EducationSectionProps = {
-  form: {
-    register: any;
-    errors: any;
-  };
+  form: UseFormReturn<any>;
   universities: any[];
 };
 
 const EducationSection = ({ form, universities }: EducationSectionProps) => {
-  const { register, errors } = form;
+  const {
+    formState: { errors },
+    getValues,
+    setValue,
+    control,
+    register
+  } = form;
   const [newMajor, setNewMajor] = useState('');
   
   const handleAddMajor = () => {
     if (!newMajor.trim()) return;
     
-    const currentMajors = form.getValues('major') || [];
+    const currentMajors = getValues('major') || [];
     if (!currentMajors.includes(newMajor)) {
-      form.setValue('major', [...currentMajors, newMajor]);
+      setValue('major', [...currentMajors, newMajor]);
       setNewMajor('');
     }
   };
   
   const handleRemoveMajor = (index: number) => {
-    const currentMajors = form.getValues('major') || [];
-    form.setValue('major', currentMajors.filter((_: string, i: number) => i !== index));
+    const currentMajors = getValues('major') || [];
+    setValue('major', currentMajors.filter((_: string, i: number) => i !== index));
   };
   
   return (
@@ -62,8 +66,10 @@ const EducationSection = ({ form, universities }: EducationSectionProps) => {
             {...register('university')}
             placeholder="e.g. Harvard University"
           />
-          {errors.university && (
-            <p className="text-red-500 text-sm mt-1">{errors.university.message}</p>
+          {errors.university?.message && (
+            <p className="text-red-500 text-sm mt-1">
+              {errors.university.message as string}
+            </p>
           )}
         </div>
 
@@ -74,8 +80,10 @@ const EducationSection = ({ form, universities }: EducationSectionProps) => {
             {...register('major')}
             placeholder="e.g. Computer Science"
           />
-          {errors.major && (
-            <p className="text-red-500 text-sm mt-1">{errors.major.message}</p>
+          {errors.major?.message && (
+            <p className="text-red-500 text-sm mt-1">
+              {errors.major.message as string}
+            </p>
           )}
         </div>
 
@@ -87,8 +95,10 @@ const EducationSection = ({ form, universities }: EducationSectionProps) => {
             {...register('sat_score')}
             placeholder="e.g. 1600"
           />
-          {errors.sat_score && (
-            <p className="text-red-500 text-sm mt-1">{errors.sat_score.message}</p>
+          {errors.sat_score?.message && (
+            <p className="text-red-500 text-sm mt-1">
+              {errors.sat_score.message as string}
+            </p>
           )}
         </div>
 
@@ -100,8 +110,10 @@ const EducationSection = ({ form, universities }: EducationSectionProps) => {
             {...register('num_aps')}
             placeholder="e.g. 10"
           />
-          {errors.num_aps && (
-            <p className="text-red-500 text-sm mt-1">{errors.num_aps.message}</p>
+          {errors.num_aps?.message && (
+            <p className="text-red-500 text-sm mt-1">
+              {errors.num_aps.message as string}
+            </p>
           )}
         </div>
       </div>
@@ -109,7 +121,7 @@ const EducationSection = ({ form, universities }: EducationSectionProps) => {
       <div className="space-y-4">
         <FormLabel className="text-base">Major(s)</FormLabel>
         <div className="flex flex-wrap gap-2 mb-4">
-          {(form.getValues('major') || []).map((major: string, index: number) => (
+          {(getValues('major') || []).map((major: string, index: number) => (
             <div 
               key={index}
               className="flex items-center gap-2 bg-main/10 px-3 py-1 rounded-full"
@@ -151,16 +163,16 @@ const EducationSection = ({ form, universities }: EducationSectionProps) => {
         <FormDescription>
           Enter all majors or concentrations you're studying
         </FormDescription>
-        {form.formState.errors.major && (
+        {errors.major?.message && (
           <p className="text-red-500 text-sm mt-1">
-            {form.formState.errors.major.message as string}
+            {errors.major.message as string}
           </p>
         )}
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <FormField
-          control={form.control}
+          control={control}
           name="gpa_score"
           render={({ field }) => (
             <FormItem>
@@ -182,7 +194,7 @@ const EducationSection = ({ form, universities }: EducationSectionProps) => {
         />
         
         <FormField
-          control={form.control}
+          control={control}
           name="gpa_scale"
           render={({ field }) => (
             <FormItem>
@@ -208,7 +220,7 @@ const EducationSection = ({ form, universities }: EducationSectionProps) => {
       </div>
       
       <FormField
-        control={form.control}
+        control={control}
         name="is_weighted"
         render={({ field }) => (
           <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-black p-4">
@@ -231,7 +243,7 @@ const EducationSection = ({ form, universities }: EducationSectionProps) => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <FormField
-          control={form.control}
+          control={control}
           name="sat_reading"
           render={({ field }) => (
             <FormItem>
@@ -252,7 +264,7 @@ const EducationSection = ({ form, universities }: EducationSectionProps) => {
         />
         
         <FormField
-          control={form.control}
+          control={control}
           name="sat_math"
           render={({ field }) => (
             <FormItem>
@@ -274,7 +286,7 @@ const EducationSection = ({ form, universities }: EducationSectionProps) => {
       </div>
       
       <FormField
-        control={form.control}
+        control={control}
         name="act_composite"
         render={({ field }) => (
           <FormItem>
@@ -295,39 +307,19 @@ const EducationSection = ({ form, universities }: EducationSectionProps) => {
       />
       
       <FormField
-        control={form.control}
-        name="accepted_university_ids"
+        control={control}
+        name="accepted_schools"
         render={({ field }) => (
           <FormItem>
-            <FormLabel className="text-base">Accepted Universities</FormLabel>
-            <FormDescription className="mb-2">
-              Select all universities that accepted you
-            </FormDescription>
-            <div className="flex flex-wrap gap-2">
-              {universities.map((university) => (
-                <div key={university.id} className="flex items-start space-x-2">
-                  <Checkbox
-                    id={university.id}
-                    checked={(field.value || []).includes(university.id)}
-                    onCheckedChange={(checked) => {
-                      const currentValues = field.value || [];
-                      if (checked) {
-                        field.onChange([...currentValues, university.id]);
-                      } else {
-                        field.onChange(currentValues.filter((id: string) => id !== university.id));
-                      }
-                    }}
-                    className="border-2 border-black data-[state=checked]:bg-main"
-                  />
-                  <label
-                    htmlFor={university.id}
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    {university.name}
-                  </label>
-                </div>
-              ))}
-            </div>
+            <FormLabel>Accepted Universities</FormLabel>
+            <FormControl>
+              <MultiSelect
+                options={universities}
+                value={field.value}
+                onChange={field.onChange}
+                placeholder="Select universities..."
+              />
+            </FormControl>
             <FormMessage />
           </FormItem>
         )}

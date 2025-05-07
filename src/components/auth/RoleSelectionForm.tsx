@@ -31,15 +31,22 @@ const RoleSelectionForm = () => {
       setIsSubmitting(true);
       setError(null);
 
-      // Update the user's profile with the selected role
-      const { error } = await supabase
+      // Update both profile and user metadata with the selected role
+      const { error: profileError } = await supabase
         .from('profiles')
         .upsert({
           id: user.id,
           role: selectedRole
         });
 
-      if (error) throw error;
+      if (profileError) throw profileError;
+
+      // Update user metadata
+      const { error: metadataError } = await supabase.auth.updateUser({
+        data: { role: selectedRole }
+      });
+
+      if (metadataError) throw metadataError;
 
       // If the user selected consultant, also create a consultant record
       if (selectedRole === 'consultant') {

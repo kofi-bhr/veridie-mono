@@ -61,7 +61,7 @@ type Package = {
   features: string[];
 };
 
-type Consultant = {
+interface Consultant {
   id: string;
   slug: string;
   university: string;
@@ -70,8 +70,7 @@ type Consultant = {
   bio?: string;
   major: string[];
   accepted_schools: string[];
-  is_verified?: boolean;
-  verified?: boolean;
+  is_verified: boolean;
   sat_score?: number;
   act_score?: number;
   gpa?: number;
@@ -112,12 +111,8 @@ export default function ConsultantProfile({ consultant, universities }: Consulta
     }));
   };
   
-  // Determine if the consultant is verified (using either is_verified or verified property)
-  const isVerified = consultant.is_verified !== undefined 
-    ? consultant.is_verified 
-    : consultant.verified !== undefined 
-      ? consultant.verified 
-      : false;
+  // Determine if the consultant is verified
+  const isVerified = Boolean(consultant.is_verified);
 
   // Find universities that the consultant was accepted to
   const acceptedSchools = universities.filter(uni => 
