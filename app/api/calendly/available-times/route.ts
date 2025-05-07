@@ -7,15 +7,15 @@ export async function POST(request: Request) {
     const { mentorId, date, serviceId } = await request.json()
     console.log("Available times request:", { mentorId, date, serviceId })
 
-    if (!mentorId || !date) {
+    if (!mentorId || !date || !serviceId) {
       console.log("Missing required parameters")
       return NextResponse.json({ error: "Missing required parameters" }, { status: 400 })
     }
 
-    // Get mentor's Calendly info
+    // First, get the mentor's Calendly access token
     const { data: mentor, error: mentorError } = await supabase
       .from("mentors")
-      .select("calendly_username, calendly_access_token, calendly_refresh_token, calendly_event_type_uri")
+      .select("calendly_username, calendly_access_token, calendly_refresh_token, calendly_token_expires_at")
       .eq("id", mentorId)
       .single()
 
@@ -28,30 +28,63 @@ export async function POST(request: Request) {
       username: mentor.calendly_username,
       hasAccessToken: !!mentor.calendly_access_token,
       hasRefreshToken: !!mentor.calendly_refresh_token,
-      eventTypeUri: mentor.calendly_event_type_uri,
+      tokenExpiresAt: mentor.calendly_token_expires_at,
     })
 
-    // Check if Calendly is configured
-    if (!mentor.calendly_username || !mentor.calendly_access_token || !mentor.calendly_event_type_uri) {
-      console.log("Calendly not configured for mentor, using simulated times")
+    if (!mentor.calendly_access_token) {
+      console.log("Mentor doesn't have Calendly access token, using simulated times")
       return simulateAvailableTimes(date)
     }
 
-    console.log("Fetching real available times from Calendly for mentor:", mentorId)
+    // Now, get the event URI from the services table
+    const { data: service, error: serviceError } = await supabase
+      .from("services")
+      .select("*")
+      .eq("id", serviceId)
+      .single()
 
-    // Try to fetch available times with current token
-    const accessToken = mentor.calendly_access_token
-    const availableTimes = await fetchAvailableTimes(new Date(date), mentor.calendly_event_type_uri, accessToken)
+    if (serviceError || !service) {
+      console.error("Error fetching service:", serviceError)
+      return NextResponse.json({ error: "Service not found" }, { status: 404 })
+    }
 
-    console.log("Calendly API returned times:", availableTimes)
+    console.log("Service data:", service)
 
-    // If no times returned or there was an error, fall back to simulation
-    if (availableTimes.length === 0) {
-      console.log("No available times returned from Calendly, falling back to simulated times")
+    // Check for the Calendly event URI in different possible column names
+    const eventUri = service.calendly_event_type_uri || service.calendly_event_uri
+
+    if (!eventUri) {
+      console.log("Service doesn't have Calendly event URI, using simulated times")
       return simulateAvailableTimes(date)
     }
 
-    return NextResponse.json({ times: availableTimes, source: "calendly" })
+    console.log("Fetching real available times from Calendly for service:", serviceId, "with event URI:", eventUri)
+
+    try {
+      // Try to fetch available times with current token
+      const accessToken = mentor.calendly_access_token
+      const availableTimes = await fetchAvailableTimes(new Date(date), eventUri, accessToken)
+
+      console.log("Calendly API returned times:", availableTimes)
+
+      // If no times were returned from Calendly, use simulated times
+      if (availableTimes.length === 0) {
+        console.log("No available times returned from Calendly, using simulated times")
+        return simulateAvailableTimes(date)
+      }
+
+      return NextResponse.json({
+        times: availableTimes,
+        source: "calendly",
+        debug: {
+          eventUri: eventUri,
+          mentorHasToken: !!mentor.calendly_access_token,
+        },
+      })
+    } catch (error) {
+      console.error("Error fetching available times from Calendly:", error)
+      return simulateAvailableTimes(date)
+    }
   } catch (error) {
     console.error("Error fetching available times:", error)
     return NextResponse.json({ error: "Failed to fetch available times" }, { status: 500 })
@@ -72,5 +105,8 @@ function simulateAvailableTimes(dateString: string) {
     times = ["9:00 AM", "10:00 AM", "11:00 AM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM"]
   }
 
-  return NextResponse.json({ times, source: "simulated" })
+  return NextResponse.json({
+    times,
+    source: "simulated",
+  })
 }

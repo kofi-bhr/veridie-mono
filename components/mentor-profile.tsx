@@ -20,6 +20,7 @@ export function MentorProfile({ mentor, reviews = [] }: { mentor: any; reviews?:
   const [availableTimes, setAvailableTimes] = useState<string[]>([])
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [isLoadingTimes, setIsLoadingTimes] = useState(false)
+  const [timeSource, setTimeSource] = useState<string | null>(null)
 
   // Reset selected time when date changes
   useEffect(() => {
@@ -59,17 +60,14 @@ export function MentorProfile({ mentor, reviews = [] }: { mentor: any; reviews?:
       const data = await response.json()
       console.log("Available times response:", data)
 
-      // Check if we got real Calendly data or simulated data
-      if (data.source === "calendly") {
-        console.log("Using real Calendly data for available times")
-      } else {
-        console.log("Using simulated data for available times")
-      }
+      // Store the time source for internal tracking but don't display it
+      setTimeSource(data.source || "unknown")
 
       setAvailableTimes(data.times || [])
     } catch (error) {
       console.error("Error fetching available times:", error)
       setAvailableTimes([])
+      setTimeSource("error")
     } finally {
       setIsLoadingTimes(false)
     }

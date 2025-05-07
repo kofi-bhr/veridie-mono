@@ -6,6 +6,9 @@ export const apiKey = process.env.API_KEY
 // Base URL for API calls (can be used client-side)
 export const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL
 
+// Calendly client ID for OAuth flow (can be used client-side)
+export const CALENDLY_CLIENT_ID = process.env.CALENDLY_CLIENT_ID
+
 // Helper function to create headers with the API key (server-side only)
 export function createApiHeaders() {
   return {

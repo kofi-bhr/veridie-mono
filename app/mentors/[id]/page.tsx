@@ -33,6 +33,7 @@ export default function MentorPage() {
   const [isLoadingTimes, setIsLoadingTimes] = useState(false)
   const [isBooking, setIsBooking] = useState(false)
   const [profileImageUrl, setProfileImageUrl] = useState<string>("/diverse-avatars.png")
+  const [timeSource, setTimeSource] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchMentor() {
@@ -113,34 +114,49 @@ export default function MentorPage() {
   // Reset selected time when date changes
   useEffect(() => {
     setSelectedTime(null)
-    if (selectedDate) {
-      fetchAvailableTimes(selectedDate)
+    if (selectedDate && selectedService) {
+      fetchAvailableTimes(selectedDate, selectedService.id)
     }
-  }, [selectedDate])
+  }, [selectedDate, selectedService])
 
-  // Function to fetch available times
-  const fetchAvailableTimes = async (date: Date) => {
+  // Function to fetch available times from Calendly API
+  const fetchAvailableTimes = async (date: Date, serviceId: string) => {
     setIsLoadingTimes(true)
     try {
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 800))
+      // Format date as YYYY-MM-DD
+      const formattedDate = date.toISOString().split("T")[0]
+      console.log("Fetching available times for:", { mentorId: mentor.id, date: formattedDate, serviceId })
 
-      // Simulate different times based on the day of week
-      const day = date.getDay()
-      let times: string[] = []
+      // Call our backend API that interfaces with Calendly
+      const response = await fetch("/api/calendly/available-times", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          mentorId: mentor.id,
+          date: formattedDate,
+          serviceId: serviceId,
+        }),
+      })
 
-      if (day === 0 || day === 6) {
-        // Weekend
-        times = ["10:00 AM", "11:00 AM", "2:00 PM"]
-      } else {
-        // Weekday
-        times = ["9:00 AM", "10:00 AM", "11:00 AM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM"]
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`API error (${response.status}): ${errorText}`)
+        throw new Error(`Failed to fetch available times: ${response.status}`)
       }
 
-      setAvailableTimes(times)
+      const data = await response.json()
+      console.log("Available times response:", data)
+
+      // Store the time source for internal tracking but don't display it
+      setTimeSource(data.source || "unknown")
+
+      setAvailableTimes(data.times || [])
     } catch (error) {
       console.error("Error fetching available times:", error)
       setAvailableTimes([])
+      setTimeSource("error")
     } finally {
       setIsLoadingTimes(false)
     }
@@ -386,7 +402,7 @@ export default function MentorPage() {
                                 variant={selectedTime === time ? "default" : "outline"}
                                 size="sm"
                                 onClick={() => setSelectedTime(time)}
-                                className={`text-sm ${selectedTime === time ? "" : "hover:border-primary/50"}`}
+                                className="text-sm"
                               >
                                 {time}
                               </Button>
