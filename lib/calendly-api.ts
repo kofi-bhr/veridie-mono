@@ -38,16 +38,12 @@ export interface CalendlySchedulingLink {
 
 // Generate OAuth authorization URL
 export function getCalendlyAuthUrl(clientId: string, redirectUri: string): string {
-  // Ensure the redirect URI is properly encoded
-  const encodedRedirectUri = encodeURIComponent(redirectUri)
-
   const params = new URLSearchParams({
     client_id: clientId,
     response_type: "code",
     redirect_uri: redirectUri,
   })
 
-  console.log("Generated Calendly Auth URL with redirect URI:", redirectUri)
   return `https://auth.calendly.com/oauth/authorize?${params.toString()}`
 }
 
@@ -59,8 +55,6 @@ export async function exchangeCalendlyCode(
   redirectUri: string,
 ): Promise<CalendlyTokens> {
   try {
-    console.log("Exchanging code for tokens with redirect URI:", redirectUri)
-
     const response = await fetch("https://auth.calendly.com/oauth/token", {
       method: "POST",
       headers: {
@@ -78,7 +72,6 @@ export async function exchangeCalendlyCode(
 
     if (!response.ok) {
       const error = await response.json()
-      console.error("Calendly token exchange error:", error)
       throw new Error(error.error_description || "Failed to exchange code for tokens")
     }
 

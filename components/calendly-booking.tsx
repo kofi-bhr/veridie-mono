@@ -12,7 +12,6 @@ interface CalendlyBookingProps {
   serviceId?: string
   serviceName?: string
   className?: string
-  eventTypeUri?: string
 }
 
 export function CalendlyBooking({
@@ -22,7 +21,6 @@ export function CalendlyBooking({
   serviceId,
   serviceName,
   className = "",
-  eventTypeUri,
 }: CalendlyBookingProps) {
   const { user } = useAuth()
 
@@ -64,21 +62,10 @@ export function CalendlyBooking({
     utmMedium: "website",
   }
 
-  // Determine the URL to use
-  let calendlyUrl = `https://calendly.com/${calendlyUsername}`
-
-  // If an event type URI is provided, extract the event type path
-  if (eventTypeUri) {
-    const eventTypePath = eventTypeUri.split("/").pop()
-    if (eventTypePath) {
-      calendlyUrl = `https://calendly.com/${calendlyUsername}/${eventTypePath}`
-    }
-  }
-
   return (
     <div className={`min-h-[650px] ${className}`}>
       <InlineWidget
-        url={calendlyUrl}
+        url={`https://calendly.com/${calendlyUsername}`}
         prefill={prefill}
         utm={utm}
         styles={{

@@ -1,57 +1,33 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { NextResponse, type NextRequest } from "next/server"
 import { getCalendlyAuthUrl } from "@/lib/calendly-api"
+import { auth } from "@/lib/auth"
+
+// Calendly OAuth credentials
+const CALENDLY_CLIENT_ID = process.env.CALENDLY_CLIENT_ID || ""
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || ""
+const REDIRECT_URI = `${BASE_URL}/api/calendly/callback`
 
 export async function GET(request: NextRequest) {
   try {
-    // Validate the user is authenticated
-    const supabase = createRouteHandlerClient({ cookies })
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      console.error("Authentication error:", authError)
+    // Get the authenticated user
+    const session = await auth()
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Check if the user is a consultant
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single()
+    // Generate the authorization URL
+    const authUrl = getCalendlyAuthUrl(CALENDLY_CLIENT_ID, REDIRECT_URI)
 
-    if (profileError || profile?.role !== "consultant") {
-      console.error("Profile error or not a consultant:", profileError)
-      return NextResponse.json({ error: "Only consultants can connect to Calendly" }, { status: 403 })
-    }
+    // Store the user ID in the session to retrieve it in the callback
+    const state = Buffer.from(JSON.stringify({ userId: session.user.id })).toString("base64")
 
-    // Get Calendly OAuth URL
-    const clientId = process.env.CALENDLY_CLIENT_ID
+    // Add state to auth URL
+    const finalAuthUrl = `${authUrl}&state=${encodeURIComponent(state)}`
 
-    // Ensure the base URL has no trailing slash
-    let baseUrl = process.env.NEXT_PUBLIC_BASE_URL || ""
-    if (baseUrl.endsWith("/")) {
-      baseUrl = baseUrl.slice(0, -1)
-    }
-
-    const redirectUri = `${baseUrl}/api/calendly/callback`
-
-    if (!clientId) {
-      console.error("Missing Calendly client ID")
-      return NextResponse.json({ error: "Calendly integration not configured" }, { status: 500 })
-    }
-
-    console.log("Using redirect URI:", redirectUri)
-    const authUrl = getCalendlyAuthUrl(clientId, redirectUri)
-
-    // Redirect to Calendly OAuth page
-    return NextResponse.redirect(authUrl)
-  } catch (error) {
-    console.error("Unexpected error in Calendly OAuth route:", error)
-    return NextResponse.json({ error: "An unexpected error occurred" }, { status: 500 })
+    // Redirect to Calendly authorization page
+    return NextResponse.redirect(finalAuthUrl)
+  } catch (error: any) {
+    console.error("Error initiating Calendly OAuth:", error)
+    return NextResponse.redirect(`${BASE_URL}/dashboard/calendly?error=${encodeURIComponent(error.message)}`)
   }
 }

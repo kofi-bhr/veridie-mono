@@ -1,56 +1,77 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import { deleteService } from "@/lib/supabase"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { getStripe } from "@/lib/stripe"
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE(request: Request) {
   try {
-    // Get the service ID from the query parameters
-    const serviceId = request.nextUrl.searchParams.get("serviceId")
+    const url = new URL(request.url)
+    const serviceId = url.searchParams.get("serviceId")
 
     if (!serviceId) {
-      return NextResponse.json({ error: "Missing serviceId parameter" }, { status: 400 })
+      return NextResponse.json({ error: "Service ID is required" }, { status: 400 })
     }
 
-    // Validate the user is authenticated and is the owner of the service
-    const supabase = createRouteHandlerClient({ cookies })
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+    console.log(`Attempting to delete service with ID: ${serviceId}`)
 
-    if (authError || !user) {
-      console.error("Authentication error:", authError)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    // Get the current user from the session
+    const cookieStore = cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
-    // Check if the user owns the service
-    const { data: service, error: serviceError } = await supabase
+    // Get service details
+    const { data: service, error: fetchError } = await supabase
       .from("services")
-      .select("mentor_id")
+      .select("stripe_product_id, mentor_id")
       .eq("id", serviceId)
       .single()
 
-    if (serviceError) {
-      console.error("Error fetching service:", serviceError)
-      return NextResponse.json({ error: "Service not found" }, { status: 404 })
+    if (fetchError) {
+      console.error("Error fetching service:", fetchError)
+      return NextResponse.json({ error: "Failed to fetch service details" }, { status: 500 })
     }
 
-    if (service.mentor_id !== user.id) {
-      return NextResponse.json({ error: "You can only delete your own services" }, { status: 403 })
+    // Verify the user owns this service
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Delete the service
-    const { data, error } = await deleteService(serviceId)
+    if (service.mentor_id !== session.user.id) {
+      return NextResponse.json({ error: "You do not have permission to delete this service" }, { status: 403 })
+    }
 
-    if (error) {
-      console.error("Error deleting service:", error)
+    // Deactivate the Stripe product if it exists
+    if (service.stripe_product_id) {
+      try {
+        const stripe = getStripe()
+        await stripe.products.update(service.stripe_product_id, { active: false })
+        console.log(`Deactivated Stripe product: ${service.stripe_product_id}`)
+      } catch (stripeError) {
+        console.error("Error deactivating Stripe product:", stripeError)
+        // Continue with database deletion even if Stripe update fails
+      }
+    }
+
+    // Delete the service from the database
+    const { error: deleteError } = await supabase.from("services").delete().eq("id", serviceId)
+
+    if (deleteError) {
+      console.error("Error deleting service:", deleteError)
       return NextResponse.json({ error: "Failed to delete service" }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, service: data })
+    return NextResponse.json({ success: true, message: "Service deleted successfully" })
   } catch (error) {
-    console.error("Unexpected error in delete-service route:", error)
-    return NextResponse.json({ error: "An unexpected error occurred" }, { status: 500 })
+    console.error("Error in delete service route:", error)
+    return NextResponse.json(
+      {
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }

@@ -1,53 +1,64 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-import { addService } from "@/lib/supabase"
+import { NextResponse } from "next/server"
+import { auth } from "@/lib/auth"
+import { createClient } from "@supabase/supabase-js"
+import { addService } from "@/lib/supabase-server"
 
-export async function POST(request: NextRequest) {
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
+const supabaseServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+const supabase = createClient(supabaseUrl, supabaseServiceRole)
+
+export async function POST(request: Request) {
   try {
-    // Get the request body
-    const body = await request.json()
-    const { mentorId, name, description, price, calendlyEventTypeUri } = body
-
-    if (!mentorId || !name || !description || price === undefined) {
-      return NextResponse.json(
-        { error: "Missing required fields: mentorId, name, description, price" },
-        { status: 400 },
-      )
-    }
-
-    // Validate the user is authenticated and is the mentor
-    const supabase = createRouteHandlerClient({ cookies })
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      console.error("Authentication error:", authError)
+    // Get the authenticated user
+    const session = await auth()
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    if (user.id !== mentorId) {
-      return NextResponse.json({ error: "You can only add services to your own profile" }, { status: 403 })
+    const userId = session.user.id
+    const { name, description, price, duration, calendlyEventTypeUri } = await request.json()
+
+    // Validate required fields
+    if (!name || !price) {
+      return NextResponse.json({ error: "Name and price are required" }, { status: 400 })
     }
 
-    // Add the service
-    const { data, error } = await addService(mentorId, {
+    // Add service with Stripe product
+    const { data, error } = await addService(userId, {
       name,
-      description,
-      price,
-      calendlyEventTypeUri,
+      description: description || "",
+      price: Number.parseFloat(price),
     })
 
     if (error) {
-      console.error("Error adding service:", error)
-      return NextResponse.json({ error: "Failed to add service" }, { status: 500 })
+      console.error("Error creating service:", error)
+      return NextResponse.json({ error: "Failed to create service" }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, service: data })
-  } catch (error) {
-    console.error("Unexpected error in create-service route:", error)
-    return NextResponse.json({ error: "An unexpected error occurred" }, { status: 500 })
+    // Update the service with additional fields
+    if (data) {
+      const { error: updateError } = await supabase
+        .from("services")
+        .update({
+          duration: Number.parseInt(duration) || 60,
+          calendly_event_type_uri: calendlyEventTypeUri || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", data.id)
+
+      if (updateError) {
+        console.error("Error updating service with additional fields:", updateError)
+        // Continue anyway since the core service was created
+      }
+    }
+
+    return NextResponse.json({ success: true, data })
+  } catch (error: any) {
+    console.error("Error in create-service route:", error)
+    return NextResponse.json(
+      { error: error.message || "An error occurred while creating the service" },
+      { status: 500 },
+    )
   }
 }

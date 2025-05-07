@@ -1,4 +1,3 @@
-import { Suspense } from "react"
 import { MentorsSearch } from "@/components/mentors-search"
 import { MentorsList } from "@/components/mentors-list"
 import { MentorsFilters } from "@/components/mentors-filters"
@@ -14,15 +13,11 @@ export default function MentorsPage() {
           </p>
         </div>
 
-        <Suspense fallback={<div className="h-10 bg-muted/20 animate-pulse rounded-md"></div>}>
-          <MentorsSearch />
-        </Suspense>
+        <MentorsSearch />
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           <div className="lg:col-span-1">
-            <Suspense fallback={<div className="h-96 bg-muted/20 animate-pulse rounded-md"></div>}>
-              <MentorsFilters />
-            </Suspense>
+            <MentorsFilters />
           </div>
           <div className="lg:col-span-3">
             <MentorsList />

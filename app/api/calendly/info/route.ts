@@ -1,81 +1,48 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { NextResponse } from "next/server"
+import { createClient } from "@supabase/supabase-js"
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
-    // Get the user ID from the query parameters
-    const userId = request.nextUrl.searchParams.get("userId")
+    const { searchParams } = new URL(request.url)
+    const userId = searchParams.get("userId")
 
     if (!userId) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 })
     }
 
-    // Validate the user is authenticated
-    const supabase = createRouteHandlerClient({ cookies })
+    // Initialize Supabase client with proper error checking
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-    try {
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser()
-
-      if (authError || !user) {
-        console.error("Authentication error:", authError)
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-      }
-    } catch (authError) {
-      console.error("Auth error:", authError)
-      return NextResponse.json({ error: "Authentication service unavailable" }, { status: 503 })
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return NextResponse.json({ error: "Supabase credentials are missing" }, { status: 500 })
     }
 
-    try {
-      // Get the mentor's Calendly information
-      const { data: mentor, error: mentorError } = await supabase
-        .from("mentors")
-        .select("calendly_username, calendly_token_expires_at")
-        .eq("id", userId)
-        .single()
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-      if (mentorError) {
-        console.error("Error fetching mentor:", mentorError)
+    // Get mentor info
+    const { data: mentor, error } = await supabase
+      .from("mentors")
+      .select("calendly_username, calendly_user_uri, calendly_access_token")
+      .eq("user_id", userId)
+      .single()
 
-        // If the error is about the relation not existing, return a more specific error
-        if (mentorError.message?.includes("does not exist")) {
-          return NextResponse.json(
-            {
-              error: "Database schema issue: " + mentorError.message,
-              details: mentorError,
-            },
-            { status: 500 },
-          )
-        }
-
-        return NextResponse.json({ error: "Mentor not found" }, { status: 404 })
-      }
-
-      return NextResponse.json({
-        calendlyUsername: mentor.calendly_username,
-        expiresAt: mentor.calendly_token_expires_at,
-      })
-    } catch (dbError) {
-      console.error("Database error:", dbError)
-      return NextResponse.json(
-        {
-          error: "Database error",
-          details: dbError instanceof Error ? dbError.message : String(dbError),
-        },
-        { status: 500 },
-      )
+    if (error) {
+      console.error("Error fetching mentor:", error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
-  } catch (error) {
-    console.error("Unexpected error in Calendly info route:", error)
-    return NextResponse.json(
-      {
-        error: "An unexpected error occurred",
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 },
-    )
+
+    if (!mentor) {
+      return NextResponse.json({ error: "Mentor not found" }, { status: 404 })
+    }
+
+    return NextResponse.json({
+      calendlyUsername: mentor.calendly_username || null,
+      isOAuthConnected: !!mentor.calendly_access_token,
+      hasUserUri: !!mentor.calendly_user_uri,
+    })
+  } catch (error: any) {
+    console.error("Error getting Calendly info:", error)
+    return NextResponse.json({ error: error.message || "Failed to get Calendly info" }, { status: 500 })
   }
 }

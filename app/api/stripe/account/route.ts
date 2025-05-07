@@ -1,122 +1,72 @@
 import { NextResponse } from "next/server"
-import Stripe from "stripe"
-import { createClient } from "@supabase/supabase-js"
-
-// Initialize Supabase
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
-
-// Safely initialize Stripe only if we have a key
-let stripe: Stripe | null = null
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY
-
-if (stripeSecretKey) {
-  try {
-    stripe = new Stripe(stripeSecretKey, {
-      apiVersion: "2023-10-16",
-    })
-  } catch (error) {
-    console.error("Failed to initialize Stripe:", error)
-  }
-}
+import { getStripe } from "@/lib/stripe"
+import { cookies } from "next/headers"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 
 export async function GET(request: Request) {
   try {
-    // Check if Stripe is initialized
-    if (!stripe) {
-      console.warn("Stripe is not initialized. Missing or invalid STRIPE_SECRET_KEY.")
-      return NextResponse.json({ account: null }, { status: 200 })
-    }
+    // Get the current user from the session
+    const cookieStore = cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
-    // Check if Supabase is configured
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.warn("Supabase is not properly configured. Missing URL or service key.")
-      return NextResponse.json({ account: null }, { status: 200 })
-    }
-
-    // Initialize Supabase client
-    const adminSupabase = createClient(supabaseUrl, supabaseServiceKey)
-
-    // Get the session cookie
-    const cookieHeader = request.headers.get("cookie") || ""
-
-    // Extract the session token from cookies
-    const sessionMatch = cookieHeader.match(/sb-.*?-auth-token=([^;]*)/)
-    if (!sessionMatch) {
-      console.warn("No session token found in cookies")
-      return NextResponse.json({ account: null }, { status: 200 })
-    }
-
-    // Get session data
     const {
-      data: { user },
-      error: sessionError,
-    } = await adminSupabase.auth.getUser()
+      data: { session },
+    } = await supabase.auth.getSession()
 
-    if (sessionError || !user) {
-      console.warn("Session error or no user:", sessionError)
-      return NextResponse.json({ account: null }, { status: 200 })
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get mentor data - STANDARDIZED to use stripe_connect_accounts consistently
-    const { data: mentor, error: mentorError } = await adminSupabase
+    const userId = session.user.id
+
+    // Get the Stripe account ID from the database
+    const { data: mentor, error: mentorError } = await supabase
       .from("mentors")
       .select(
         "stripe_connect_accounts, stripe_account_details_submitted, stripe_account_charges_enabled, stripe_account_payouts_enabled",
       )
-      .eq("id", user.id)
+      .eq("id", userId)
       .single()
 
     if (mentorError) {
-      console.warn("Error fetching mentor data:", mentorError)
-      // If the mentor doesn't exist, return null account instead of error
-      return NextResponse.json({ account: null }, { status: 200 })
+      console.error("Error fetching mentor:", mentorError)
+      return NextResponse.json({ error: "Failed to fetch mentor data" }, { status: 500 })
     }
 
-    // Use stripe_connect_accounts consistently
-    const stripeAccountId = mentor?.stripe_connect_accounts
-
-    // If no Stripe account connected
-    if (!stripeAccountId) {
-      return NextResponse.json({ account: null }, { status: 200 })
+    if (!mentor?.stripe_connect_accounts) {
+      return NextResponse.json({ account: null })
     }
 
-    try {
-      // Get Stripe account
-      const account = await stripe.accounts.retrieve(stripeAccountId)
+    // Get the account details from Stripe
+    const stripe = getStripe()
+    const account = await stripe.accounts.retrieve(mentor.stripe_connect_accounts)
 
-      // Update account status in database if it has changed
-      if (
-        account.details_submitted !== mentor.stripe_account_details_submitted ||
-        account.charges_enabled !== mentor.stripe_account_charges_enabled ||
-        account.payouts_enabled !== mentor.stripe_account_payouts_enabled
-      ) {
-        await adminSupabase
-          .from("mentors")
-          .update({
-            stripe_account_details_submitted: account.details_submitted,
-            stripe_account_charges_enabled: account.charges_enabled,
-            stripe_account_payouts_enabled: account.payouts_enabled,
-          })
-          .eq("id", user.id)
-      }
-
-      return NextResponse.json({
-        account: {
-          id: account.id,
-          details_submitted: account.details_submitted,
-          charges_enabled: account.charges_enabled,
-          payouts_enabled: account.payouts_enabled,
-        },
-      })
-    } catch (stripeError: any) {
-      console.warn("Stripe API error:", stripeError)
-      // Return null account instead of error
-      return NextResponse.json({ account: null }, { status: 200 })
+    // Update the database with the latest account status if it has changed
+    if (
+      account.details_submitted !== mentor.stripe_account_details_submitted ||
+      account.charges_enabled !== mentor.stripe_account_charges_enabled ||
+      account.payouts_enabled !== mentor.stripe_account_payouts_enabled
+    ) {
+      await supabase
+        .from("mentors")
+        .update({
+          stripe_account_details_submitted: account.details_submitted,
+          stripe_account_charges_enabled: account.charges_enabled,
+          stripe_account_payouts_enabled: account.payouts_enabled,
+        })
+        .eq("id", userId)
     }
-  } catch (error: any) {
-    console.error("Error in /api/stripe/account:", error)
-    // Return null account instead of error
-    return NextResponse.json({ account: null }, { status: 200 })
+
+    return NextResponse.json({
+      account: {
+        accountId: account.id,
+        detailsSubmitted: account.details_submitted,
+        chargesEnabled: account.charges_enabled,
+        payoutsEnabled: account.payouts_enabled,
+      },
+    })
+  } catch (error) {
+    console.error("Error fetching Stripe account:", error)
+    return NextResponse.json({ error: "Failed to fetch Stripe account" }, { status: 500 })
   }
 }

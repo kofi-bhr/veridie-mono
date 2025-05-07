@@ -14,7 +14,6 @@ import { useAuth } from "@/hooks/use-auth"
 import { addReview } from "@/lib/actions"
 import { supabase } from "@/lib/supabase-client"
 import { Skeleton } from "@/components/ui/skeleton"
-import { supabaseAdmin } from "@/lib/supabase-admin"
 
 interface MentorReviewsProps {
   mentorId: string
@@ -107,22 +106,8 @@ export function MentorReviews({ mentorId }: MentorReviewsProps) {
     setIsSubmitting(true)
 
     try {
-      // First, check if the reviews table exists
-      const { error: tableCheckError } = await supabase.from("reviews").select("id").limit(1)
-
-      if (tableCheckError && tableCheckError.message.includes('relation "reviews" does not exist')) {
-        // Table doesn't exist, create it first
-        const createTableResult = await fetch("/api/setup/reviews-table", {
-          method: "POST",
-        })
-
-        if (!createTableResult.ok) {
-          throw new Error("Failed to create reviews table. Please try again later.")
-        }
-      }
-
-      // Try to insert directly into the reviews table using admin client to bypass RLS
-      const { data, error } = await supabaseAdmin
+      // Try to insert directly into the reviews table
+      const { data, error } = await supabase
         .from("reviews")
         .insert([
           {
@@ -137,9 +122,7 @@ export function MentorReviews({ mentorId }: MentorReviewsProps) {
         .select()
 
       if (error) {
-        console.error("Error inserting review with admin client:", error)
-
-        // If admin client fails, try the server action as fallback
+        // If direct insert fails, fall back to the server action
         const formData = new FormData()
         formData.append("mentorId", mentorId)
         formData.append("name", user.name)
@@ -175,7 +158,6 @@ export function MentorReviews({ mentorId }: MentorReviewsProps) {
         setReviews(refreshedData)
       }
     } catch (error: any) {
-      console.error("Full error details:", error)
       toast({
         title: "Submission failed",
         description: error.message || "There was an error submitting your review",
@@ -301,7 +283,7 @@ export function MentorReviews({ mentorId }: MentorReviewsProps) {
             <div key={review.id} className="border-b pb-6 last:border-0">
               <div className="flex items-start gap-4">
                 <Avatar>
-                  <AvatarImage src={"/placeholder.svg?height=40&width=40&query=user"} alt={review.name} />
+                  <AvatarImage src={"/placeholder-40px-height.png?height=40&width=40"} alt={review.name} />
                   <AvatarFallback>
                     {review.name
                       .split(" ")

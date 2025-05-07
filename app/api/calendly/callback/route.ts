@@ -1,95 +1,98 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-import { exchangeCalendlyCode, getCurrentUser } from "@/lib/calendly-api"
+import { createClient } from "@supabase/supabase-js"
+import { exchangeCalendlyCode, getCurrentUser, createWebhookSubscription } from "@/lib/calendly-api"
+
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
+const supabaseServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+const supabase = createClient(supabaseUrl, supabaseServiceRole)
+
+// Calendly OAuth credentials
+const CALENDLY_CLIENT_ID = process.env.CALENDLY_CLIENT_ID || ""
+const CALENDLY_CLIENT_SECRET = process.env.CALENDLY_CLIENT_SECRET || ""
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || ""
+const REDIRECT_URI = `${BASE_URL}/api/calendly/callback`
+const WEBHOOK_URL = `${BASE_URL}/api/webhooks/calendly`
 
 export async function GET(request: NextRequest) {
   try {
-    // Get the authorization code from the query parameters
-    const code = request.nextUrl.searchParams.get("code")
-    const error = request.nextUrl.searchParams.get("error")
+    const searchParams = request.nextUrl.searchParams
+    const code = searchParams.get("code")
+    const stateParam = searchParams.get("state")
+    const error = searchParams.get("error")
 
+    // Handle error from Calendly
     if (error) {
-      console.error("Calendly OAuth error:", error)
+      console.error("Error from Calendly:", error)
+      return NextResponse.redirect(`${BASE_URL}/dashboard/calendly?error=${encodeURIComponent(error)}`)
+    }
+
+    if (!code || !stateParam) {
       return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/calendly?error=${encodeURIComponent(error)}`,
+        `${BASE_URL}/dashboard/calendly?error=${encodeURIComponent("Missing required parameters")}`,
       )
     }
 
-    if (!code) {
-      console.error("Missing authorization code")
+    // Decode state parameter
+    let state
+    try {
+      state = JSON.parse(Buffer.from(stateParam, "base64").toString())
+    } catch (err) {
       return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/calendly?error=${encodeURIComponent("Missing authorization code")}`,
+        `${BASE_URL}/dashboard/calendly?error=${encodeURIComponent("Invalid state parameter")}`,
       )
     }
 
-    // Validate the user is authenticated
-    const supabase = createRouteHandlerClient({ cookies })
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+    const userId = state.userId
 
-    if (authError || !user) {
-      console.error("Authentication error:", authError)
+    if (!userId) {
       return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_BASE_URL}/auth/login?error=${encodeURIComponent("Authentication required")}`,
+        `${BASE_URL}/dashboard/calendly?error=${encodeURIComponent("Missing user ID in state")}`,
       )
     }
 
-    // Exchange the code for tokens
-    const clientId = process.env.CALENDLY_CLIENT_ID
-    const clientSecret = process.env.CALENDLY_CLIENT_SECRET
+    // Exchange authorization code for tokens
+    const tokens = await exchangeCalendlyCode(code, CALENDLY_CLIENT_ID, CALENDLY_CLIENT_SECRET, REDIRECT_URI)
 
-    // Ensure the base URL has no trailing slash
-    let baseUrl = process.env.NEXT_PUBLIC_BASE_URL || ""
-    if (baseUrl.endsWith("/")) {
-      baseUrl = baseUrl.slice(0, -1)
+    // Get user info from Calendly
+    const user = await getCurrentUser(tokens.accessToken)
+
+    // Create webhook subscription
+    let webhookSubscription
+    try {
+      webhookSubscription = await createWebhookSubscription(tokens.accessToken, user.uri, WEBHOOK_URL)
+    } catch (err) {
+      console.error("Error creating webhook subscription:", err)
+      // Continue even if webhook creation fails
     }
 
-    const redirectUri = `${baseUrl}/api/calendly/callback`
-
-    if (!clientId || !clientSecret) {
-      console.error("Missing Calendly credentials")
-      return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/calendly?error=${encodeURIComponent("Calendly integration not configured")}`,
-      )
-    }
-
-    console.log("Using redirect URI for token exchange:", redirectUri)
-    const tokens = await exchangeCalendlyCode(code, clientId, clientSecret, redirectUri)
-
-    // Get the user's Calendly information
-    const calendlyUser = await getCurrentUser(tokens.accessToken)
-
-    // Extract username from scheduling URL
-    const username = calendlyUser.schedulingUrl.split("calendly.com/")[1]
-
-    // Update the mentor's Calendly information
+    // Update user's Calendly information in the database
     const { error: updateError } = await supabase
       .from("mentors")
       .update({
-        calendly_username: username,
         calendly_access_token: tokens.accessToken,
         calendly_refresh_token: tokens.refreshToken,
+        calendly_user_uri: user.uri,
         calendly_token_expires_at: tokens.expiresAt.toISOString(),
-        calendly_user_uri: calendlyUser.uri,
+        calendly_username: user.schedulingUrl.split("/").pop(), // Extract username from URL
+        calendly_webhook_subscriptions: webhookSubscription ? [webhookSubscription.resource] : null,
+        updated_at: new Date().toISOString(),
       })
-      .eq("id", user.id)
+      .eq("id", userId)
 
     if (updateError) {
-      console.error("Error updating mentor:", updateError)
+      console.error("Error updating user Calendly info:", updateError)
       return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/calendly?error=${encodeURIComponent("Failed to update Calendly information")}`,
+        `${BASE_URL}/dashboard/calendly?error=${encodeURIComponent("Failed to save Calendly information")}`,
       )
     }
 
-    // Redirect back to the Calendly dashboard
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/calendly?success=true`)
-  } catch (error) {
-    console.error("Unexpected error in Calendly callback route:", error)
+    // Redirect to success page
+    return NextResponse.redirect(`${BASE_URL}/dashboard/calendly?success=true`)
+  } catch (error: any) {
+    console.error("Error handling Calendly callback:", error)
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/calendly?error=${encodeURIComponent("An unexpected error occurred")}`,
+      `${BASE_URL}/dashboard/calendly?error=${encodeURIComponent(error.message || "An error occurred")}`,
     )
   }
 }

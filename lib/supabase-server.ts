@@ -22,7 +22,6 @@ export const supabaseAdmin = createSupabaseClient(supabaseUrl || "", supabaseSer
 // Stripe Connect functions for server-side operations
 export async function createStripeConnectAccount(userId: string, email: string, name: string) {
   try {
-    console.log("Creating Stripe Connect account for:", userId, email, name)
     // Check if mentor already has a Stripe Connect account
     const { data: existingAccount, error: fetchError } = await supabaseAdmin
       .from("mentors")
@@ -32,23 +31,16 @@ export async function createStripeConnectAccount(userId: string, email: string, 
 
     if (fetchError && fetchError.code !== "PGRST116") {
       // Real error, not just "no rows returned"
-      console.error("Error fetching existing account:", fetchError)
       throw fetchError
     }
 
     const stripe = getStripe()
-    if (!stripe) {
-      throw new Error("Stripe is not initialized")
-    }
-
     let account
 
     // If account exists, retrieve it from Stripe
     if (existingAccount?.stripe_connect_accounts) {
-      console.log("Found existing Stripe account:", existingAccount.stripe_connect_accounts)
       account = await stripe.accounts.retrieve(existingAccount.stripe_connect_accounts)
     } else {
-      console.log("Creating new Stripe Connect account")
       // Create new Stripe Connect account
       account = await stripe.accounts.create({
         type: "express",
@@ -65,8 +57,6 @@ export async function createStripeConnectAccount(userId: string, email: string, 
         },
       })
 
-      console.log("Created Stripe account:", account.id)
-
       // Update mentor record with Stripe Connect account ID
       const { error: updateError } = await supabaseAdmin
         .from("mentors")
@@ -79,7 +69,6 @@ export async function createStripeConnectAccount(userId: string, email: string, 
         .eq("id", userId)
 
       if (updateError) {
-        console.error("Error updating mentor record:", updateError)
         throw updateError
       }
     }
@@ -94,15 +83,7 @@ export async function createStripeConnectAccount(userId: string, email: string, 
 // Create Stripe Connect account link for onboarding
 export async function createStripeConnectAccountLink(accountId: string, refreshUrl: string, returnUrl: string) {
   try {
-    console.log("Creating account link for:", accountId)
-    console.log("Refresh URL:", refreshUrl)
-    console.log("Return URL:", returnUrl)
-
     const stripe = getStripe()
-    if (!stripe) {
-      throw new Error("Stripe is not initialized")
-    }
-
     const accountLink = await stripe.accountLinks.create({
       account: accountId,
       refresh_url: refreshUrl,
@@ -110,7 +91,6 @@ export async function createStripeConnectAccountLink(accountId: string, refreshU
       type: "account_onboarding",
     })
 
-    console.log("Created account link:", accountLink.url)
     return { url: accountLink.url, error: null }
   } catch (error) {
     console.error("Error creating Stripe Connect account link:", error)
@@ -140,10 +120,6 @@ export async function getStripeConnectAccount(userId: string) {
 
     // Get latest account details from Stripe
     const stripe = getStripe()
-    if (!stripe) {
-      throw new Error("Stripe is not initialized")
-    }
-
     const stripeAccount = await stripe.accounts.retrieve(data.stripe_connect_accounts)
 
     // Update database with latest status
@@ -178,15 +154,7 @@ export async function getStripeConnectAccount(userId: string) {
 }
 
 // Add service with Stripe product
-export async function addService(
-  mentorId: string,
-  serviceData: {
-    name: string
-    description: string
-    price: number
-    calendlyEventTypeUri?: string
-  },
-) {
+export async function addService(mentorId: string, serviceData: { name: string; description: string; price: number }) {
   try {
     // Get mentor's Stripe Connect account ID
     const { data: mentor, error: mentorError } = await supabaseAdmin
@@ -207,10 +175,6 @@ export async function addService(
 
     // Create product in Stripe
     const stripe = getStripe()
-    if (!stripe) {
-      throw new Error("Stripe is not initialized")
-    }
-
     const product = await stripe.products.create({
       name: serviceData.name,
       description: serviceData.description,
@@ -234,7 +198,6 @@ export async function addService(
           price: serviceData.price,
           stripe_product_id: product.id,
           stripe_price_id: price.id,
-          calendly_event_type_uri: serviceData.calendlyEventTypeUri,
         },
       ])
       .select()
