@@ -32,6 +32,7 @@ export default function MentorPage() {
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [isLoadingTimes, setIsLoadingTimes] = useState(false)
   const [isBooking, setIsBooking] = useState(false)
+  const [profileImageUrl, setProfileImageUrl] = useState<string>("/diverse-avatars.png")
 
   useEffect(() => {
     async function fetchMentor() {
@@ -80,12 +81,20 @@ export default function MentorPage() {
           awards: awards || [],
         }
 
-        console.log("Mentor profile data with image:", {
+        // Log image sources for debugging
+        console.log("Mentor profile image sources:", {
           id: completeData.id,
           name: completeData.name,
-          profile_image_url: completeData.profile_image_url,
+          profile_image_url: mentorData.profile_image_url,
           avatar: profileData?.avatar,
         })
+
+        // Process image URL on the client side
+        if (mentorData.profile_image_url) {
+          setProfileImageUrl(mentorData.profile_image_url)
+        } else if (profileData?.avatar) {
+          setProfileImageUrl(profileData.avatar)
+        }
 
         setMentor(completeData)
       } catch (err) {
@@ -224,12 +233,13 @@ export default function MentorPage() {
               <div className="flex flex-col items-center">
                 <div className="relative w-24 h-24 -mt-12 rounded-full overflow-hidden border-4 border-white shadow-md bg-[#1C2127]">
                   <Image
-                    src={mentor.profile_image_url || "/placeholder.svg?height=96&width=96&query=avatar"}
+                    src={profileImageUrl || "/placeholder.svg"}
                     alt={mentor.name || "Consultant"}
                     fill
                     className="object-cover"
                     onError={(e) => {
-                      console.error("Failed to load mentor profile image:", mentor.profile_image_url)
+                      console.error("Failed to load mentor profile image:", profileImageUrl)
+                      // @ts-ignore - Next.js Image doesn't have src property in TypeScript but it works
                       e.currentTarget.src = "/diverse-avatars.png"
                     }}
                   />

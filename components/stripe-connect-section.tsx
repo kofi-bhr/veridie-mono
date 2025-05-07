@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { StripeConnectButton } from "./stripe-connect-button"
 import { CheckCircle, AlertCircle, ExternalLink, Loader2 } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface StripeAccount {
   id: string
@@ -18,67 +19,98 @@ export function StripeConnectSection() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
+  const [skipStripe, setSkipStripe] = useState(false)
+  const { toast } = useToast()
+
+  // Check for Stripe onboarding success/failure
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const stripeStatus = params.get("stripe")
+
+    if (stripeStatus === "success") {
+      toast({
+        title: "Stripe Connected",
+        description: "Your Stripe account has been successfully connected.",
+      })
+      // Remove the query parameter
+      const newUrl = window.location.pathname
+      window.history.replaceState({}, document.title, newUrl)
+    } else if (stripeStatus === "refresh") {
+      toast({
+        title: "Stripe Setup Incomplete",
+        description: "Please complete your Stripe account setup.",
+        variant: "destructive",
+      })
+      // Remove the query parameter
+      const newUrl = window.location.pathname
+      window.history.replaceState({}, document.title, newUrl)
+    }
+  }, [toast])
 
   useEffect(() => {
+    // If we're skipping Stripe, don't fetch the account
+    if (skipStripe) {
+      setLoading(false)
+      return
+    }
+
     async function fetchAccount() {
       try {
         setLoading(true)
         setError(null)
 
-        // Add a delay to ensure auth is ready
-        await new Promise((resolve) => setTimeout(resolve, 500))
-
+        console.log("Fetching Stripe account...")
         const response = await fetch("/api/stripe/account", {
           headers: {
             Accept: "application/json",
             "Cache-Control": "no-cache",
           },
-          // Add credentials to ensure cookies are sent
           credentials: "include",
         })
 
-        // Log the response status for debugging
         console.log("Stripe account response status:", response.status)
 
-        // Handle non-OK responses
         if (!response.ok) {
-          // For 500 errors, we'll just assume no account is connected yet
-          // This prevents showing an error when the user hasn't set up Stripe
-          if (response.status === 500) {
-            console.warn("Stripe API returned 500, assuming no account is connected yet")
+          if (response.status >= 500) {
+            console.warn(`Stripe API returned ${response.status}, assuming no account is connected yet`)
             setAccount(null)
             setLoading(false)
             return
           }
 
-          const errorText = await response.text().catch(() => "Unknown error")
+          let errorText
+          try {
+            const errorData = await response.json()
+            errorText = errorData.error || "Unknown error"
+          } catch (e) {
+            errorText = await response.text().catch(() => "Unknown error")
+          }
+
           console.error("Error response:", errorText)
 
-          // If unauthorized, show a more user-friendly message
           if (response.status === 401) {
             throw new Error("Please log in to access your Stripe account")
           } else {
-            throw new Error(`Failed to fetch account: ${response.status}`)
+            throw new Error(`Failed to fetch account: ${errorText}`)
           }
         }
 
-        // Try to parse the JSON response
-        let data
         try {
-          data = await response.json()
+          const data = await response.json()
           console.log("Stripe account data:", data)
+          setAccount(data.account)
         } catch (jsonError) {
           console.error("JSON parse error:", jsonError)
-          throw new Error("Invalid response format from server")
+          setAccount(null)
         }
-
-        // If account is null, that's fine - it means no account is connected yet
-        setAccount(data.account)
       } catch (err) {
         console.error("Error fetching Stripe account:", err)
-        // Don't show the error to the user if it's a server error
-        // Just assume they don't have a Stripe account connected yet
-        if (err instanceof Error && err.message.includes("500")) {
+        if (
+          err instanceof Error &&
+          (err.message.includes("500") ||
+            err.message.includes("Internal server error") ||
+            err.message.includes("Failed to fetch"))
+        ) {
           setAccount(null)
         } else {
           setError(err instanceof Error ? err.message : "Failed to load account information")
@@ -89,10 +121,20 @@ export function StripeConnectSection() {
     }
 
     fetchAccount()
-  }, [retryCount])
+  }, [retryCount, skipStripe])
 
   const retryFetch = () => {
     setRetryCount((prev) => prev + 1)
+  }
+
+  const handleSkipStripe = () => {
+    setSkipStripe(true)
+    setAccount({
+      id: "dev-mode",
+      details_submitted: true,
+      charges_enabled: true,
+      payouts_enabled: true,
+    })
   }
 
   const openDashboard = async () => {
@@ -130,7 +172,10 @@ export function StripeConnectSection() {
   }
 
   // For development/preview environments, allow bypassing Stripe
-  const isDevelopment = process.env.NODE_ENV === "development" || window.location.hostname.includes("vercel.app")
+  const isDevelopment =
+    process.env.NODE_ENV === "development" ||
+    window.location.hostname.includes("vercel.app") ||
+    window.location.hostname.includes("localhost")
 
   return (
     <Card>
@@ -152,55 +197,28 @@ export function StripeConnectSection() {
                 <p className="text-sm text-red-700">{error}</p>
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={retryFetch} className="mt-2">
-              Retry
-            </Button>
-            {isDevelopment && (
-              <div className="mt-4 pt-4 border-t border-border w-full">
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    setAccount({
-                      id: "dev-mode",
-                      details_submitted: true,
-                      charges_enabled: true,
-                      payouts_enabled: true,
-                    })
-                  }
-                >
-                  Development Mode: Skip Stripe Connect
+            <div className="flex gap-2 mt-2">
+              <Button variant="outline" size="sm" onClick={retryFetch}>
+                Retry
+              </Button>
+              {isDevelopment && (
+                <Button variant="outline" size="sm" onClick={handleSkipStripe}>
+                  Skip Stripe Setup
                 </Button>
-                <p className="text-xs text-muted-foreground mt-2">
-                  This button is only available in development/preview environments.
-                </p>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         ) : !account ? (
           <div className="space-y-4">
-            {/* Removed the explanatory text as requested */}
-            <StripeConnectButton />
+            <div className="flex flex-col gap-4">
+              <StripeConnectButton />
 
-            {isDevelopment && (
-              <div className="mt-6 pt-6 border-t border-border">
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    setAccount({
-                      id: "dev-mode",
-                      details_submitted: true,
-                      charges_enabled: true,
-                      payouts_enabled: true,
-                    })
-                  }
-                >
-                  Development Mode: Skip Stripe Connect
+              {isDevelopment && (
+                <Button variant="outline" onClick={handleSkipStripe}>
+                  Skip Stripe Setup (Development Mode)
                 </Button>
-                <p className="text-xs text-muted-foreground mt-2">
-                  This button is only available in development/preview environments.
-                </p>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -242,7 +260,7 @@ export function StripeConnectSection() {
           </div>
         )}
       </CardContent>
-      {account && (
+      {account && !skipStripe && (
         <CardFooter>
           <Button onClick={openDashboard} variant="outline" className="w-full">
             <ExternalLink className="h-4 w-4 mr-2" />

@@ -5,11 +5,13 @@ import { createStripeConnectAccount, createStripeConnectAccountLink } from "@/li
 
 export async function POST(request: Request) {
   try {
+    console.log("Stripe Connect Account API called")
     // Get the request body
     const body = await request.json()
     const { userId } = body
 
     if (!userId) {
+      console.error("Missing userId in request body")
       return NextResponse.json({ error: "User ID is required" }, { status: 400 })
     }
 
@@ -27,9 +29,11 @@ export async function POST(request: Request) {
 
     // Verify that the user is requesting their own account
     if (user.id !== userId) {
+      console.error("User ID mismatch:", user.id, userId)
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
+    console.log("Fetching user profile data")
     // Get user profile data
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
@@ -42,6 +46,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to fetch user profile" }, { status: 500 })
     }
 
+    console.log("Creating Stripe Connect account")
     // Create Stripe Connect account
     const { account, error: accountError } = await createStripeConnectAccount(
       userId,
@@ -54,6 +59,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to create Stripe Connect account" }, { status: 500 })
     }
 
+    console.log("Creating account link for onboarding")
     // Create account link for onboarding
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
     const refreshUrl = `${baseUrl}/dashboard?stripe=refresh`
@@ -66,6 +72,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to create Stripe Connect onboarding link" }, { status: 500 })
     }
 
+    console.log("Returning onboarding URL:", url)
     return NextResponse.json({ url })
   } catch (error) {
     console.error("Unexpected error in /api/stripe/connect-account:", error)

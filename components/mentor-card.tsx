@@ -1,15 +1,18 @@
+"use client"
+
 import Link from "next/link"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { StarRating } from "@/components/star-rating"
+import { useEffect, useState } from "react"
 
 interface MentorCardProps {
   mentor: {
     id: string
     name: string
     avatar?: string
-    profile_image_url?: string // Add this field
+    profile_image_url?: string
     university: string
     rating: number
     reviewCount: number
@@ -30,11 +33,23 @@ interface MentorCardProps {
 
 export function MentorCard({ mentor }: MentorCardProps) {
   const { id, name, avatar, profile_image_url, university, rating, reviewCount, services, awards } = mentor
+  const [imageUrl, setImageUrl] = useState<string>("/placeholder.svg?height=200&width=200")
 
-  // Get the profile image - prioritize profile_image_url, then fall back to avatar
-  const profileImage = profile_image_url || avatar || "/placeholder.svg?height=200&width=200"
+  // Client-side image URL processing
+  useEffect(() => {
+    // Log all possible image sources for debugging
+    console.log(`MentorCard ${id} (${name}) image sources:`, {
+      profile_image_url,
+      avatar,
+    })
 
-  console.log("MentorCard rendering with image:", { id, name, profileImage })
+    // Prioritize profile_image_url, then fall back to avatar
+    if (profile_image_url) {
+      setImageUrl(profile_image_url)
+    } else if (avatar) {
+      setImageUrl(avatar)
+    }
+  }, [id, name, profile_image_url, avatar])
 
   // Get the lowest priced service
   const lowestPrice = services.reduce(
@@ -53,10 +68,10 @@ export function MentorCard({ mentor }: MentorCardProps) {
           <div className="flex items-center gap-4 mb-4">
             <Avatar className="h-16 w-16 border-2 border-muted">
               <AvatarImage
-                src={profileImage || "/placeholder.svg"}
+                src={imageUrl || "/placeholder.svg"}
                 alt={name}
                 onError={(e) => {
-                  console.error("Failed to load image in MentorCard:", profileImage)
+                  console.error(`Failed to load image for ${name}:`, imageUrl)
                   e.currentTarget.src = "/placeholder.svg?height=200&width=200"
                 }}
               />

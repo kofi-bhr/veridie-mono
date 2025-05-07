@@ -36,21 +36,21 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 })
     }
 
-    // Get mentor data
+    // Get mentor data - STANDARDIZED to use stripe_connect_accounts
     const { data: mentor, error: mentorError } = await adminSupabase
       .from("mentors")
-      .select("stripe_account_id")
+      .select("stripe_connect_accounts")
       .eq("id", user.id)
       .single()
 
-    if (mentorError || !mentor?.stripe_account_id) {
+    if (mentorError || !mentor?.stripe_connect_accounts) {
       console.error("Error fetching mentor data:", mentorError)
       return NextResponse.json({ error: "No Stripe account connected" }, { status: 404 })
     }
 
     try {
       // Create login link
-      const link = await stripe.accounts.createLoginLink(mentor.stripe_account_id)
+      const link = await stripe.accounts.createLoginLink(mentor.stripe_connect_accounts)
 
       return NextResponse.json({ url: link.url })
     } catch (stripeError: any) {
