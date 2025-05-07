@@ -119,9 +119,32 @@ export async function POST(request: Request) {
 
     // Create account link for onboarding
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+      // Get base URL and ensure it uses HTTPS for live mode
+      let baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+
+      // Check if we're using a live mode key (starts with sk_live_)
+      const isLiveMode = process.env.STRIPE_SECRET_KEY?.startsWith("sk_live_") || false
+
+      // Force HTTPS for live mode
+      if (isLiveMode && baseUrl.startsWith("http://")) {
+        baseUrl = baseUrl.replace("http://", "https://")
+        console.log("Forced HTTPS for live mode Stripe, new baseUrl:", baseUrl)
+      }
+
+      // For Vercel preview deployments, ensure HTTPS
+      if (baseUrl.includes("vercel.app") && baseUrl.startsWith("http://")) {
+        baseUrl = baseUrl.replace("http://", "https://")
+        console.log("Forced HTTPS for Vercel deployment, new baseUrl:", baseUrl)
+      }
+
       const refreshUrl = `${baseUrl}/dashboard/services`
       const returnUrl = `${baseUrl}/dashboard/services?setup=complete`
+
+      console.log("Creating account link with URLs:", {
+        refreshUrl,
+        returnUrl,
+        isLiveMode,
+      })
 
       const accountLink = await stripe.accountLinks.create({
         account: accountId,

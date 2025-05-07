@@ -66,7 +66,7 @@ export default function ActivitiesPage() {
         .from("activities")
         .select("*")
         .eq("mentor_id", user.id)
-        .order("created_at", { ascending: false })
+        .order("created_at", { ascending: true })
 
       if (error) throw error
       setActivities(data || [])
@@ -358,22 +358,28 @@ export default function ActivitiesPage() {
           </Card>
         ) : (
           activities.map((activity: any) => (
-            <Card key={activity.id}>
+            <Card key={activity.id} className="bg-[#1C2127] border-0">
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div>
-                    <CardTitle>{activity.title}</CardTitle>
-                    <CardDescription>{activity.organization}</CardDescription>
+                    <CardTitle className="text-white">{activity.title}</CardTitle>
+                    <CardDescription className="text-gray-300">{activity.organization}</CardDescription>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(activity.id)} disabled={isDeleting}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDelete(activity.id)}
+                    disabled={isDeleting}
+                    className="text-white hover:text-white hover:bg-gray-800"
+                  >
                     <Trash2 className="h-4 w-4" />
                     <span className="sr-only">Delete activity</span>
                   </Button>
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground mb-2">{activity.years}</p>
-                <p>{activity.description}</p>
+                <p className="text-sm text-gray-300 mb-2">{activity.years}</p>
+                <p className="text-white">{activity.description}</p>
               </CardContent>
             </Card>
           ))

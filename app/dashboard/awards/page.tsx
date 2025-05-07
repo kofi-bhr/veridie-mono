@@ -352,22 +352,28 @@ export default function AwardsPage() {
           </Card>
         ) : (
           awards.map((award: any) => (
-            <Card key={award.id}>
+            <Card key={award.id} className="bg-[#1C2127] border-0">
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div>
-                    <CardTitle>{award.title}</CardTitle>
-                    <CardDescription>{award.issuer}</CardDescription>
+                    <CardTitle className="text-white">{award.title}</CardTitle>
+                    <CardDescription className="text-gray-300">{award.issuer}</CardDescription>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(award.id)} disabled={isDeleting}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDelete(award.id)}
+                    disabled={isDeleting}
+                    className="text-white hover:text-white hover:bg-gray-800"
+                  >
                     <Trash2 className="h-4 w-4" />
                     <span className="sr-only">Delete award</span>
                   </Button>
                 </div>
               </CardHeader>
               <CardContent>
-                {award.year && <p className="text-sm text-muted-foreground mb-2">{award.year}</p>}
-                {award.description && <p>{award.description}</p>}
+                {award.year && <p className="text-sm text-gray-300 mb-2">{award.year}</p>}
+                {award.description && <p className="text-white">{award.description}</p>}
               </CardContent>
             </Card>
           ))
