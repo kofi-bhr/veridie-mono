@@ -9,6 +9,7 @@ interface MentorCardProps {
     id: string
     name: string
     avatar?: string
+    profile_image_url?: string // Add this field
     university: string
     rating: number
     reviewCount: number
@@ -28,7 +29,12 @@ interface MentorCardProps {
 }
 
 export function MentorCard({ mentor }: MentorCardProps) {
-  const { id, name, avatar, university, rating, reviewCount, services, awards } = mentor
+  const { id, name, avatar, profile_image_url, university, rating, reviewCount, services, awards } = mentor
+
+  // Get the profile image - prioritize profile_image_url, then fall back to avatar
+  const profileImage = profile_image_url || avatar || "/placeholder.svg?height=200&width=200"
+
+  console.log("MentorCard rendering with image:", { id, name, profileImage })
 
   // Get the lowest priced service
   const lowestPrice = services.reduce(
@@ -46,7 +52,14 @@ export function MentorCard({ mentor }: MentorCardProps) {
         <CardContent className="pt-6">
           <div className="flex items-center gap-4 mb-4">
             <Avatar className="h-16 w-16 border-2 border-muted">
-              <AvatarImage src={avatar || "/placeholder.svg"} alt={name} />
+              <AvatarImage
+                src={profileImage || "/placeholder.svg"}
+                alt={name}
+                onError={(e) => {
+                  console.error("Failed to load image in MentorCard:", profileImage)
+                  e.currentTarget.src = "/placeholder.svg?height=200&width=200"
+                }}
+              />
               <AvatarFallback>
                 {name
                   .split(" ")

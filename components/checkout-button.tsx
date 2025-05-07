@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Loader2 } from "lucide-react"
+import { Loader2, CalendarCheck } from "lucide-react"
 
 interface CheckoutButtonProps {
   mentorId: string
@@ -64,7 +64,10 @@ export function CheckoutButton({
           Processing...
         </>
       ) : (
-        "Book Now"
+        <>
+          <CalendarCheck className="mr-2 h-4 w-4" />
+          Book Now
+        </>
       )}
     </Button>
   )

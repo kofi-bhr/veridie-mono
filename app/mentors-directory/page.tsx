@@ -24,6 +24,7 @@ interface Mentor {
     name: string
     price: number
   }[]
+  profile_image_url?: string | null
 }
 
 export default function MentorsDirectoryPage() {
@@ -57,6 +58,16 @@ export default function MentorsDirectoryPage() {
             profile: mentor.profile,
             services: mentor.services || [],
           })) || []
+
+        console.log(
+          "Fetched mentors with images:",
+          transformedData.map((m) => ({
+            id: m.id,
+            name: m.profile?.name,
+            profile_image_url: m.profile_image_url,
+            avatar: m.profile?.avatar,
+          })),
+        )
 
         setMentors(transformedData)
       } catch (err: any) {
@@ -104,8 +115,12 @@ export default function MentorsDirectoryPage() {
               <CardHeader className="flex flex-row items-center gap-4">
                 <Avatar className="h-16 w-16 border-2 border-muted">
                   <AvatarImage
-                    src={mentor.profile?.avatar || "/placeholder.svg?height=200&width=200"}
+                    src={mentor.profile_image_url || mentor.profile?.avatar || "/placeholder.svg?height=200&width=200"}
                     alt={mentor.profile?.name || "Mentor"}
+                    onError={(e) => {
+                      console.error("Failed to load image:", mentor.profile_image_url || mentor.profile?.avatar)
+                      e.currentTarget.src = "/placeholder.svg?height=200&width=200"
+                    }}
                   />
                   <AvatarFallback>{(mentor.profile?.name || "?").charAt(0)}</AvatarFallback>
                 </Avatar>

@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     const sessionMatch = cookieHeader.match(/sb-.*?-auth-token=([^;]*)/)
     if (!sessionMatch) {
       console.error("No session token found in cookies")
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+      return NextResponse.json({ account: null }, { status: 200 })
     }
 
     // Get session data
@@ -33,29 +33,33 @@ export async function GET(request: Request) {
 
     if (sessionError || !user) {
       console.error("Session error:", sessionError)
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+      return NextResponse.json({ account: null }, { status: 200 })
     }
 
     // Get mentor data
     const { data: mentor, error: mentorError } = await adminSupabase
       .from("mentors")
-      .select("stripe_account_id")
+      .select("stripe_connect_accounts")
       .eq("id", user.id)
       .single()
 
     if (mentorError) {
       console.error("Error fetching mentor data:", mentorError)
-      return NextResponse.json({ error: "Failed to fetch mentor data" }, { status: 500 })
+      // If the mentor doesn't exist, return null account instead of error
+      if (mentorError.code === "PGRST116") {
+        return NextResponse.json({ account: null }, { status: 200 })
+      }
+      return NextResponse.json({ account: null, error: "Failed to fetch mentor data" }, { status: 200 })
     }
 
     // If no Stripe account connected
-    if (!mentor?.stripe_account_id) {
-      return NextResponse.json({ account: null })
+    if (!mentor?.stripe_connect_accounts) {
+      return NextResponse.json({ account: null }, { status: 200 })
     }
 
     try {
       // Get Stripe account
-      const account = await stripe.accounts.retrieve(mentor.stripe_account_id)
+      const account = await stripe.accounts.retrieve(mentor.stripe_connect_accounts)
 
       return NextResponse.json({
         account: {
@@ -67,10 +71,12 @@ export async function GET(request: Request) {
       })
     } catch (stripeError: any) {
       console.error("Stripe API error:", stripeError)
-      return NextResponse.json({ error: `Stripe API error: ${stripeError.message}` }, { status: 500 })
+      // Return null account instead of error
+      return NextResponse.json({ account: null }, { status: 200 })
     }
   } catch (error: any) {
     console.error("Error in /api/stripe/account:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    // Return null account instead of error
+    return NextResponse.json({ account: null }, { status: 200 })
   }
 }

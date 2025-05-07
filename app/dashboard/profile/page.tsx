@@ -16,7 +16,7 @@ import { supabase } from "@/lib/supabase-client"
 import Image from "next/image"
 import Link from "next/link"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle } from "lucide-react"
+import { AlertCircle, Upload, Camera } from "lucide-react"
 
 export default function ProfilePage() {
   const { user } = useAuth()
@@ -30,6 +30,7 @@ export default function ProfilePage() {
     university: "",
     bio: "",
     avatar: "",
+    profile_image_url: "",
   })
 
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -64,6 +65,7 @@ export default function ProfilePage() {
               title: mentor.title || "",
               university: mentor.university || "",
               bio: mentor.bio || "",
+              profile_image_url: mentor.profile_image_url || profile?.avatar || "",
             }))
           }
         }
@@ -164,13 +166,30 @@ export default function ProfilePage() {
       const avatarUrl = publicUrlData.publicUrl
 
       // Update the form data with the new avatar URL
-      setFormData((prev) => ({ ...prev, avatar: avatarUrl }))
+      setFormData((prev) => ({
+        ...prev,
+        avatar: avatarUrl,
+        profile_image_url: avatarUrl,
+      }))
 
       // Update the user profile with the new avatar URL
       const { error: updateError } = await supabase.from("profiles").update({ avatar: avatarUrl }).eq("id", user.id)
 
       if (updateError) {
         throw updateError
+      }
+
+      // If user is a consultant, also update the mentor profile
+      if (user.role === "consultant") {
+        const { error: mentorUpdateError } = await supabase
+          .from("mentors")
+          .update({ profile_image_url: avatarUrl })
+          .eq("id", user.id)
+
+        if (mentorUpdateError) {
+          console.error("Error updating mentor profile image:", mentorUpdateError)
+          // Continue anyway since the profile avatar was updated
+        }
       }
 
       toast({
@@ -215,6 +234,7 @@ export default function ProfilePage() {
           title: formData.title,
           university: formData.university,
           bio: formData.bio,
+          profile_image_url: formData.profile_image_url || formData.avatar,
         })
 
         if (result.error) throw result.error
@@ -319,7 +339,7 @@ export default function ProfilePage() {
               ) : (
                 <div className="flex flex-col items-center">
                   <div
-                    className="relative w-32 h-32 rounded-full overflow-hidden border-2 border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+                    className="relative w-32 h-32 rounded-full overflow-hidden border-2 border-gray-200 cursor-pointer hover:opacity-90 transition-opacity bg-[#1C2127]"
                     onClick={handleImageClick}
                   >
                     {isUploading ? (
@@ -327,20 +347,29 @@ export default function ProfilePage() {
                         <div className="text-sm font-medium mb-1">Uploading...</div>
                         <div className="w-4/5 h-2 bg-gray-200 rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-blue-500 rounded-full"
+                            className="h-full bg-[#1C2127] rounded-full"
                             style={{ width: `${uploadProgress}%` }}
                           ></div>
                         </div>
                         <div className="text-xs mt-1">{uploadProgress}%</div>
                       </div>
                     ) : (
-                      <Image
-                        src={formData.avatar || "/placeholder.svg?height=128&width=128&query=profile"}
-                        alt="Profile picture"
-                        width={128}
-                        height={128}
-                        className="object-cover w-full h-full"
-                      />
+                      <>
+                        <Image
+                          src={
+                            formData.profile_image_url ||
+                            formData.avatar ||
+                            "/placeholder.svg?height=128&width=128&query=profile"
+                          }
+                          alt="Profile picture"
+                          width={128}
+                          height={128}
+                          className="object-cover w-full h-full"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40 opacity-0 hover:opacity-100 transition-opacity">
+                          <Camera className="h-8 w-8 text-white" />
+                        </div>
+                      </>
                     )}
                   </div>
                   <input
@@ -358,6 +387,7 @@ export default function ProfilePage() {
                     onClick={handleImageClick}
                     disabled={isUploading}
                   >
+                    <Upload className="h-4 w-4 mr-2" />
                     {formData.avatar ? "Change Picture" : "Upload Picture"}
                   </Button>
                   <p className="text-xs text-gray-500 mt-1">Click on the image to upload a new profile picture</p>

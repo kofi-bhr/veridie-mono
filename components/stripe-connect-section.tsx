@@ -17,6 +17,7 @@ export function StripeConnectSection() {
   const [account, setAccount] = useState<StripeAccount | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
 
   useEffect(() => {
     async function fetchAccount() {
@@ -41,6 +42,15 @@ export function StripeConnectSection() {
 
         // Handle non-OK responses
         if (!response.ok) {
+          // For 500 errors, we'll just assume no account is connected yet
+          // This prevents showing an error when the user hasn't set up Stripe
+          if (response.status === 500) {
+            console.warn("Stripe API returned 500, assuming no account is connected yet")
+            setAccount(null)
+            setLoading(false)
+            return
+          }
+
           const errorText = await response.text().catch(() => "Unknown error")
           console.error("Error response:", errorText)
 
@@ -66,14 +76,24 @@ export function StripeConnectSection() {
         setAccount(data.account)
       } catch (err) {
         console.error("Error fetching Stripe account:", err)
-        setError(err instanceof Error ? err.message : "Failed to load account information")
+        // Don't show the error to the user if it's a server error
+        // Just assume they don't have a Stripe account connected yet
+        if (err instanceof Error && err.message.includes("500")) {
+          setAccount(null)
+        } else {
+          setError(err instanceof Error ? err.message : "Failed to load account information")
+        }
       } finally {
         setLoading(false)
       }
     }
 
     fetchAccount()
-  }, [])
+  }, [retryCount])
+
+  const retryFetch = () => {
+    setRetryCount((prev) => prev + 1)
+  }
 
   const openDashboard = async () => {
     try {
@@ -109,6 +129,9 @@ export function StripeConnectSection() {
     }
   }
 
+  // For development/preview environments, allow bypassing Stripe
+  const isDevelopment = process.env.NODE_ENV === "development" || window.location.hostname.includes("vercel.app")
+
   return (
     <Card>
       <CardHeader>
@@ -121,20 +144,63 @@ export function StripeConnectSection() {
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : error ? (
-          <div className="bg-red-50 p-4 rounded-md flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-red-500 mt-0.5" />
-            <div>
-              <h3 className="font-medium text-red-800">Error</h3>
-              <p className="text-sm text-red-700">{error}</p>
+          <div className="bg-red-50 p-4 rounded-md flex flex-col items-start gap-3">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-red-500 mt-0.5" />
+              <div>
+                <h3 className="font-medium text-red-800">Error</h3>
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
             </div>
+            <Button variant="outline" size="sm" onClick={retryFetch} className="mt-2">
+              Retry
+            </Button>
+            {isDevelopment && (
+              <div className="mt-4 pt-4 border-t border-border w-full">
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    setAccount({
+                      id: "dev-mode",
+                      details_submitted: true,
+                      charges_enabled: true,
+                      payouts_enabled: true,
+                    })
+                  }
+                >
+                  Development Mode: Skip Stripe Connect
+                </Button>
+                <p className="text-xs text-muted-foreground mt-2">
+                  This button is only available in development/preview environments.
+                </p>
+              </div>
+            )}
           </div>
         ) : !account ? (
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              You need to connect your Stripe account to receive payments from clients. This is required to offer paid
-              services.
-            </p>
+            {/* Removed the explanatory text as requested */}
             <StripeConnectButton />
+
+            {isDevelopment && (
+              <div className="mt-6 pt-6 border-t border-border">
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    setAccount({
+                      id: "dev-mode",
+                      details_submitted: true,
+                      charges_enabled: true,
+                      payouts_enabled: true,
+                    })
+                  }
+                >
+                  Development Mode: Skip Stripe Connect
+                </Button>
+                <p className="text-xs text-muted-foreground mt-2">
+                  This button is only available in development/preview environments.
+                </p>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-4">

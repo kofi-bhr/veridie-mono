@@ -27,8 +27,8 @@ export function MentorServices({ services, onSelectService, selectedService }: M
       {services.map((service) => (
         <div
           key={service.id}
-          className={`border rounded-lg p-4 cursor-pointer transition-colors ${
-            selectedService?.id === service.id ? "border-primary bg-primary/5" : "hover:bg-gray-50"
+          className={`border rounded-lg p-4 cursor-pointer transition-colors bg-[#1C2127] text-white ${
+            selectedService?.id === service.id ? "border-white" : "border-transparent hover:border-white/50"
           }`}
           onClick={() => onSelectService && onSelectService(service)}
         >
@@ -36,7 +36,7 @@ export function MentorServices({ services, onSelectService, selectedService }: M
             <h3 className="font-medium">{service.name}</h3>
             <span className="font-bold">${service.price}</span>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">{service.description}</p>
+          <p className="text-sm text-white/80 mt-1">{service.description}</p>
         </div>
       ))}
     </div>

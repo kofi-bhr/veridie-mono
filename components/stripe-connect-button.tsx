@@ -40,20 +40,35 @@ export function StripeConnectButton() {
 
       // Check if the response is ok before trying to parse JSON
       if (!response.ok) {
-        const errorText = await response.text()
-        console.error("Error response:", errorText)
+        const contentType = response.headers.get("content-type") || ""
+        let errorMessage = `Server error: ${response.status} ${response.statusText}`
 
-        // Try to parse as JSON if possible
-        try {
-          const errorData = JSON.parse(errorText)
-          throw new Error(errorData.error || `Server error: ${response.status}`)
-        } catch (parseError) {
-          // If parsing fails, use the status text
-          throw new Error(`Server error: ${response.status} ${response.statusText}`)
+        // Handle different response types
+        if (contentType.includes("application/json")) {
+          try {
+            const errorData = await response.json()
+            errorMessage = errorData.error || errorMessage
+          } catch (parseError) {
+            console.error("Error parsing JSON error response:", parseError)
+          }
+        } else {
+          // For HTML or other non-JSON responses
+          const errorText = await response.text()
+          console.error("Non-JSON error response:", errorText.substring(0, 200) + "...")
+          errorMessage = "Server returned an unexpected response format. Please try again later."
         }
+
+        throw new Error(errorMessage)
       }
 
-      const data = await response.json()
+      // Parse JSON response
+      let data
+      try {
+        data = await response.json()
+      } catch (parseError) {
+        console.error("Error parsing JSON response:", parseError)
+        throw new Error("Invalid response from server. Please try again later.")
+      }
 
       // Redirect to Stripe Connect onboarding immediately
       if (data.url) {
