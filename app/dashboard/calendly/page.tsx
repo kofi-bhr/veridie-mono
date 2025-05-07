@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { AlertCircle } from "lucide-react"
+import Link from "next/link"
 
 export default function CalendlyPage() {
   const { user } = useAuth()
@@ -19,15 +20,33 @@ export default function CalendlyPage() {
 
     const fetchCalendlyInfo = async () => {
       try {
-        const response = await fetch(`/api/calendly/info?userId=${user.id}`)
+        // Add a timeout to the fetch request
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 5000)
+
+        const response = await fetch(`/api/calendly/info?userId=${user.id}`, {
+          signal: controller.signal,
+        }).catch((err) => {
+          console.error("Fetch error:", err)
+          throw new Error("Network error when connecting to API. Please try again later.")
+        })
+
+        clearTimeout(timeoutId)
+
+        if (!response) {
+          throw new Error("Failed to connect to API")
+        }
 
         if (!response.ok) {
           if (response.status === 404) {
             // Not found is okay, just means no connection yet
             setIsConnected(false)
+            setIsLoading(false)
             return
           }
-          throw new Error("Failed to fetch Calendly information")
+
+          const errorText = await response.text().catch(() => "Unknown error")
+          throw new Error(`API error (${response.status}): ${errorText}`)
         }
 
         const data = await response.json()
@@ -36,6 +55,9 @@ export default function CalendlyPage() {
       } catch (err: any) {
         console.error("Error fetching Calendly info:", err)
         setError(err.message || "Failed to load Calendly information")
+
+        // Even if there's an error, we'll assume not connected
+        setIsConnected(false)
       } finally {
         setIsLoading(false)
       }
@@ -44,8 +66,12 @@ export default function CalendlyPage() {
     fetchCalendlyInfo()
   }, [user])
 
-  const handleSetupClick = () => {
-    window.location.href = "/setup-calendly-oauth"
+  // For development/preview environments, provide a way to bypass the API
+  const handleDevelopmentConnect = () => {
+    // This is just for development/preview to bypass the API
+    setCalendlyUsername("development_user")
+    setIsConnected(true)
+    setError(null)
   }
 
   if (isLoading) {
@@ -68,9 +94,16 @@ export default function CalendlyPage() {
           <AlertDescription>
             {error}
             <div className="mt-2">
-              <Button variant="outline" onClick={handleSetupClick}>
-                Run Database Setup
+              <Button variant="outline" onClick={() => window.location.reload()}>
+                Try Again
               </Button>
+
+              {/* Development/Preview mode button */}
+              {process.env.NODE_ENV !== "production" && (
+                <Button variant="outline" className="ml-2" onClick={handleDevelopmentConnect}>
+                  Development Mode: Simulate Connected
+                </Button>
+              )}
             </div>
           </AlertDescription>
         </Alert>
@@ -87,12 +120,25 @@ export default function CalendlyPage() {
               <p className="mb-4">
                 Your Calendly account <strong>{calendlyUsername}</strong> is connected.
               </p>
-              <Button>Manage Calendly Settings</Button>
+              <Button asChild>
+                <Link href="/dashboard/services">Manage Services</Link>
+              </Button>
             </div>
           ) : (
             <div>
               <p className="mb-4">Connect your Calendly account to allow clients to schedule appointments with you.</p>
-              <Button onClick={() => (window.location.href = "/api/calendly/oauth")}>Connect to Calendly</Button>
+              <Button
+                onClick={() => {
+                  // In development/preview, we can simulate the connection
+                  if (process.env.NODE_ENV !== "production") {
+                    handleDevelopmentConnect()
+                  } else {
+                    window.location.href = "/api/calendly/oauth"
+                  }
+                }}
+              >
+                Connect to Calendly
+              </Button>
             </div>
           )}
         </CardContent>

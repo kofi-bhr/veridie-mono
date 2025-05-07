@@ -474,7 +474,15 @@ export async function updateServiceCalendlyUrl(serviceId: string, calendlyUrl: s
 }
 
 // Add the missing addService function
-export async function addService(mentorId: string, service: { name: string; description: string; price: number }) {
+export async function addService(
+  mentorId: string,
+  service: {
+    name: string
+    description: string
+    price: number
+    calendlyEventTypeUri?: string
+  },
+) {
   try {
     const { data, error } = await supabase
       .from("services")
@@ -484,6 +492,7 @@ export async function addService(mentorId: string, service: { name: string; desc
           name: service.name,
           description: service.description,
           price: service.price,
+          calendly_event_type_uri: service.calendlyEventTypeUri,
         },
       ])
       .select()

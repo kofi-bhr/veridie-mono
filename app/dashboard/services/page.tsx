@@ -1,23 +1,18 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
 import { useAuth } from "@/hooks/use-auth"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
-import { Trash2, DollarSign, Loader2, PlusCircle, AlertCircle } from "lucide-react"
+import { Trash2, Loader2, PlusCircle, AlertCircle } from "lucide-react"
 import { supabase } from "@/lib/supabase-client"
 import { StripeConnectButton } from "@/components/stripe-connect-button"
+import { ServiceForm } from "@/components/service-form"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -30,12 +25,6 @@ export default function ServicesPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [stripeAccount, setStripeAccount] = useState<any>(null)
   const [isLoadingStripe, setIsLoadingStripe] = useState(true)
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    price: 0,
-  })
-
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -97,16 +86,7 @@ export default function ServicesPage() {
     }
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [name]: name === "price" ? Number.parseFloat(value) || 0 : value,
-    }))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (formData: any) => {
     setIsSubmitting(true)
 
     try {
@@ -115,19 +95,31 @@ export default function ServicesPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Accept: "application/json",
         },
         body: JSON.stringify({
           mentorId: user.id,
           name: formData.name,
           description: formData.description,
           price: formData.price,
+          calendlyEventTypeUri: formData.calendlyEventTypeUri,
         }),
       })
 
       // Check if response is ok before trying to parse JSON
       if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Server error (${response.status}): ${errorText}`)
+        const contentType = response.headers.get("content-type")
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || `Server error: ${response.status}`)
+        } else {
+          // Not JSON, probably HTML error page
+          const errorText = await response.text()
+          console.error(`Server returned non-JSON error (${response.status}):`, errorText.substring(0, 200))
+          throw new Error(
+            `Server error (${response.status}): The API returned an HTML error page instead of JSON. This usually indicates a server-side error.`,
+          )
+        }
       }
 
       const result = await response.json()
@@ -139,12 +131,6 @@ export default function ServicesPage() {
       toast({
         title: "Service added",
         description: "Your service has been added successfully",
-      })
-
-      setFormData({
-        name: "",
-        description: "",
-        price: 0,
       })
 
       setDialogOpen(false)
@@ -169,13 +155,25 @@ export default function ServicesPage() {
       // Delete service and associated Stripe product
       const response = await fetch(`/api/stripe/delete-service?serviceId=${id}`, {
         method: "DELETE",
+        headers: {
+          Accept: "application/json",
+        },
       })
 
       // Check if response is ok before trying to parse JSON
       if (!response.ok) {
-        const errorText = await response.text()
-        console.error(`Server returned error (${response.status}):`, errorText)
-        throw new Error(`Server error (${response.status}): ${errorText.substring(0, 100)}...`)
+        const contentType = response.headers.get("content-type")
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || `Server error: ${response.status}`)
+        } else {
+          // Not JSON, probably HTML error page
+          const errorText = await response.text()
+          console.error(`Server returned non-JSON error (${response.status}):`, errorText.substring(0, 200))
+          throw new Error(
+            `Server error (${response.status}): The API returned an HTML error page instead of JSON. This usually indicates a server-side error.`,
+          )
+        }
       }
 
       let result
@@ -209,6 +207,9 @@ export default function ServicesPage() {
     }
   }
 
+  // For development/preview environments, allow bypassing Stripe
+  const isDevelopment = process.env.NODE_ENV === "development" || window.location.hostname.includes("vercel.app")
+
   if (!user || user.role !== "consultant") {
     return (
       <div className="flex items-center justify-center h-full">
@@ -226,7 +227,7 @@ export default function ServicesPage() {
   }
 
   // If Stripe account is not connected, show connect button
-  if (!stripeAccount) {
+  if (!stripeAccount && !isDevelopment) {
     return (
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-8">Services & Pricing</h1>
@@ -245,6 +246,27 @@ export default function ServicesPage() {
               funds directly to your bank account.
             </p>
             <StripeConnectButton />
+
+            {isDevelopment && (
+              <div className="mt-6 pt-6 border-t border-border">
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    setStripeAccount({
+                      id: "dev-mode",
+                      detailsSubmitted: true,
+                      chargesEnabled: true,
+                      payoutsEnabled: true,
+                    })
+                  }
+                >
+                  Development Mode: Skip Stripe Connect
+                </Button>
+                <p className="text-xs text-muted-foreground mt-2">
+                  This button is only available in development/preview environments.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -267,62 +289,7 @@ export default function ServicesPage() {
               <DialogTitle>Add New Service</DialogTitle>
               <DialogDescription>Create a new service offering with pricing for students.</DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Service Name</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="e.g., Essay Review, Application Strategy Session"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  placeholder="Describe what's included in this service"
-                  rows={3}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="price">Price ($)</Label>
-                <div className="relative">
-                  <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="price"
-                    name="price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.price || ""}
-                    onChange={handleChange}
-                    className="pl-9"
-                    required
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  You'll receive 80% (${(formData.price * 0.8).toFixed(2)}) after the 20% platform fee.
-                </p>
-              </div>
-
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Add Service"}
-                </Button>
-              </DialogFooter>
-            </form>
+            <ServiceForm onSubmit={handleSubmit} isSubmitting={isSubmitting} />
           </DialogContent>
         </Dialog>
       </div>
@@ -381,6 +348,7 @@ export default function ServicesPage() {
                 <div className="text-sm text-muted-foreground">
                   <p>Your earnings: ${(service.price * 0.8).toFixed(2)} (after 20% platform fee)</p>
                   {service.stripe_product_id && <p className="mt-1">Stripe Product ID: {service.stripe_product_id}</p>}
+                  {service.calendly_event_type_uri && <p className="mt-1">Linked to Calendly event type</p>}
                 </div>
               </CardContent>
             </Card>

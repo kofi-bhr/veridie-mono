@@ -1,25 +1,32 @@
 import Stripe from "stripe"
 
+// Initialize Stripe
 let stripeInstance: Stripe | null = null
 
 export function getStripe(): Stripe | null {
-  if (!stripeInstance && process.env.STRIPE_SECRET_KEY) {
-    try {
-      stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
-        apiVersion: "2023-10-16", // Use the latest stable API version
-      })
-      console.log("Stripe initialized successfully")
-    } catch (error) {
-      console.error("Failed to initialize Stripe:", error)
-      return null
-    }
+  if (stripeInstance) return stripeInstance
+
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY
+
+  if (!stripeSecretKey) {
+    console.error("Missing STRIPE_SECRET_KEY environment variable")
+    return null
   }
 
-  if (!stripeInstance) {
-    console.error("Stripe not initialized: Missing STRIPE_SECRET_KEY")
+  try {
+    stripeInstance = new Stripe(stripeSecretKey, {
+      apiVersion: "2023-10-16",
+    })
+    return stripeInstance
+  } catch (error) {
+    console.error("Failed to initialize Stripe:", error)
+    return null
   }
+}
 
-  return stripeInstance
+// For client-side usage (publishable key)
+export function getStripePublishableKey(): string {
+  return process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
 }
 
 // Mock implementation for when Stripe key isn't available

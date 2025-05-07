@@ -1,219 +1,119 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import * as z from "zod"
+import type React from "react"
+
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { toast } from "@/components/ui/use-toast"
+import { Label } from "@/components/ui/label"
+import { DollarSign, Loader2 } from "lucide-react"
 import { CalendlyEventTypeSelector } from "@/components/calendly-event-type-selector"
 
-const serviceFormSchema = z.object({
-  name: z.string().min(3, {
-    message: "Service name must be at least 3 characters.",
-  }),
-  description: z.string().min(10, {
-    message: "Description must be at least 10 characters.",
-  }),
-  price: z.coerce.number().min(1, {
-    message: "Price must be at least $1.",
-  }),
-  duration: z.coerce.number().min(15, {
-    message: "Duration must be at least 15 minutes.",
-  }),
-  calendlyEventTypeUri: z.string().optional(),
-})
-
-type ServiceFormValues = z.infer<typeof serviceFormSchema>
-
 interface ServiceFormProps {
-  initialData?: {
-    id?: string
-    name?: string
-    description?: string
-    price?: number
-    duration?: number
-    calendly_event_type_uri?: string
-  }
+  onSubmit: (data: any) => Promise<void>
+  initialData?: any
+  isSubmitting: boolean
 }
 
-export function ServiceForm({ initialData }: ServiceFormProps) {
-  const router = useRouter()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const defaultValues: Partial<ServiceFormValues> = {
-    name: initialData?.name || "",
-    description: initialData?.description || "",
-    price: initialData?.price || 50,
-    duration: initialData?.duration || 60,
-    calendlyEventTypeUri: initialData?.calendly_event_type_uri || "",
-  }
-
-  const form = useForm<ServiceFormValues>({
-    resolver: zodResolver(serviceFormSchema),
-    defaultValues,
+export function ServiceForm({ onSubmit, initialData, isSubmitting }: ServiceFormProps) {
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    price: 0,
+    calendlyEventTypeUri: "",
   })
 
-  async function onSubmit(data: ServiceFormValues) {
-    setIsSubmitting(true)
-
-    try {
-      const endpoint = initialData?.id
-        ? `/api/stripe/update-service?id=${initialData.id}`
-        : "/api/stripe/create-service"
-
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: data.name,
-          description: data.description,
-          price: data.price,
-          duration: data.duration,
-          calendlyEventTypeUri: data.calendlyEventTypeUri,
-        }),
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        name: initialData.name || "",
+        description: initialData.description || "",
+        price: initialData.price || 0,
+        calendlyEventTypeUri: initialData.calendly_event_type_uri || "",
       })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to save service")
-      }
-
-      toast({
-        title: initialData?.id ? "Service updated" : "Service created",
-        description: initialData?.id
-          ? "Your service has been updated successfully."
-          : "Your service has been created successfully.",
-      })
-
-      router.push("/dashboard/services")
-      router.refresh()
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Something went wrong. Please try again.",
-      })
-    } finally {
-      setIsSubmitting(false)
     }
+  }, [initialData])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === "price" ? Number.parseFloat(value) || 0 : value,
+    }))
+  }
+
+  const handleCalendlyEventTypeChange = (uri: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      calendlyEventTypeUri: uri,
+    }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await onSubmit(formData)
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{initialData?.id ? "Edit Service" : "Create New Service"}</CardTitle>
-        <CardDescription>
-          {initialData?.id ? "Update your service details below." : "Add a new service that you offer to clients."}
-        </CardDescription>
-      </CardHeader>
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardContent className="space-y-6">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Service Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., College Essay Review" {...field} />
-                  </FormControl>
-                  <FormDescription>The name of the service you're offering.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="name">Service Name</Label>
+        <Input
+          id="name"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          placeholder="e.g., Essay Review, Application Strategy Session"
+          required
+        />
+      </div>
 
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Describe what this service includes..."
-                      className="min-h-[100px]"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>Provide details about what clients can expect from this service.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+      <div className="space-y-2">
+        <Label htmlFor="description">Description</Label>
+        <Textarea
+          id="description"
+          name="description"
+          value={formData.description}
+          onChange={handleChange}
+          placeholder="Describe what's included in this service"
+          rows={3}
+          required
+        />
+      </div>
 
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="price"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Price ($)</FormLabel>
-                    <FormControl>
-                      <Input type="number" min="1" step="0.01" {...field} />
-                    </FormControl>
-                    <FormDescription>The price in USD for this service.</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+      <div className="space-y-2">
+        <Label htmlFor="price">Price ($)</Label>
+        <div className="relative">
+          <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            id="price"
+            name="price"
+            type="number"
+            min="0"
+            step="0.01"
+            value={formData.price || ""}
+            onChange={handleChange}
+            className="pl-9"
+            required
+          />
+        </div>
+        <p className="text-xs text-muted-foreground">
+          You'll receive 80% (${(formData.price * 0.8).toFixed(2)}) after the 20% platform fee.
+        </p>
+      </div>
 
-              <FormField
-                control={form.control}
-                name="duration"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Duration (minutes)</FormLabel>
-                    <FormControl>
-                      <Input type="number" min="15" step="15" {...field} />
-                    </FormControl>
-                    <FormDescription>How long this service typically takes.</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+      <div className="space-y-2">
+        <Label htmlFor="calendlyEventType">Calendly Event Type</Label>
+        <CalendlyEventTypeSelector value={formData.calendlyEventTypeUri} onChange={handleCalendlyEventTypeChange} />
+        <p className="text-xs text-muted-foreground">
+          Link this service to a specific Calendly event type for seamless booking.
+        </p>
+      </div>
 
-            <FormField
-              control={form.control}
-              name="calendlyEventTypeUri"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Calendly Event Type</FormLabel>
-                  <FormControl>
-                    <CalendlyEventTypeSelector
-                      value={field.value}
-                      onChange={field.onChange}
-                      onDurationChange={(duration) => form.setValue("duration", duration)}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Link this service to a specific Calendly event type for automatic scheduling.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-          <CardFooter className="flex justify-between">
-            <Button type="button" variant="outline" onClick={() => router.push("/dashboard/services")}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : initialData?.id ? "Update Service" : "Create Service"}
-            </Button>
-          </CardFooter>
-        </form>
-      </Form>
-    </Card>
+      <Button type="submit" disabled={isSubmitting} className="w-full">
+        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save Service"}
+      </Button>
+    </form>
   )
 }

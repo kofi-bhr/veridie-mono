@@ -3,7 +3,7 @@ import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
 export async function GET(request: Request, { params }: { params: { slug: string } }) {
-  const mentorId = params.slug
+  const { slug: id } = params
   const supabase = createRouteHandlerClient({ cookies })
 
   try {
@@ -11,7 +11,7 @@ export async function GET(request: Request, { params }: { params: { slug: string
     const { data: mentorExists, error: mentorExistsError } = await supabase
       .from("mentors")
       .select("id")
-      .eq("id", mentorId)
+      .eq("id", id)
       .single()
 
     if (mentorExistsError) {
@@ -19,7 +19,7 @@ export async function GET(request: Request, { params }: { params: { slug: string
         {
           error: "Mentor not found in initial check",
           details: mentorExistsError.message,
-          query: `SELECT id FROM mentors WHERE id = '${mentorId}'`,
+          query: `SELECT id FROM mentors WHERE id = '${id}'`,
         },
         { status: 404 },
       )
@@ -37,7 +37,7 @@ export async function GET(request: Request, { params }: { params: { slug: string
         essays(*),
         specialties(*)
       `)
-      .eq("id", mentorId)
+      .eq("id", id)
       .single()
 
     if (mentorDataError) {
