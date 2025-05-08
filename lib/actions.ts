@@ -60,30 +60,28 @@ export async function addReview(formData: FormData) {
       }
     }
 
-    // Get the user ID from the session
-    const cookieStore = cookies()
-    const supabaseServer = createServerClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value
+    // Get the user ID from the session if available
+    let userId = null
+    try {
+      const cookieStore = cookies()
+      const supabaseServer = createServerClient<Database>(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            get(name: string) {
+              return cookieStore.get(name)?.value
+            },
           },
         },
-      },
-    )
+      )
 
-    const {
-      data: { session },
-    } = await supabaseServer.auth.getSession()
-    const userId = session?.user?.id
-
-    if (!userId) {
-      return {
-        success: false,
-        message: "You must be logged in to leave a review",
-      }
+      const {
+        data: { session },
+      } = await supabaseServer.auth.getSession()
+      userId = session?.user?.id || null
+    } catch (error) {
+      console.log("No active session, continuing as anonymous review")
     }
 
     // Try to insert the review
@@ -97,7 +95,7 @@ export async function addReview(formData: FormData) {
         .insert([
           {
             mentor_id: mentorId,
-            client_id: userId,
+            client_id: userId || null,
             name,
             rating,
             service,
@@ -116,12 +114,24 @@ export async function addReview(formData: FormData) {
     // If admin client failed or isn't configured, try server client
     if (!insertResult) {
       console.log("Using server client for review insertion")
+      const cookieStore = cookies()
+      const supabaseServer = createServerClient<Database>(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            get(name: string) {
+              return cookieStore.get(name)?.value
+            },
+          },
+        },
+      )
       insertResult = await supabaseServer
         .from("reviews")
         .insert([
           {
             mentor_id: mentorId,
-            client_id: userId,
+            client_id: userId || null,
             name,
             rating,
             service,

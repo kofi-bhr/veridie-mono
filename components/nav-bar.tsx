@@ -7,11 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   NavigationMenu,
-  NavigationMenuContent,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
-  NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
@@ -48,45 +46,6 @@ export function NavBar() {
                 <Link href="/mentors" legacyBehavior passHref>
                   <NavigationMenuLink className={navigationMenuTriggerStyle()}>Find Mentors</NavigationMenuLink>
                 </Link>
-              </NavigationMenuItem>
-              <NavigationMenuItem>
-                <NavigationMenuTrigger>Resources</NavigationMenuTrigger>
-                <NavigationMenuContent>
-                  <div className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
-                    <Link href="/resources/application-guides" legacyBehavior passHref>
-                      <NavigationMenuLink className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground">
-                        <div className="text-sm font-medium leading-none">Application Guides</div>
-                        <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-                          Step-by-step guides for college applications
-                        </p>
-                      </NavigationMenuLink>
-                    </Link>
-                    <Link href="/resources/essay-examples" legacyBehavior passHref>
-                      <NavigationMenuLink className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground">
-                        <div className="text-sm font-medium leading-none">Essay Examples</div>
-                        <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-                          Successful college essay examples
-                        </p>
-                      </NavigationMenuLink>
-                    </Link>
-                    <Link href="/resources/university-profiles" legacyBehavior passHref>
-                      <NavigationMenuLink className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground">
-                        <div className="text-sm font-medium leading-none">University Profiles</div>
-                        <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-                          Detailed information about top universities
-                        </p>
-                      </NavigationMenuLink>
-                    </Link>
-                    <Link href="/resources/scholarship-opportunities" legacyBehavior passHref>
-                      <NavigationMenuLink className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground">
-                        <div className="text-sm font-medium leading-none">Scholarship Opportunities</div>
-                        <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-                          Find scholarships to fund your education
-                        </p>
-                      </NavigationMenuLink>
-                    </Link>
-                  </div>
-                </NavigationMenuContent>
               </NavigationMenuItem>
               <NavigationMenuItem>
                 <Link href="/pricing" legacyBehavior passHref>
@@ -177,12 +136,6 @@ export function NavBar() {
                   className={cn("text-lg font-medium", pathname === "/mentors" ? "text-primary" : "text-foreground")}
                 >
                   Find Mentors
-                </Link>
-                <Link
-                  href="/resources"
-                  className={cn("text-lg font-medium", pathname === "/resources" ? "text-primary" : "text-foreground")}
-                >
-                  Resources
                 </Link>
                 <Link
                   href="/pricing"

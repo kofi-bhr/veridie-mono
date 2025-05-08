@@ -26,6 +26,7 @@ export function MentorReviews({ mentorId }: MentorReviewsProps) {
   const [rating, setRating] = useState(5)
   const [reviewText, setReviewText] = useState("")
   const [service, setService] = useState("")
+  const [reviewerName, setReviewerName] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [reviews, setReviews] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -86,16 +87,9 @@ export function MentorReviews({ mentorId }: MentorReviewsProps) {
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!user) {
-      toast({
-        title: "Please log in",
-        description: "You need to be logged in to leave a review",
-        variant: "destructive",
-      })
-      return
-    }
+    // No longer requiring login
 
-    if (!reviewText || !service) {
+    if (!reviewText || !service || !reviewerName) {
       toast({
         title: "Missing information",
         description: "Please fill out all fields",
@@ -131,8 +125,8 @@ export function MentorReviews({ mentorId }: MentorReviewsProps) {
           const { error } = await supabaseAdmin.from("reviews").insert([
             {
               mentor_id: mentorId,
-              client_id: user.id,
-              name: user.name,
+              client_id: user?.id || null,
+              name: reviewerName,
               rating: rating,
               service: service,
               text: reviewText,
@@ -157,7 +151,7 @@ export function MentorReviews({ mentorId }: MentorReviewsProps) {
         console.log("Using server action for review submission...")
         const formData = new FormData()
         formData.append("mentorId", mentorId)
-        formData.append("name", user.name || "Anonymous")
+        formData.append("name", reviewerName)
         formData.append("rating", rating.toString())
         formData.append("service", service)
         formData.append("text", reviewText)
@@ -180,6 +174,7 @@ export function MentorReviews({ mentorId }: MentorReviewsProps) {
       setService("")
       setRating(5)
       setDialogOpen(false)
+      setReviewerName("")
 
       // Refresh reviews
       const { data: refreshedData } = await supabase
@@ -272,6 +267,17 @@ export function MentorReviews({ mentorId }: MentorReviewsProps) {
                     </button>
                   ))}
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="reviewer-name">Your Name</Label>
+                <input
+                  id="reviewer-name"
+                  className="w-full p-2 border rounded-md"
+                  placeholder="Enter your name"
+                  value={reviewerName}
+                  onChange={(e) => setReviewerName(e.target.value)}
+                  required
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="service">Service Used</Label>
