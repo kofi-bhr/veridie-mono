@@ -14,9 +14,9 @@ import { supabase } from "@/lib/supabase-client"
 import { Loader2, CalendarDays, GraduationCap, Award, MessageSquare, Clock } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
-import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { getProfileImageUrl, getInitials } from "@/lib/image-utils"
 
 export default function MentorPage() {
   const { id } = useParams()
@@ -32,8 +32,8 @@ export default function MentorPage() {
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [isLoadingTimes, setIsLoadingTimes] = useState(false)
   const [isBooking, setIsBooking] = useState(false)
-  const [profileImageUrl, setProfileImageUrl] = useState<string>("/diverse-avatars.png")
   const [timeSource, setTimeSource] = useState<string | null>(null)
+  const [imageLoadFailed, setImageLoadFailed] = useState(false)
 
   useEffect(() => {
     async function fetchMentor() {
@@ -89,13 +89,6 @@ export default function MentorPage() {
           profile_image_url: mentorData.profile_image_url,
           avatar: profileData?.avatar,
         })
-
-        // Process image URL on the client side
-        if (mentorData.profile_image_url) {
-          setProfileImageUrl(mentorData.profile_image_url)
-        } else if (profileData?.avatar) {
-          setProfileImageUrl(profileData.avatar)
-        }
 
         setMentor(completeData)
       } catch (err) {
@@ -237,6 +230,12 @@ export default function MentorPage() {
     )
   }
 
+  // Get the profile image URL
+  const profileImageUrl = getProfileImageUrl(mentor.profile_image_url)
+
+  // Get initials for fallback
+  const initials = getInitials(mentor.name)
+
   return (
     <div className="container mx-auto py-12 px-4 max-w-7xl">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -247,18 +246,22 @@ export default function MentorPage() {
             <div className="h-32 bg-[#1C2127]"></div>
             <CardContent className="pt-0 relative pb-6">
               <div className="flex flex-col items-center">
-                <div className="relative w-24 h-24 -mt-12 rounded-full overflow-hidden border-4 border-white shadow-md bg-[#1C2127]">
-                  <Image
-                    src={profileImageUrl || "/placeholder.svg"}
-                    alt={mentor.name || "Consultant"}
-                    fill
-                    className="object-cover"
-                    onError={(e) => {
-                      console.error("Failed to load mentor profile image:", profileImageUrl)
-                      // @ts-ignore - Next.js Image doesn't have src property in TypeScript but it works
-                      e.currentTarget.src = "/diverse-avatars.png"
-                    }}
-                  />
+                <div className="relative w-24 h-24 -mt-12 rounded-full overflow-hidden border-4 border-white shadow-md bg-primary/10">
+                  {imageLoadFailed ? (
+                    <div className="w-full h-full flex items-center justify-center text-primary font-bold text-xl">
+                      {initials}
+                    </div>
+                  ) : (
+                    <img
+                      src={profileImageUrl || "/placeholder.svg"}
+                      alt={mentor.name}
+                      className="w-full h-full object-cover scale-110 transform" // Added scale-110 to zoom in
+                      onError={(e) => {
+                        console.error(`Failed to load mentor profile image: ${profileImageUrl}`)
+                        setImageLoadFailed(true)
+                      }}
+                    />
+                  )}
                 </div>
                 <h1 className="text-2xl font-bold mt-4 text-center">{mentor.name}</h1>
                 <p className="text-muted-foreground font-medium">{mentor.title || "College Consultant"}</p>

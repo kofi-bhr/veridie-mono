@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Image from "next/image"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -12,6 +11,7 @@ import { MentorReviews } from "@/components/mentor-reviews"
 import { Calendar } from "@/components/ui/calendar"
 import { CheckoutButton } from "@/components/checkout-button"
 import { Loader2, Award, Activity, MessageSquare } from "lucide-react"
+import { getProfileImageUrl, getInitials } from "@/lib/image-utils"
 
 export function MentorProfile({ mentor, reviews = [] }: { mentor: any; reviews?: any[] }) {
   const [activeTab, setActiveTab] = useState("activities")
@@ -21,6 +21,7 @@ export function MentorProfile({ mentor, reviews = [] }: { mentor: any; reviews?:
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [isLoadingTimes, setIsLoadingTimes] = useState(false)
   const [timeSource, setTimeSource] = useState<string | null>(null)
+  const [imageLoadFailed, setImageLoadFailed] = useState(false)
 
   // Reset selected time when date changes
   useEffect(() => {
@@ -83,6 +84,12 @@ export function MentorProfile({ mentor, reviews = [] }: { mentor: any; reviews?:
     )
   }
 
+  // Get the profile image URL
+  const profileImageUrl = getProfileImageUrl(mentor.profile_image_url || mentor.avatar)
+
+  // Get initials for the avatar
+  const initials = getInitials(mentor.name)
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -93,12 +100,21 @@ export function MentorProfile({ mentor, reviews = [] }: { mentor: any; reviews?:
             <CardContent className="pt-0 relative">
               <div className="flex justify-center">
                 <div className="relative w-24 h-24 rounded-full overflow-hidden border-4 border-white bg-white -mt-12 shadow-md">
-                  <Image
-                    src={mentor.profile_image_url || "/placeholder.svg?height=96&width=96&query=avatar"}
-                    alt={mentor.name || "Mentor"}
-                    fill
-                    className="object-cover"
-                  />
+                  {imageLoadFailed ? (
+                    <div className="w-full h-full flex items-center justify-center bg-primary/10 text-primary font-bold text-xl">
+                      {initials}
+                    </div>
+                  ) : (
+                    <img
+                      src={profileImageUrl || "/placeholder.svg"}
+                      alt={mentor.name}
+                      className="w-full h-full object-cover scale-110 transform" // Added scale-110 to zoom in
+                      onError={(e) => {
+                        console.error(`Failed to load mentor profile image: ${profileImageUrl}`)
+                        setImageLoadFailed(true)
+                      }}
+                    />
+                  )}
                 </div>
               </div>
               <div className="text-center mt-4">

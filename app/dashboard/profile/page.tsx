@@ -14,7 +14,6 @@ import { useToast } from "@/hooks/use-toast"
 import { updateMentorProfile, getUserProfile, getMentorProfile, updateUserProfile } from "@/lib/supabase"
 import { supabase } from "@/lib/supabase-client"
 import Image from "next/image"
-import Link from "next/link"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, Upload, Camera } from "lucide-react"
 
@@ -38,6 +37,7 @@ export default function ProfilePage() {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [bucketError, setBucketError] = useState<string | null>(null)
+  const [imageDebug, setImageDebug] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadProfile() {
@@ -67,6 +67,10 @@ export default function ProfilePage() {
               bio: mentor.bio || "",
               profile_image_url: mentor.profile_image_url || profile?.avatar || "",
             }))
+
+            // Debug info
+            console.log("Loaded mentor profile:", mentor)
+            console.log("Profile image URL:", mentor.profile_image_url)
           }
         }
       } catch (error) {
@@ -102,6 +106,7 @@ export default function ProfilePage() {
 
     // Reset bucket error
     setBucketError(null)
+    setImageDebug(null)
 
     // Validate file type
     const fileType = file.type
@@ -138,9 +143,34 @@ export default function ProfilePage() {
       const { data: bucketCheck, error: bucketCheckError } = await supabase.storage.from("profiles").list(user.id)
 
       if (bucketCheckError && bucketCheckError.message.includes("bucket not found")) {
-        setBucketError("Storage bucket not found. Please set up the storage bucket first.")
-        setIsUploading(false)
-        return
+        // Try to create the bucket
+        try {
+          const { error: createBucketError } = await supabase.storage.createBucket("profiles", {
+            public: true,
+            fileSizeLimit: 5242880, // 5MB
+          })
+
+          if (createBucketError) {
+            setBucketError("Storage bucket not found and could not be created. Please contact support.")
+            setIsUploading(false)
+            return
+          }
+        } catch (createError) {
+          console.error("Error creating bucket:", createError)
+          setBucketError("Storage bucket not found and could not be created. Please contact support.")
+          setIsUploading(false)
+          return
+        }
+      }
+
+      // Set bucket to public
+      try {
+        await supabase.storage.updateBucket("profiles", {
+          public: true,
+        })
+      } catch (bucketUpdateError) {
+        console.error("Error updating bucket to public:", bucketUpdateError)
+        // Continue anyway
       }
 
       // Upload the file to Supabase Storage
@@ -155,7 +185,7 @@ export default function ProfilePage() {
 
       if (uploadError) {
         if (uploadError.message.includes("bucket not found")) {
-          setBucketError("Storage bucket not found. Please set up the storage bucket first.")
+          setBucketError("Storage bucket not found. Please contact support to set up the storage bucket.")
           return
         }
         throw uploadError
@@ -164,6 +194,9 @@ export default function ProfilePage() {
       // Get the public URL
       const { data: publicUrlData } = supabase.storage.from("profiles").getPublicUrl(filePath)
       const avatarUrl = publicUrlData.publicUrl
+
+      console.log("Uploaded image URL:", avatarUrl)
+      setImageDebug(`Image URL: ${avatarUrl}`)
 
       // Update the form data with the new avatar URL
       setFormData((prev) => ({
@@ -181,6 +214,7 @@ export default function ProfilePage() {
 
       // If user is a consultant, also update the mentor profile
       if (user.role === "consultant") {
+        // Update the mentor profile directly without checking if the column exists
         const { error: mentorUpdateError } = await supabase
           .from("mentors")
           .update({ profile_image_url: avatarUrl })
@@ -196,11 +230,16 @@ export default function ProfilePage() {
         title: "Profile picture updated",
         description: "Your profile picture has been updated successfully",
       })
+
+      // Force reload to clear any cached images
+      setTimeout(() => {
+        window.location.reload()
+      }, 1500)
     } catch (error: any) {
       console.error("Error uploading profile picture:", error)
 
       if (error.message?.includes("bucket not found")) {
-        setBucketError("Storage bucket not found. Please set up the storage bucket first.")
+        setBucketError("Storage bucket not found. Please contact support to set up the storage bucket.")
       } else {
         toast({
           title: "Upload failed",
@@ -244,6 +283,11 @@ export default function ProfilePage() {
         title: "Profile updated",
         description: "Your profile has been updated successfully",
       })
+
+      // Force reload to refresh any cached images
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
     } catch (error) {
       console.error("Error updating profile:", error)
       toast({
@@ -327,14 +371,7 @@ export default function ProfilePage() {
                 <Alert variant="destructive" className="mb-4">
                   <AlertCircle className="h-4 w-4" />
                   <AlertTitle>Storage Error</AlertTitle>
-                  <AlertDescription>
-                    {bucketError}
-                    <div className="mt-2">
-                      <Link href="/setup-storage-bucket" className="underline font-medium">
-                        Click here to set up the storage bucket
-                      </Link>
-                    </div>
-                  </AlertDescription>
+                  <AlertDescription>{bucketError}</AlertDescription>
                 </Alert>
               ) : (
                 <div className="flex flex-col items-center">
@@ -359,12 +396,18 @@ export default function ProfilePage() {
                           src={
                             formData.profile_image_url ||
                             formData.avatar ||
-                            "/placeholder.svg?height=128&width=128&query=profile"
+                            "/placeholder.svg?height=128&width=128&query=profile" ||
+                            "/placeholder.svg"
                           }
                           alt="Profile picture"
                           width={128}
                           height={128}
                           className="object-cover w-full h-full"
+                          unoptimized={true}
+                          onError={(e) => {
+                            console.error("Failed to load image:", formData.profile_image_url || formData.avatar)
+                            e.currentTarget.src = "/abstract-profile.png"
+                          }}
                         />
                         <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40 opacity-0 hover:opacity-100 transition-opacity">
                           <Camera className="h-8 w-8 text-white" />
@@ -391,6 +434,14 @@ export default function ProfilePage() {
                     {formData.avatar ? "Change Picture" : "Upload Picture"}
                   </Button>
                   <p className="text-xs text-gray-500 mt-1">Click on the image to upload a new profile picture</p>
+
+                  {imageDebug && <div className="mt-2 text-xs text-gray-500 break-all">{imageDebug}</div>}
+
+                  {(formData.profile_image_url || formData.avatar) && (
+                    <div className="mt-2 text-xs text-gray-500 break-all">
+                      Current image URL: {formData.profile_image_url || formData.avatar}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
