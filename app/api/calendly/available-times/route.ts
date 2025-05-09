@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase-client"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
 import { fetchAvailableTimes } from "@/lib/calendly-availability"
 import { refreshCalendlyToken } from "@/lib/calendly-token-refresh"
 
@@ -12,6 +13,9 @@ export async function POST(request: Request) {
       console.log("Missing required parameters")
       return NextResponse.json({ error: "Missing required parameters" }, { status: 400 })
     }
+
+    // Create a Supabase client using the route handler client
+    const supabase = createRouteHandlerClient({ cookies })
 
     // First, get the mentor's Calendly access token
     const { data: mentor, error: mentorError } = await supabase
@@ -32,7 +36,6 @@ export async function POST(request: Request) {
       tokenExpiresAt: mentor.calendly_token_expires_at,
     })
 
-    // If no tokens at all, use simulated times
     if (!mentor.calendly_access_token && !mentor.calendly_refresh_token) {
       console.log("Mentor doesn't have Calendly tokens, using simulated times")
       return simulateAvailableTimes(date)
@@ -40,26 +43,17 @@ export async function POST(request: Request) {
 
     // Try to refresh the token if we have a refresh token
     let accessToken = mentor.calendly_access_token
-
     if (mentor.calendly_refresh_token) {
-      try {
-        console.log("Attempting to refresh Calendly token")
-        const refreshResult = await refreshCalendlyToken(mentorId)
+      console.log("Attempting to refresh Calendly token")
+      const refreshResult = await refreshCalendlyToken(mentorId)
 
-        if (refreshResult.success) {
-          console.log("Token refreshed successfully")
-          // Update the access token with the newly refreshed one
-          accessToken = refreshResult.accessToken || mentor.calendly_access_token
-        } else {
-          console.error("Failed to refresh token:", refreshResult.error)
-          // If we can't refresh and don't have a valid access token, fall back to simulated times
-          if (!accessToken) {
-            return simulateAvailableTimes(date)
-          }
-        }
-      } catch (refreshError) {
-        console.error("Error during token refresh:", refreshError)
-        // Continue with existing token if available, otherwise use simulated times
+      if (refreshResult.success && refreshResult.accessToken) {
+        console.log("Token refreshed successfully")
+        // Update the access token with the newly refreshed one
+        accessToken = refreshResult.accessToken
+      } else {
+        console.error("Failed to refresh token:", refreshResult.error)
+        // If we can't refresh and don't have a valid access token, fall back to simulated times
         if (!accessToken) {
           return simulateAvailableTimes(date)
         }
@@ -77,6 +71,8 @@ export async function POST(request: Request) {
       console.error("Error fetching service:", serviceError)
       return NextResponse.json({ error: "Service not found" }, { status: 404 })
     }
+
+    console.log("Service data:", service)
 
     // Check for the Calendly event URI in different possible column names
     const eventUri = service.calendly_event_type_uri || service.calendly_event_uri
@@ -110,20 +106,6 @@ export async function POST(request: Request) {
       })
     } catch (error) {
       console.error("Error fetching available times from Calendly:", error)
-
-      // Check if it's an authentication error
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      if (errorMessage.includes("401") || errorMessage.includes("Unauthenticated")) {
-        return NextResponse.json(
-          {
-            error: "Calendly authentication error. The consultant needs to reconnect their Calendly account.",
-            needsReconnect: true,
-            times: simulateAvailableTimes(date).times,
-          },
-          { status: 401 },
-        )
-      }
-
       return simulateAvailableTimes(date)
     }
   } catch (error) {

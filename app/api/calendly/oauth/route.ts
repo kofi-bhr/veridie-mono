@@ -1,47 +1,35 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { cookies } from "next/headers"
+import { CALENDLY_CLIENT_ID } from "@/lib/api-config"
 
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams
-    const reconnect = searchParams.get("reconnect") === "true"
+    // Create a Supabase client using the route handler client
+    const supabase = createRouteHandlerClient({ cookies })
 
-    // Get the Calendly OAuth credentials
-    const clientId = process.env.CALENDLY_CLIENT_ID
-    const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL}/api/calendly/callback`
+    // Validate the user is authenticated
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
 
-    if (!clientId || !redirectUri) {
-      return NextResponse.json({ error: "Missing Calendly credentials" }, { status: 500 })
+    if (authError || !user) {
+      console.error("Authentication error:", authError)
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
     }
 
-    // Generate a random state to prevent CSRF attacks
-    const state = Math.random().toString(36).substring(2, 15)
+    const url = new URL(request.url)
+    const redirectUri = url.searchParams.get("redirect_uri") || `${url.origin}/api/calendly/callback`
 
-    // Store the state in a cookie for verification later
-    const response = NextResponse.json({
-      authUrl: `https://auth.calendly.com/oauth/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`,
-    })
+    // Include all the necessary scopes, especially availability:read
+    const scopes = ["availability:read", "event_types:read", "scheduling_links:read", "user:read"].join(" ")
 
-    // Set a cookie with the state
-    response.cookies.set("calendly_oauth_state", state, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 10, // 10 minutes
-      path: "/",
-    })
+    const calendlyAuthUrl = `https://auth.calendly.com/oauth/authorize?client_id=${CALENDLY_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}`
 
-    // If this is a reconnection, store that in a cookie too
-    if (reconnect) {
-      response.cookies.set("calendly_reconnect", "true", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        maxAge: 60 * 10, // 10 minutes
-        path: "/",
-      })
-    }
-
-    return response
+    return NextResponse.json({ url: calendlyAuthUrl })
   } catch (error) {
     console.error("Error generating Calendly OAuth URL:", error)
-    return NextResponse.json({ error: "Failed to generate authorization URL" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to generate Calendly OAuth URL" }, { status: 500 })
   }
 }

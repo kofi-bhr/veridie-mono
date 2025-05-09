@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -12,7 +12,14 @@ export default function CalendlyReconnectPage() {
   const [isConnecting, setIsConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push("/auth/login?error=Authentication required to access this page")
+    }
+  }, [user, loading, router])
 
   const handleConnect = async () => {
     try {
@@ -20,7 +27,7 @@ export default function CalendlyReconnectPage() {
       setError(null)
 
       // Get the redirect URL from the server
-      const response = await fetch("/api/calendly/oauth?reconnect=true", {
+      const response = await fetch("/api/calendly/oauth", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -35,12 +42,24 @@ export default function CalendlyReconnectPage() {
       const data = await response.json()
 
       // Redirect to Calendly for authorization
-      window.location.href = data.authUrl
+      window.location.href = data.url
     } catch (err) {
       console.error("Error connecting to Calendly:", err)
       setError(err instanceof Error ? err.message : "An unexpected error occurred")
       setIsConnecting(false)
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="container mx-auto py-10">
+        <Card className="max-w-md mx-auto">
+          <CardContent className="pt-6">
+            <p className="text-center">Loading...</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   if (!user) {

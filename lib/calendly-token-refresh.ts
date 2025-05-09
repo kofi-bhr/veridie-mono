@@ -1,24 +1,25 @@
-import { supabase } from "@/lib/supabase-client"
-import { refreshToken } from "./calendly-api"
+import { createClient } from "@supabase/supabase-js"
+import { refreshCalendlyToken as refreshToken } from "./calendly-api"
+
+// Create a Supabase client with admin privileges for token refresh
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+)
 
 export async function refreshCalendlyToken(mentorId: string) {
   try {
     console.log("Starting Calendly token refresh for mentor:", mentorId)
 
-    // Get the mentor's refresh token
-    const { data: mentor, error: mentorError } = await supabase
+    // Get the mentor's refresh token using the admin client
+    const { data: mentor, error: mentorError } = await supabaseAdmin
       .from("mentors")
-      .select("calendly_refresh_token, calendly_token_expires_at, calendly_access_token")
+      .select("calendly_refresh_token, calendly_token_expires_at")
       .eq("id", mentorId)
       .single()
 
-    if (mentorError) {
+    if (mentorError || !mentor?.calendly_refresh_token) {
       console.error("Error getting refresh token:", mentorError)
-      return { success: false, error: "Mentor not found" }
-    }
-
-    if (!mentor?.calendly_refresh_token) {
-      console.error("Mentor has no refresh token")
       return { success: false, error: "Refresh token not found" }
     }
 
@@ -30,9 +31,9 @@ export async function refreshCalendlyToken(mentorId: string) {
     const bufferTime = 5 * 60 * 1000 // 5 minutes in milliseconds
     const isExpired = !tokenExpiresAt || tokenExpiresAt.getTime() - now.getTime() < bufferTime
 
-    if (!isExpired && mentor.calendly_access_token) {
+    if (!isExpired) {
       console.log("Token is still valid, no need to refresh")
-      return { success: true, accessToken: mentor.calendly_access_token }
+      return { success: true, message: "Token still valid" }
     }
 
     console.log("Token is expired or close to expiry, refreshing...")
@@ -49,8 +50,8 @@ export async function refreshCalendlyToken(mentorId: string) {
     // Call Calendly API to refresh the token
     const tokens = await refreshToken(mentor.calendly_refresh_token, clientId, clientSecret)
 
-    // Update the tokens in the database
-    const { error: updateError } = await supabase
+    // Update the tokens in the database using the admin client
+    const { error: updateError } = await supabaseAdmin
       .from("mentors")
       .update({
         calendly_access_token: tokens.accessToken,
@@ -75,6 +76,3 @@ export async function refreshCalendlyToken(mentorId: string) {
     }
   }
 }
-
-// For backward compatibility
-// export const refreshCalendlyToken = refreshToken
