@@ -34,6 +34,7 @@ export default function MentorPage() {
   const [isBooking, setIsBooking] = useState(false)
   const [timeSource, setTimeSource] = useState<string | null>(null)
   const [imageLoadFailed, setImageLoadFailed] = useState(false)
+  const [debugInfo, setDebugInfo] = useState<any>(null)
 
   useEffect(() => {
     async function fetchMentor() {
@@ -115,6 +116,7 @@ export default function MentorPage() {
   // Function to fetch available times from Calendly API
   const fetchAvailableTimes = async (date: Date, serviceId: string) => {
     setIsLoadingTimes(true)
+    setDebugInfo(null)
     try {
       // Format date as YYYY-MM-DD
       const formattedDate = date.toISOString().split("T")[0]
@@ -133,14 +135,49 @@ export default function MentorPage() {
         }),
       })
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error(`API error (${response.status}): ${errorText}`)
-        throw new Error(`Failed to fetch available times: ${response.status}`)
+      // Get the response as text first for debugging
+      const responseText = await response.text()
+      console.log(`API response (${response.status}):`, responseText)
+
+      // Try to parse the response as JSON
+      let data
+      try {
+        data = JSON.parse(responseText)
+      } catch (e) {
+        console.error("Error parsing API response:", e)
+        throw new Error(`Invalid API response: ${responseText.substring(0, 100)}...`)
       }
 
-      const data = await response.json()
+      // Handle error responses
+      if (!response.ok) {
+        console.error(`API error (${response.status}):`, data)
+
+        // Handle specific error cases
+        if (response.status === 401 && data.needsReconnect) {
+          toast({
+            title: "Calendly Authentication Error",
+            description: "The consultant needs to reconnect their Calendly account.",
+            variant: "destructive",
+          })
+        } else if (data.missingEventUri) {
+          toast({
+            title: "Calendly Configuration Error",
+            description: "This service is not properly configured with Calendly.",
+            variant: "destructive",
+          })
+        } else {
+          toast({
+            title: "Error Loading Times",
+            description: data.error || `Failed to fetch available times: ${response.status}`,
+            variant: "destructive",
+          })
+        }
+
+        throw new Error(data.error || `Failed to fetch available times: ${response.status}`)
+      }
+
       console.log("Available times response:", data)
+      setDebugInfo(data.debug || null)
 
       // Store the time source for internal tracking but don't display it
       setTimeSource(data.source || "unknown")
@@ -470,6 +507,14 @@ export default function MentorPage() {
                     </Button>
                   </div>
                 </>
+              )}
+
+              {/* Debug info - only in development */}
+              {debugInfo && process.env.NODE_ENV === "development" && (
+                <div className="mt-4 p-3 bg-gray-100 rounded-md text-xs">
+                  <h4 className="font-mono font-bold mb-1">Debug Info:</h4>
+                  <pre className="whitespace-pre-wrap">{JSON.stringify(debugInfo, null, 2)}</pre>
+                </div>
               )}
             </CardContent>
           </Card>

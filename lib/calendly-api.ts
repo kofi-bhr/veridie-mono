@@ -52,45 +52,53 @@ export function getCalendlyAuthUrl(clientId: string, redirectUri: string): strin
 }
 
 // Exchange authorization code for tokens
-export async function exchangeCalendlyCode(
-  code: string,
-  clientId: string,
-  clientSecret: string,
-  redirectUri: string,
-): Promise<CalendlyTokens> {
+export async function exchangeCalendlyCode(code: string, clientId: string, clientSecret: string, redirectUri: string) {
   try {
-    console.log("Exchanging code for tokens with redirect URI:", redirectUri)
+    console.log("Exchanging code for token with redirect URI:", redirectUri)
 
     const response = await fetch("https://auth.calendly.com/oauth/token", {
       method: "POST",
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
+        "Content-Type": "application/json",
       },
-      body: new URLSearchParams({
+      body: JSON.stringify({
         grant_type: "authorization_code",
         client_id: clientId,
         client_secret: clientSecret,
         code,
         redirect_uri: redirectUri,
-      }).toString(),
+      }),
     })
 
+    // Log the entire response for debugging
+    const responseText = await response.text()
+    console.log(`Token exchange response (${response.status}):`, responseText)
+
     if (!response.ok) {
-      const error = await response.json()
-      console.error("Calendly token exchange error:", error)
-      throw new Error(error.error_description || "Failed to exchange code for tokens")
+      console.error(`Token exchange error (${response.status}):`, responseText)
+      throw new Error(`Token exchange failed: ${response.status}`)
     }
 
-    const data = await response.json()
+    // Parse the response JSON
+    let data
+    try {
+      data = JSON.parse(responseText)
+    } catch (e) {
+      console.error("Error parsing token response:", e)
+      throw new Error("Failed to parse token response")
+    }
+
+    // Calculate when the token will expire
+    const expiresIn = data.expires_in || 3600 // Default to 1 hour
+    const expiresAt = new Date(Date.now() + expiresIn * 1000)
 
     return {
       accessToken: data.access_token,
       refreshToken: data.refresh_token,
-      expiresAt: new Date(Date.now() + data.expires_in * 1000),
+      expiresAt: expiresAt,
     }
   } catch (error) {
-    console.error("Error exchanging Calendly code:", error)
+    console.error("Error exchanging code for token:", error)
     throw error
   }
 }
@@ -140,7 +148,7 @@ export async function refreshCalendlyToken(
  * Refreshes a Calendly access token using the refresh token
  */
 export async function refreshToken(refreshToken: string, clientId: string, clientSecret: string) {
-  console.log("Refreshing Calendly token with refresh token")
+  console.log("Refreshing Calendly token")
 
   try {
     const response = await fetch("https://auth.calendly.com/oauth/token", {
@@ -159,13 +167,14 @@ export async function refreshToken(refreshToken: string, clientId: string, clien
     if (!response.ok) {
       const errorText = await response.text()
       console.error(`Token refresh error (${response.status}): ${errorText}`)
-      throw new Error(`Token refresh failed: ${response.status} - ${errorText}`)
+      throw new Error(`Token refresh failed: ${response.status}`)
     }
 
     const data = await response.json()
+    console.log("Token refresh successful")
 
-    // Calculate expiration time (Calendly tokens typically last 1 hour)
-    const expiresIn = data.expires_in || 3600 // Default to 1 hour if not provided
+    // Calculate when the token will expire
+    const expiresIn = data.expires_in || 3600 // Default to 1 hour
     const expiresAt = new Date(Date.now() + expiresIn * 1000)
 
     return {
@@ -174,7 +183,7 @@ export async function refreshToken(refreshToken: string, clientId: string, clien
       expiresAt: expiresAt,
     }
   } catch (error) {
-    console.error("Error in refreshToken:", error)
+    console.error("Error refreshing token:", error)
     throw error
   }
 }
@@ -182,54 +191,59 @@ export async function refreshToken(refreshToken: string, clientId: string, clien
 /**
  * Makes an authenticated request to the Calendly API
  */
-export async function makeCalendlyRequest(endpoint: string, accessToken: string, options: RequestInit = {}) {
-  const url = endpoint.startsWith("http") ? endpoint : `https://api.calendly.com${endpoint}`
-
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      ...options.headers,
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error(`Calendly API error (${response.status}): ${errorText}`)
-    throw new Error(`Calendly API error (${response.status}): ${errorText}`)
-  }
-
-  return response.json()
-}
-
-// Get current user info
-export async function getCurrentUser(accessToken: string): Promise<CalendlyUser> {
+export async function makeCalendlyRequest(endpoint: string, accessToken: string) {
   try {
-    const response = await fetch(`${CALENDLY_API_URL}/users/me`, {
+    const baseUrl = "https://api.calendly.com"
+    const url = endpoint.startsWith("http") ? endpoint : `${baseUrl}${endpoint}`
+
+    console.log(`Making Calendly API request to: ${url}`)
+
+    const response = await fetch(url, {
+      method: "GET",
       headers: {
+        "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
-        Accept: "application/json",
       },
     })
 
     if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.message || "Failed to get current user")
+      const errorText = await response.text()
+      console.error(`Calendly API error (${response.status}): ${errorText}`)
+      throw new Error(`Calendly API error (${response.status}): ${errorText}`)
     }
 
     const data = await response.json()
-    const resource = data.resource
+    return data
+  } catch (error) {
+    console.error("Error making Calendly API request:", error)
+    throw error
+  }
+}
 
+// Get current user info
+export async function getCurrentUser(accessToken: string) {
+  try {
+    const response = await fetch("https://api.calendly.com/users/me", {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`User info error (${response.status}):`, errorText)
+      throw new Error(`Failed to get user info: ${response.status}`)
+    }
+
+    const data = await response.json()
     return {
-      uri: resource.uri,
-      name: resource.name,
-      email: resource.email,
-      schedulingUrl: resource.scheduling_url,
-      timezone: resource.timezone,
+      uri: data.resource.uri,
+      name: data.resource.name,
+      schedulingUrl: data.resource.scheduling_url,
     }
   } catch (error) {
-    console.error("Error getting Calendly user:", error)
+    console.error("Error getting current user:", error)
     throw error
   }
 }
