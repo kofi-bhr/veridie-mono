@@ -29,6 +29,16 @@ export function NavBar() {
   const pathname = usePathname()
   const { user, signOut } = useAuth()
   const [showSearch, setShowSearch] = useState(false)
+  const [isSheetOpen, setIsSheetOpen] = useState(false)
+
+  const closeSheet = () => {
+    setIsSheetOpen(false)
+  }
+
+  const handleSignOut = () => {
+    closeSheet()
+    signOut()
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white shadow-sm">
@@ -123,7 +133,7 @@ export function NavBar() {
             </div>
           )}
 
-          <Sheet>
+          <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="md:hidden">
                 <Menu className="h-5 w-5" />
@@ -131,25 +141,28 @@ export function NavBar() {
               </Button>
             </SheetTrigger>
             <SheetContent side="right">
-              <Link href="/" className="flex items-center">
+              <Link href="/" className="flex items-center" onClick={closeSheet}>
                 <span className="font-bold text-xl">Veridie</span>
               </Link>
               <div className="mt-8 flex flex-col gap-4">
                 <Link
                   href="/mentors"
                   className={cn("text-lg font-medium", pathname === "/mentors" ? "text-primary" : "text-foreground")}
+                  onClick={closeSheet}
                 >
                   Find Mentors
                 </Link>
                 <Link
                   href="/pricing"
                   className={cn("text-lg font-medium", pathname === "/pricing" ? "text-primary" : "text-foreground")}
+                  onClick={closeSheet}
                 >
                   Pricing
                 </Link>
                 <Link
                   href="/about"
                   className={cn("text-lg font-medium", pathname === "/about" ? "text-primary" : "text-foreground")}
+                  onClick={closeSheet}
                 >
                   About Us
                 </Link>
@@ -157,21 +170,21 @@ export function NavBar() {
                 <div className="mt-4 flex flex-col gap-2">
                   {user ? (
                     <>
-                      <Link href="/dashboard">
+                      <Link href="/dashboard" onClick={closeSheet}>
                         <Button className="w-full">Dashboard</Button>
                       </Link>
-                      <Button variant="outline" onClick={signOut}>
+                      <Button variant="outline" onClick={handleSignOut}>
                         Log Out
                       </Button>
                     </>
                   ) : (
                     <>
-                      <Link href="/auth/login">
+                      <Link href="/auth/login" onClick={closeSheet}>
                         <Button variant="outline" className="w-full">
                           Log In
                         </Button>
                       </Link>
-                      <Link href="/auth/signup">
+                      <Link href="/auth/signup" onClick={closeSheet}>
                         <Button className="w-full">Sign Up</Button>
                       </Link>
                     </>
