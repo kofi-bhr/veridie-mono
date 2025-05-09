@@ -1,47 +1,61 @@
 import { supabase } from "@/lib/supabase-client"
+import { refreshToken } from "./calendly-api"
 
 export async function refreshCalendlyToken(mentorId: string) {
   try {
+    console.log("Starting Calendly token refresh for mentor:", mentorId)
+
     // Get the mentor's refresh token
     const { data: mentor, error: mentorError } = await supabase
       .from("mentors")
-      .select("calendly_refresh_token")
+      .select("calendly_refresh_token, calendly_token_expires_at, calendly_access_token")
       .eq("id", mentorId)
       .single()
 
-    if (mentorError || !mentor?.calendly_refresh_token) {
+    if (mentorError) {
       console.error("Error getting refresh token:", mentorError)
+      return { success: false, error: "Mentor not found" }
+    }
+
+    if (!mentor?.calendly_refresh_token) {
+      console.error("Mentor has no refresh token")
       return { success: false, error: "Refresh token not found" }
     }
 
-    // Call Calendly API to refresh the token
-    const response = await fetch("https://auth.calendly.com/oauth/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        grant_type: "refresh_token",
-        client_id: process.env.CALENDLY_CLIENT_ID,
-        client_secret: process.env.CALENDLY_CLIENT_SECRET,
-        refresh_token: mentor.calendly_refresh_token,
-      }),
-    })
+    // Check if token is actually expired
+    const tokenExpiresAt = mentor.calendly_token_expires_at ? new Date(mentor.calendly_token_expires_at) : null
+    const now = new Date()
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`Token refresh error (${response.status}): ${errorText}`)
-      return { success: false, error: `Token refresh failed: ${response.status}` }
+    // Add a buffer of 5 minutes to prevent edge cases
+    const bufferTime = 5 * 60 * 1000 // 5 minutes in milliseconds
+    const isExpired = !tokenExpiresAt || tokenExpiresAt.getTime() - now.getTime() < bufferTime
+
+    if (!isExpired && mentor.calendly_access_token) {
+      console.log("Token is still valid, no need to refresh")
+      return { success: true, accessToken: mentor.calendly_access_token }
     }
 
-    const data = await response.json()
+    console.log("Token is expired or close to expiry, refreshing...")
+
+    // Get environment variables
+    const clientId = process.env.CALENDLY_CLIENT_ID
+    const clientSecret = process.env.CALENDLY_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      console.error("Missing Calendly credentials")
+      return { success: false, error: "Missing Calendly credentials" }
+    }
+
+    // Call Calendly API to refresh the token
+    const tokens = await refreshToken(mentor.calendly_refresh_token, clientId, clientSecret)
 
     // Update the tokens in the database
     const { error: updateError } = await supabase
       .from("mentors")
       .update({
-        calendly_access_token: data.access_token,
-        calendly_refresh_token: data.refresh_token,
+        calendly_access_token: tokens.accessToken,
+        calendly_refresh_token: tokens.refreshToken,
+        calendly_token_expires_at: tokens.expiresAt.toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq("id", mentorId)
@@ -51,9 +65,16 @@ export async function refreshCalendlyToken(mentorId: string) {
       return { success: false, error: "Failed to update tokens" }
     }
 
-    return { success: true, accessToken: data.access_token }
+    console.log("Calendly token refreshed successfully")
+    return { success: true, accessToken: tokens.accessToken }
   } catch (error) {
     console.error("Error refreshing Calendly token:", error)
-    return { success: false, error: "Token refresh failed" }
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Token refresh failed",
+    }
   }
 }
+
+// For backward compatibility
+// export const refreshCalendlyToken = refreshToken

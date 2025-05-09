@@ -134,6 +134,75 @@ export async function refreshCalendlyToken(
   }
 }
 
+// This file contains utility functions for interacting with the Calendly API
+
+/**
+ * Refreshes a Calendly access token using the refresh token
+ */
+export async function refreshToken(refreshToken: string, clientId: string, clientSecret: string) {
+  console.log("Refreshing Calendly token with refresh token")
+
+  try {
+    const response = await fetch("https://auth.calendly.com/oauth/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        grant_type: "refresh_token",
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+      }),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`Token refresh error (${response.status}): ${errorText}`)
+      throw new Error(`Token refresh failed: ${response.status} - ${errorText}`)
+    }
+
+    const data = await response.json()
+
+    // Calculate expiration time (Calendly tokens typically last 1 hour)
+    const expiresIn = data.expires_in || 3600 // Default to 1 hour if not provided
+    const expiresAt = new Date(Date.now() + expiresIn * 1000)
+
+    return {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      expiresAt: expiresAt,
+    }
+  } catch (error) {
+    console.error("Error in refreshToken:", error)
+    throw error
+  }
+}
+
+/**
+ * Makes an authenticated request to the Calendly API
+ */
+export async function makeCalendlyRequest(endpoint: string, accessToken: string, options: RequestInit = {}) {
+  const url = endpoint.startsWith("http") ? endpoint : `https://api.calendly.com${endpoint}`
+
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...options.headers,
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error(`Calendly API error (${response.status}): ${errorText}`)
+    throw new Error(`Calendly API error (${response.status}): ${errorText}`)
+  }
+
+  return response.json()
+}
+
 // Get current user info
 export async function getCurrentUser(accessToken: string): Promise<CalendlyUser> {
   try {

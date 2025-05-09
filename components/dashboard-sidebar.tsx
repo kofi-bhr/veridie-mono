@@ -4,7 +4,18 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
 import { cn } from "@/lib/utils"
-import { BarChart3, Calendar, FileText, Home, MessageSquare, Settings, Trophy, User, Briefcase } from "lucide-react"
+import {
+  BarChart3,
+  Calendar,
+  FileText,
+  Home,
+  MessageSquare,
+  Settings,
+  Trophy,
+  User,
+  Briefcase,
+  RefreshCw,
+} from "lucide-react"
 
 export function DashboardSidebar() {
   const pathname = usePathname()
@@ -20,6 +31,7 @@ export function DashboardSidebar() {
     { href: "/dashboard/essays", label: "Essays", icon: FileText },
     { href: "/dashboard/services", label: "Services", icon: BarChart3 },
     { href: "/dashboard/calendly", label: "Calendly Setup", icon: Calendar },
+    { href: "/dashboard/calendly-reconnect", label: "Reconnect Calendly", icon: RefreshCw },
     { href: "/dashboard/sessions", label: "Sessions", icon: Calendar },
   ]
 
