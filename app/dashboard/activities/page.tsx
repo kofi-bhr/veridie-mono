@@ -41,6 +41,7 @@ export default function ActivitiesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [submissionError, setSubmissionError] = useState<string | null>(null)
 
   useEffect(() => {
     if (user?.id) {
@@ -118,6 +119,7 @@ export default function ActivitiesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
+    setSubmissionError(null)
 
     if (!user?.id) {
       toast({
@@ -142,41 +144,25 @@ export default function ActivitiesPage() {
         throw new Error("All fields are required")
       }
 
-      // Create activity with detailed logging
-      console.log("Creating activity with data:", {
+      // Generate a temporary ID for optimistic UI update
+      const tempId = `temp-${Date.now()}`
+
+      // Create a temporary activity object for optimistic UI update
+      const tempActivity = {
+        id: tempId,
         mentor_id: user.id,
         title: formData.title,
         organization: formData.organization,
         years: formData.years,
         description: formData.description,
-      })
-
-      const { data, error } = await supabase
-        .from("activities")
-        .insert([
-          {
-            mentor_id: user.id,
-            title: formData.title,
-            organization: formData.organization,
-            years: formData.years,
-            description: formData.description,
-            created_at: new Date().toISOString(),
-          },
-        ])
-        .select()
-
-      if (error) {
-        console.error("Supabase error details:", error)
-        throw error
+        created_at: new Date().toISOString(),
       }
 
-      console.log("Activity created successfully:", data)
+      // Update the UI immediately
+      setActivities((prev) => [...prev, tempActivity])
 
-      toast({
-        title: "Activity added",
-        description: "Your activity has been added successfully",
-      })
-
+      // Close the dialog and reset form data
+      setDialogOpen(false)
       setFormData({
         title: "",
         organization: "",
@@ -184,10 +170,47 @@ export default function ActivitiesPage() {
         description: "",
       })
 
-      setDialogOpen(false)
-      checkTableAndFetchActivities()
+      // Show a toast message
+      toast({
+        title: "Adding activity...",
+        description: "Your activity is being saved.",
+      })
+
+      // Use the API endpoint to add the activity
+      const response = await fetch("/api/activities/add", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: tempActivity.title,
+          organization: tempActivity.organization,
+          years: tempActivity.years,
+          description: tempActivity.description,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to add activity")
+      }
+
+      const data = await response.json()
+
+      // Replace the temporary activity with the real one
+      setActivities((prev) => prev.map((activity: any) => (activity.id === tempId ? data.data[0] : activity)))
+
+      toast({
+        title: "Activity added",
+        description: "Your activity has been added successfully",
+      })
     } catch (error) {
       console.error("Error adding activity:", error)
+
+      // Remove the temporary activity from the UI
+      setActivities((prev) => prev.filter((activity: any) => !activity.id.toString().startsWith("temp-")))
+
+      setSubmissionError(error.message || "There was an error adding your activity. Please try again.")
       toast({
         title: "Failed to add activity",
         description: error.message || "There was an error adding your activity. Please try again.",
@@ -199,19 +222,31 @@ export default function ActivitiesPage() {
   }
 
   const handleDelete = async (id: string) => {
+    // If it's a temporary ID, just remove it from the UI
+    if (id.toString().startsWith("temp-")) {
+      setActivities((prev) => prev.filter((activity: any) => activity.id !== id))
+      return
+    }
+
     setIsDeleting(true)
 
     try {
+      // Optimistically update UI first
+      const activityToDelete = activities.find((activity: any) => activity.id === id)
+      setActivities((prev) => prev.filter((activity: any) => activity.id !== id))
+
       const { error } = await supabase.from("activities").delete().eq("id", id)
 
-      if (error) throw error
+      if (error) {
+        // If there's an error, revert the optimistic update
+        setActivities((prev) => [...prev, activityToDelete])
+        throw error
+      }
 
       toast({
         title: "Activity deleted",
         description: "Your activity has been deleted successfully",
       })
-
-      checkTableAndFetchActivities()
     } catch (error) {
       console.error("Error deleting activity:", error)
       toast({
@@ -328,6 +363,10 @@ export default function ActivitiesPage() {
                     required
                   />
                 </div>
+
+                {submissionError && (
+                  <div className="text-sm text-red-500 p-2 bg-red-50 rounded">Error: {submissionError}</div>
+                )}
 
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>

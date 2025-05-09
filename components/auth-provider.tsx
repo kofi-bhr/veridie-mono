@@ -2,8 +2,8 @@
 
 import type React from "react"
 
-// Update the import at the top to use our new client
-import { supabase } from "@/lib/supabase-client"
+// Update the import to use our singleton client
+import { getSupabaseClient } from "@/lib/supabase-client"
 import { createContext, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import type { User } from "@/lib/types"
@@ -23,6 +23,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+
+  // Get the Supabase client once
+  const supabase = getSupabaseClient()
 
   // Check if user is logged in on initial load
   useEffect(() => {
@@ -87,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe()
     }
-  }, [])
+  }, [supabase])
 
   const handleSignIn = async (email: string, password: string) => {
     setLoading(true)
