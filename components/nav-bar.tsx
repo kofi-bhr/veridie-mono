@@ -90,15 +90,23 @@ export function NavBar() {
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full overflow-hidden">
-                  <Avatar className="h-8 w-8 overflow-hidden">
-                    <AvatarImage
-                      src={user.avatar || "/placeholder.svg"}
-                      alt={user.name}
-                      className="scale-115 transform"
-                    />
-                    <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                  </Avatar>
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full overflow-hidden p-0">
+                  <div className="h-full w-full overflow-hidden rounded-full">
+                    <Avatar className="h-full w-full">
+                      <AvatarImage
+                        src={user.avatar || "/placeholder.svg"}
+                        alt={user.name}
+                        style={{
+                          transform: "scale(1.25)",
+                          transformOrigin: "center",
+                          objectFit: "cover",
+                          width: "100%",
+                          height: "100%",
+                        }}
+                      />
+                      <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                  </div>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>

@@ -26,9 +26,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <AuthGuard>
       <div className="flex flex-col min-h-screen">
-        {/* Mobile sidebar toggle bar */}
+        {/* Mobile sidebar toggle bar - positioned below the main navbar */}
         {isMobile && (
-          <div className="sticky top-0 z-30 w-full bg-background border-b shadow-sm px-4 py-2 flex items-center">
+          <div className="w-full bg-background border-b shadow-sm px-4 py-2 flex items-center mt-16">
             <Button
               variant="ghost"
               size="sm"
@@ -48,8 +48,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             className={`
               ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} 
               transition-transform duration-300 ease-in-out
-              fixed md:relative z-40 md:z-0 h-[calc(100vh-3rem)] md:h-auto md:min-h-screen md:translate-x-0
-              top-[3rem] md:top-0
+              fixed md:relative z-40 md:z-0 h-[calc(100vh-7rem)] md:h-auto md:min-h-screen md:translate-x-0
+              top-[7rem] md:top-0
             `}
           >
             <DashboardSidebar onLinkClick={() => isMobile && setSidebarOpen(false)} />
@@ -58,7 +58,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {/* Overlay for mobile when sidebar is open */}
           {isMobile && sidebarOpen && (
             <div
-              className="fixed inset-0 bg-black/20 z-30 top-[3rem]"
+              className="fixed inset-0 bg-black/20 z-30 top-[7rem]"
               onClick={() => setSidebarOpen(false)}
               aria-hidden="true"
             />
