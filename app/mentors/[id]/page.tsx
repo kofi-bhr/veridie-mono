@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { getProfileImageUrl, getInitials } from "@/lib/image-utils"
+import { CheckoutButton } from "@/components/checkout-button"
 
 export default function MentorPage() {
   const { id } = useParams()
@@ -192,58 +193,13 @@ export default function MentorPage() {
     }
   }
 
-  const handleBooking = async () => {
-    if (!user) {
-      toast({
-        title: "Please log in",
-        description: "You need to be logged in to book a session",
-        variant: "destructive",
-      })
-      router.push("/auth/login")
-      return
-    }
-
-    if (!selectedService || !selectedDate || !selectedTime) {
-      toast({
-        title: "Incomplete booking",
-        description: "Please select a service, date, and time",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setIsBooking(true)
-
-    try {
-      // In a real implementation, this would call your API to create a booking
-      // and redirect to the Stripe checkout page
-      console.log("Booking details:", {
-        mentorId: mentor.id,
-        serviceId: selectedService.id,
-        serviceName: selectedService.name,
-        servicePrice: selectedService.price,
-        date: selectedDate.toISOString().split("T")[0],
-        time: selectedTime,
-      })
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
-      // Redirect to success page
-      router.push(
-        `/booking/success?mentor=${mentor.id}&service=${selectedService.id}&date=${
-          selectedDate.toISOString().split("T")[0]
-        }&time=${selectedTime}`,
-      )
-    } catch (error) {
-      console.error("Error creating booking:", error)
-      toast({
-        title: "Booking failed",
-        description: "There was an error processing your booking. Please try again.",
-        variant: "destructive",
-      })
-      setIsBooking(false)
-    }
+  const handleLoginPrompt = () => {
+    toast({
+      title: "Please log in",
+      description: "You need to be logged in to book a session",
+      variant: "destructive",
+    })
+    router.push("/auth/login")
   }
 
   if (loading) {
@@ -487,34 +443,25 @@ export default function MentorPage() {
                       </div>
                     </div>
 
-                    <Button
-                      onClick={handleBooking}
-                      disabled={!selectedService || !selectedDate || !selectedTime || isBooking}
-                      className="w-full"
-                      size="lg"
-                    >
-                      {isBooking ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Processing...
-                        </>
-                      ) : (
-                        <>
-                          <CalendarDays className="mr-2 h-4 w-4" />
-                          Book Now
-                        </>
-                      )}
-                    </Button>
+                    {user ? (
+                      <CheckoutButton
+                        mentorId={mentor.id}
+                        serviceId={selectedService.id}
+                        serviceName={selectedService.name}
+                        servicePrice={selectedService.price}
+                        stripePriceId={selectedService.stripe_price_id}
+                        date={selectedDate ? selectedDate.toISOString().split("T")[0] : null}
+                        time={selectedTime}
+                        disabled={!selectedService || !selectedDate || !selectedTime || isBooking}
+                      />
+                    ) : (
+                      <Button onClick={handleLoginPrompt} className="w-full" size="lg">
+                        <CalendarDays className="mr-2 h-4 w-4" />
+                        Log in to Book
+                      </Button>
+                    )}
                   </div>
                 </>
-              )}
-
-              {/* Debug info - only in development */}
-              {debugInfo && process.env.NODE_ENV === "development" && (
-                <div className="mt-4 p-3 bg-gray-100 rounded-md text-xs">
-                  <h4 className="font-mono font-bold mb-1">Debug Info:</h4>
-                  <pre className="whitespace-pre-wrap">{JSON.stringify(debugInfo, null, 2)}</pre>
-                </div>
               )}
             </CardContent>
           </Card>
