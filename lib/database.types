@@ -1,4 +1,10 @@
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
 
 export interface Database {
   public: {
@@ -65,7 +71,7 @@ export interface Database {
           university?: string | null
           bio?: string | null
           rating?: number | null
-          review_count?: string | null
+          review_count?: number | null
           languages?: string[] | null
           created_at?: string | null
           stripe_connect_account_id?: string | null

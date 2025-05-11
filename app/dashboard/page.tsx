@@ -54,6 +54,19 @@ export default function DashboardPage() {
     if (user) {
       fetchMentorData()
     }
+
+    // Add a timeout to prevent infinite loading
+    const loadingTimeout = setTimeout(() => {
+      if (isLoading) {
+        console.log("Dashboard loading timed out, resetting state")
+        setIsLoading(false)
+        if (!mentorData && !error) {
+          setError("Loading timed out. Please try refreshing the page.")
+        }
+      }
+    }, 8000) // 8 second timeout
+
+    return () => clearTimeout(loadingTimeout)
   }, [user, loading, router])
 
   // Create mentor profile if it doesn't exist
@@ -90,7 +103,7 @@ export default function DashboardPage() {
     }
   }
 
-  if (loading || isLoading) {
+  if (loading || (isLoading && !error)) {
     return (
       <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

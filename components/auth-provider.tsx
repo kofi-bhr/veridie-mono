@@ -86,9 +86,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     })
 
+    // Add this timeout to prevent infinite loading
+    const loadingTimeout = setTimeout(() => {
+      if (loading) {
+        console.log("Auth loading timed out, resetting state")
+        setLoading(false)
+      }
+    }, 5000) // 5 second timeout
+
     // Cleanup subscription
     return () => {
       subscription.unsubscribe()
+      clearTimeout(loadingTimeout)
     }
   }, [supabase])
 
@@ -215,7 +224,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         setUser({
           id: data.user.id,
-          email: userData.email || "",
+          email: data.user.email || "",
           name: userData.name || "",
           role: userData.role || "client",
           avatar: userData.avatar || "/placeholder.svg?height=40&width=40",
