@@ -101,15 +101,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/calendly?error=invalid_user_response`)
     }
 
+    // Extract important user data
     const username = userData.resource.scheduling_url.split("calendly.com/")[1]
 
-    // Update database
+    // IMPORTANT: Extract and store the user URI
+    const userUri = userData.resource.uri
+    console.log("Extracted Calendly user URI:", userUri)
+
+    // Calculate token expiration time
+    const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
+
+    // Update database with all Calendly information
     const { error: updateError } = await supabase
       .from("mentors")
       .update({
         calendly_username: username,
         calendly_access_token: tokens.access_token,
         calendly_refresh_token: tokens.refresh_token,
+        calendly_token_expires_at: expiresAt,
+        calendly_user_uri: userUri, // Store the user URI
         updated_at: new Date().toISOString(),
       })
       .eq("id", data.user.id)

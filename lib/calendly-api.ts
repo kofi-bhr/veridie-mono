@@ -1,4 +1,4 @@
-// Calendly API Client
+import type { CalendlyEventType } from "@/types"
 import { CALENDLY_CLIENT_ID, CALENDLY_CLIENT_SECRET } from "@/lib/api-config"
 
 const CALENDLY_API_URL = "https://api.calendly.com"
@@ -18,24 +18,8 @@ export interface CalendlyUser {
   timezone: string
 }
 
-export interface CalendlyEventType {
-  uri: string
-  name: string
-  description: string | null
-  duration: number
-  slug: string
-  kind: string
-  schedulingUrl: string
-  active: boolean
-  secret: boolean
-  color: string | null
-}
-
-export interface CalendlySchedulingLink {
-  url: string
-  owner: string
-  eventType: string
-}
+// Helper function to add delay for retries
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 // Generate OAuth authorization URL
 export function getCalendlyAuthUrl(clientId: string, redirectUri: string): string {
@@ -86,7 +70,7 @@ export async function exchangeCalendlyCode(
   }
 }
 
-// Refresh access token
+// Refresh access token - this is the missing export
 export async function refreshCalendlyToken(refreshToken: string): Promise<CalendlyTokens> {
   if (!CALENDLY_CLIENT_ID || !CALENDLY_CLIENT_SECRET) {
     throw new Error("Missing Calendly credentials")
@@ -118,88 +102,104 @@ export async function refreshCalendlyToken(refreshToken: string): Promise<Calend
   }
 }
 
-// This file contains utility functions for interacting with the Calendly API
+// Get user's event types with retry logic
+export async function getUserEventTypes(
+  accessToken: string,
+  userUri: string,
+  maxRetries = 3,
+): Promise<CalendlyEventType[]> {
+  let retries = 0
 
-/**
- * Refreshes a Calendly access token using the refresh token
- */
-export async function refreshToken(refreshToken: string, clientId: string, clientSecret: string) {
-  console.log("Refreshing Calendly token")
+  while (retries < maxRetries) {
+    try {
+      console.log(`Fetching Calendly event types (attempt ${retries + 1})...`)
+      console.log(`User URI: ${userUri}`)
 
-  try {
-    const response = await fetch("https://auth.calendly.com/oauth/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        grant_type: "refresh_token",
-        client_id: clientId,
-        client_secret: clientSecret,
-        refresh_token: refreshToken,
-      }),
-    })
+      // Make sure the userUri is properly formatted
+      // The API expects a full URI like https://api.calendly.com/users/USERID
+      if (!userUri.includes("://")) {
+        // If it's just a UUID, construct the full URI
+        if (!userUri.includes("/")) {
+          userUri = `https://api.calendly.com/users/${userUri}`
+        } else if (userUri.startsWith("/")) {
+          userUri = `https://api.calendly.com${userUri}`
+        } else if (!userUri.startsWith("http")) {
+          userUri = `https://api.calendly.com/${userUri}`
+        }
+      }
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`Token refresh error (${response.status}): ${errorText}`)
-      throw new Error(`Token refresh failed: ${response.status}`)
+      console.log(`Formatted User URI: ${userUri}`)
+
+      // Construct the API URL with the user parameter
+      const apiUrl = `${CALENDLY_API_URL}/event_types?user=${encodeURIComponent(userUri)}`
+      console.log(`API URL: ${apiUrl}`)
+
+      const response = await fetch(apiUrl, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+
+      if (response.status === 429) {
+        // Rate limited, wait and retry
+        const backoffTime = Math.pow(2, retries) * 1000
+        console.log(`Rate limited by Calendly API. Retrying in ${backoffTime}ms...`)
+        await delay(backoffTime)
+        retries++
+        continue
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`Calendly API error (${response.status}):`, errorText)
+
+        if (response.status === 401) {
+          throw new Error("Calendly authentication failed. Please reconnect your account.")
+        }
+
+        throw new Error(`Calendly API error (${response.status}): ${errorText}`)
+      }
+
+      const data = await response.json()
+
+      if (!data.collection) {
+        console.error("Unexpected Calendly API response format:", data)
+        throw new Error("Invalid response format from Calendly API")
+      }
+
+      return data.collection.map((eventType: any) => ({
+        uri: eventType.uri,
+        name: eventType.name,
+        description: eventType.description,
+        duration: eventType.duration,
+        slug: eventType.slug,
+        kind: eventType.kind,
+        schedulingUrl: eventType.scheduling_url,
+        active: eventType.active,
+        secret: eventType.secret,
+        color: eventType.color,
+      }))
+    } catch (error) {
+      console.error(`Attempt ${retries + 1} failed:`, error)
+
+      if (retries === maxRetries - 1) {
+        throw error
+      }
+
+      const backoffTime = Math.pow(2, retries) * 1000
+      await delay(backoffTime)
+      retries++
     }
-
-    const data = await response.json()
-    console.log("Token refresh successful")
-
-    // Calculate when the token will expire
-    const expiresIn = data.expires_in || 3600 // Default to 1 hour
-    const expiresAt = new Date(Date.now() + expiresIn * 1000)
-
-    return {
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token,
-      expiresAt: expiresAt,
-    }
-  } catch (error) {
-    console.error("Error refreshing token:", error)
-    throw error
   }
-}
 
-/**
- * Makes an authenticated request to the Calendly API
- */
-export async function makeCalendlyRequest(endpoint: string, accessToken: string) {
-  try {
-    const baseUrl = "https://api.calendly.com"
-    const url = endpoint.startsWith("http") ? endpoint : `${baseUrl}${endpoint}`
-
-    console.log(`Making Calendly API request to: ${url}`)
-
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`Calendly API error (${response.status}): ${errorText}`)
-      throw new Error(`Calendly API error (${response.status}): ${errorText}`)
-    }
-
-    const data = await response.json()
-    return data
-  } catch (error) {
-    console.error("Error making Calendly API request:", error)
-    throw error
-  }
+  throw new Error("Failed to fetch Calendly event types after multiple attempts")
 }
 
 // Get current user info
 export async function getCurrentUser(accessToken: string) {
   try {
-    const response = await fetch("https://api.calendly.com/users/me", {
+    const response = await fetch(`${CALENDLY_API_URL}/users/me`, {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
@@ -220,41 +220,6 @@ export async function getCurrentUser(accessToken: string) {
     }
   } catch (error) {
     console.error("Error getting current user:", error)
-    throw error
-  }
-}
-
-// Get user's event types
-export async function getUserEventTypes(accessToken: string, userUri: string): Promise<CalendlyEventType[]> {
-  try {
-    const response = await fetch(`${CALENDLY_API_URL}/event_types?user=${userUri}`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: "application/json",
-      },
-    })
-
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.message || "Failed to get event types")
-    }
-
-    const data = await response.json()
-
-    return data.collection.map((item: any) => ({
-      uri: item.uri,
-      name: item.name,
-      description: item.description,
-      duration: item.duration,
-      slug: item.slug,
-      kind: item.kind,
-      schedulingUrl: item.scheduling_url,
-      active: item.active,
-      secret: item.secret,
-      color: item.color,
-    }))
-  } catch (error) {
-    console.error("Error getting Calendly event types:", error)
     throw error
   }
 }

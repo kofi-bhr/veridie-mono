@@ -13,6 +13,7 @@ interface CalendlyOAuthSetupProps {
     username?: string | null
     expiresAt?: string | null
     lastConnected?: string | null
+    userUri?: string | null
   }
 }
 
@@ -47,6 +48,7 @@ export function CalendlyOAuthSetup({ mentorId, calendlyData }: CalendlyOAuthSetu
   const isConnected = !!calendlyData?.username
   const tokenExpiresAt = calendlyData?.expiresAt ? new Date(calendlyData.expiresAt) : null
   const isTokenExpired = tokenExpiresAt ? tokenExpiresAt < new Date() : false
+  const hasUserUri = !!calendlyData?.userUri
 
   return (
     <Card>
@@ -83,6 +85,19 @@ export function CalendlyOAuthSetup({ mentorId, calendlyData }: CalendlyOAuthSetu
               <p className="text-sm text-gray-600">
                 Username: <span className="font-medium">{calendlyData?.username}</span>
               </p>
+
+              {!hasUserUri && (
+                <div className="mt-4">
+                  <Alert variant="warning">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Missing User URI</AlertTitle>
+                    <AlertDescription>
+                      Your Calendly connection is missing some required data. Please reconnect your account.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+
               {isTokenExpired && (
                 <div className="mt-4">
                   <Alert variant="warning">
@@ -94,6 +109,7 @@ export function CalendlyOAuthSetup({ mentorId, calendlyData }: CalendlyOAuthSetu
                   </Alert>
                 </div>
               )}
+
               <div className="mt-4">
                 <Button variant="outline" onClick={handleConnect} className="flex items-center gap-2">
                   <RefreshCw className="h-4 w-4" />
