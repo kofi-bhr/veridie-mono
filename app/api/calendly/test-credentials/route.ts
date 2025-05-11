@@ -14,6 +14,7 @@ export async function GET() {
       success: true,
       hasClientId,
       hasClientSecret,
+      clientId: CALENDLY_CLIENT_ID, // Include the actual client ID for the connect page
       baseUrl,
       redirectUri: `${baseUrl}/api/calendly/simple-callback`,
       message: "Calendly credentials check completed",

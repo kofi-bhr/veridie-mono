@@ -20,6 +20,21 @@ export async function GET(request: NextRequest) {
       allParams: Object.fromEntries(searchParams.entries()),
     })
 
+    // Handle direct access to the callback URL without going through OAuth flow
+    if (!code && !error) {
+      console.log("Direct access to callback URL detected")
+      return NextResponse.json(
+        {
+          error: "Direct access detected",
+          message: "This endpoint is meant to be accessed as part of the Calendly OAuth flow, not directly.",
+          instructions: "Please start the OAuth flow from the dashboard.",
+          requiredParams: ["code"],
+          receivedParams: Object.fromEntries(searchParams.entries()),
+        },
+        { status: 400 },
+      )
+    }
+
     // Handle error from Calendly
     if (error) {
       console.error("Calendly OAuth error:", error, errorDescription)
@@ -54,7 +69,10 @@ export async function GET(request: NextRequest) {
     if (userError) {
       console.error("Auth error:", userError)
       return NextResponse.redirect(
-        new URL(`/dashboard/calendly?error=${encodeURIComponent("Authentication error")}`, request.url),
+        new URL(
+          `/dashboard/calendly?error=${encodeURIComponent("Authentication error: " + userError.message)}`,
+          request.url,
+        ),
       )
     }
 
@@ -206,9 +224,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(`/dashboard/calendly?success=true`, request.url))
   } catch (error) {
     console.error("Callback error:", error)
-    const errorMessage = error instanceof Error ? error.message : "Unknown error"
-    return NextResponse.redirect(
-      new URL(`/dashboard/calendly?error=${encodeURIComponent("Server error: " + errorMessage)}`, request.url),
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred during callback processing"
+
+    // Return a more detailed error response
+    return NextResponse.json(
+      {
+        error: "Callback processing failed",
+        message: errorMessage,
+        timestamp: new Date().toISOString(),
+        stack: error instanceof Error ? error.stack : undefined,
+      },
+      { status: 500 },
     )
   }
 }
