@@ -5,25 +5,29 @@ import type React from "react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
-import { ExternalLink } from "lucide-react"
+import { useAuth } from "@/hooks/use-auth"
+import { Loader2 } from "lucide-react"
 
 interface StripeConnectButtonProps {
-  variant?: "default" | "outline" | "secondary" | "ghost" | "link" | "destructive"
-  size?: "default" | "sm" | "lg" | "icon"
   className?: string
   children?: React.ReactNode
 }
 
-export function StripeConnectButton({
-  variant = "default",
-  size = "default",
-  className = "",
-  children,
-}: StripeConnectButtonProps) {
+export function StripeConnectButton({ className, children }: StripeConnectButtonProps) {
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
+  const { user } = useAuth()
 
-  const handleSetupStripeConnect = async () => {
+  const handleConnect = async () => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to connect your Stripe account",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsLoading(true)
 
     try {
@@ -32,51 +36,44 @@ export function StripeConnectButton({
         headers: {
           "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+        }),
       })
 
       if (!response.ok) {
-        let errorMessage = "Failed to set up Stripe Connect account"
-
-        try {
-          const errorData = await response.json()
-          if (errorData.error) {
-            errorMessage = errorData.error
-            if (errorData.details) {
-              errorMessage += `: ${errorData.details}`
-            }
-          }
-        } catch (e) {
-          console.error("Error parsing error response:", e)
-        }
-
-        throw new Error(errorMessage)
+        const error = await response.json()
+        throw new Error(error.message || "Failed to create Stripe Connect account")
       }
 
       const data = await response.json()
 
       if (data.url) {
-        // Redirect to Stripe onboarding
+        // Store a flag in localStorage to indicate we're in the Stripe Connect flow
+        localStorage.setItem("stripeConnectInProgress", "true")
+
+        // Redirect to Stripe Connect onboarding
         window.location.href = data.url
       } else {
         throw new Error("No redirect URL returned from server")
       }
     } catch (error) {
-      console.error("Error setting up Stripe Connect:", error)
-
+      console.error("Error connecting to Stripe:", error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to set up Stripe Connect",
+        description: error instanceof Error ? error.message : "Failed to connect to Stripe",
         variant: "destructive",
       })
-    } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <Button variant={variant} size={size} className={className} onClick={handleSetupStripeConnect} disabled={isLoading}>
-      {isLoading ? "Setting up..." : children || "Set Up Stripe Connect"}
-      {!isLoading && <ExternalLink className="ml-2 h-4 w-4" />}
+    <Button onClick={handleConnect} disabled={isLoading} className={className}>
+      {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+      {isLoading ? "Connecting..." : children || "Connect Stripe Account"}
     </Button>
   )
 }
