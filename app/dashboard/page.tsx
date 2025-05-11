@@ -5,25 +5,31 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
 import { ConsultantDashboard } from "@/components/consultant-dashboard"
 import { Button } from "@/components/ui/button"
-import { supabase } from "@/lib/supabase-client"
-import { Loader2 } from "lucide-react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { Loader2, RefreshCw } from "lucide-react"
 
 export default function DashboardPage() {
-  const { user, loading } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [mentorData, setMentorData] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
+
+  // Create a fresh Supabase client for this component
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
     // If not loading and no user, redirect to login
-    if (!loading && !user) {
+    if (!authLoading && !user) {
+      console.log("No user found, redirecting to login")
       router.push("/auth/login")
       return
     }
 
     // If user is not a consultant, redirect to mentors page
-    if (!loading && user && user.role !== "consultant") {
+    if (!authLoading && user && user.role !== "consultant") {
+      console.log("User is not a consultant, redirecting to mentors")
       router.push("/mentors")
       return
     }
@@ -32,12 +38,21 @@ export default function DashboardPage() {
     const fetchMentorData = async () => {
       if (user && user.role === "consultant") {
         try {
-          const { data, error } = await supabase.from("mentors").select("*").eq("id", user.id).single()
+          console.log("Fetching mentor data...")
+
+          // Set a timeout for the fetch operation
+          const fetchPromise = supabase.from("mentors").select("*").eq("id", user.id).single()
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Mentor data fetch timeout")), 5000),
+          )
+
+          const { data, error } = (await Promise.race([fetchPromise, timeoutPromise])) as any
 
           if (error) {
             console.error("Error fetching mentor data:", error)
             setError("Failed to load your mentor profile. Please try again.")
           } else {
+            console.log("Mentor data fetched successfully")
             setMentorData(data)
           }
         } catch (err) {
@@ -51,7 +66,7 @@ export default function DashboardPage() {
       }
     }
 
-    if (user) {
+    if (user && !authLoading) {
       fetchMentorData()
     }
 
@@ -67,7 +82,7 @@ export default function DashboardPage() {
     }, 8000) // 8 second timeout
 
     return () => clearTimeout(loadingTimeout)
-  }, [user, loading, router])
+  }, [user, authLoading, router, retryCount, supabase])
 
   // Create mentor profile if it doesn't exist
   const createMentorProfile = async () => {
@@ -103,11 +118,25 @@ export default function DashboardPage() {
     }
   }
 
-  if (loading || (isLoading && !error)) {
+  const handleRetry = () => {
+    setIsLoading(true)
+    setError(null)
+    setRetryCount((prev) => prev + 1)
+  }
+
+  // Show a simplified loading state
+  if (authLoading || (isLoading && !error)) {
     return (
       <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2">Loading your dashboard...</span>
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-lg font-medium">Loading your dashboard...</p>
+          <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
+          <Button variant="ghost" className="mt-4" onClick={handleRetry}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Retry
+          </Button>
+        </div>
       </div>
     )
   }
@@ -118,7 +147,15 @@ export default function DashboardPage() {
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
           <h2 className="text-xl font-semibold text-red-800 mb-4">Error Loading Dashboard</h2>
           <p className="text-red-700 mb-6">{error}</p>
-          <Button onClick={() => window.location.reload()}>Try Again</Button>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button onClick={() => window.location.reload()}>Refresh Page</Button>
+            <Button variant="outline" onClick={handleRetry}>
+              Try Again
+            </Button>
+            <Button variant="ghost" onClick={() => router.push("/")}>
+              Go to Homepage
+            </Button>
+          </div>
         </div>
       </div>
     )

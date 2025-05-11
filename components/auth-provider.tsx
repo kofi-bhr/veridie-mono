@@ -1,11 +1,8 @@
 "use client"
 
 import type React from "react"
-
-// Update the import to use our singleton client
-import { getSupabaseClient } from "@/lib/supabase-client"
 import { createContext, useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@/lib/types"
 
 // Define the AuthContext type
@@ -22,51 +19,74 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const router = useRouter()
 
-  // Get the Supabase client once
-  const supabase = getSupabaseClient()
+  // Create a fresh Supabase client for each component instance
+  // This avoids issues with stale clients after page refreshes
+  const supabase = createClientComponentClient()
 
   // Check if user is logged in on initial load
   useEffect(() => {
-    // Update the fetchUser function in the useEffect to properly handle your database structure
+    // Define a function to fetch the user data
     const fetchUser = async () => {
       try {
-        // Get the current session
+        console.log("Fetching auth session...")
+
+        // Get the current session with a timeout
+        const sessionPromise = supabase.auth.getSession()
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Auth session fetch timeout")), 3000),
+        )
+
         const {
           data: { session },
-        } = await supabase.auth.getSession()
+        } = (await Promise.race([sessionPromise, timeoutPromise])) as any
 
-        if (session?.user) {
-          // Get the user profile data
-          const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+        if (!session) {
+          console.log("No session found")
+          setLoading(false)
+          return
+        }
 
-          if (profile) {
-            setUser({
-              id: session.user.id,
-              email: session.user.email || "",
-              name: profile.name || "",
-              role: profile.role || "client",
-              avatar: profile.avatar || "",
-            })
-          }
+        console.log("Session found, fetching profile...")
+
+        // Get the user profile data with a timeout
+        const profilePromise = supabase.from("profiles").select("*").eq("id", session.user.id).single()
+        const profileTimeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Profile fetch timeout")), 3000),
+        )
+
+        const { data: profile } = (await Promise.race([profilePromise, profileTimeoutPromise])) as any
+
+        if (profile) {
+          console.log("Profile found, setting user state")
+          setUser({
+            id: session.user.id,
+            email: session.user.email || "",
+            name: profile.name || "",
+            role: profile.role || "client",
+            avatar: profile.avatar || "",
+          })
+        } else {
+          console.log("No profile found for user")
         }
       } catch (error) {
-        console.error("Error fetching user:", error)
+        console.error("Error in auth flow:", error)
       } finally {
         setLoading(false)
       }
     }
 
+    // Call the fetch function
     fetchUser()
 
     // Set up auth state change listener
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth state changed:", event)
+
       if (event === "SIGNED_IN" && session?.user) {
         try {
-          // Get the user profile data
           const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
 
           if (profile) {
@@ -86,15 +106,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     })
 
-    // Add this timeout to prevent infinite loading
+    // Force loading to false after a timeout
     const loadingTimeout = setTimeout(() => {
       if (loading) {
-        console.log("Auth loading timed out, resetting state")
+        console.log("Auth loading timed out, forcing state reset")
         setLoading(false)
       }
-    }, 5000) // 5 second timeout
+    }, 3000)
 
-    // Cleanup subscription
+    // Cleanup subscription and timeout
     return () => {
       subscription.unsubscribe()
       clearTimeout(loadingTimeout)
@@ -135,9 +155,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             role: profile.role || "client",
             avatar: profile.avatar || "",
           })
-
-          // Add console log to debug
-          console.log("Login successful, redirecting based on role:", profile.role)
 
           // Force navigation using window.location for a full page refresh
           if (profile.role === "consultant") {
@@ -224,7 +241,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         setUser({
           id: data.user.id,
-          email: data.user.email || "",
+          email: userData.email || "",
           name: userData.name || "",
           role: userData.role || "client",
           avatar: userData.avatar || "/placeholder.svg?height=40&width=40",
