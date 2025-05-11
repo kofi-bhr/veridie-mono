@@ -99,7 +99,7 @@ export interface Database {
           created_at?: string
         }
       }
-       activities: {
+      activities: {
         Row: {
           id: string
           mentor_id: string

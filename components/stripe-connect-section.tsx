@@ -124,8 +124,12 @@ export function StripeConnectSection({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Stripe Connect Account</CardTitle>
-        <CardDescription>Set up your Stripe Connect account to receive payments from clients.</CardDescription>
+        <CardTitle>{accountId ? "Stripe Connect Account Connected" : "Stripe Connect Account"}</CardTitle>
+        <CardDescription>
+          {accountId
+            ? "Your Stripe Connect account is set up to receive payments from clients."
+            : "Set up your Stripe Connect account to receive payments from clients."}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {accountId ? (
