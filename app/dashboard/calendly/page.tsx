@@ -5,13 +5,23 @@ import { useAuth } from "@/hooks/use-auth"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, Calendar, CheckCircle, RefreshCw } from "lucide-react"
+import { AlertCircle, Calendar, CheckCircle, RefreshCw, Unlink } from "lucide-react"
 import Link from "next/link"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 export default function CalendlyPage() {
   const { user } = useAuth()
   const [isLoading, setIsLoading] = useState(true)
   const [isTestingConnection, setIsTestingConnection] = useState(false)
+  const [isDisconnecting, setIsDisconnecting] = useState(false)
+  const [showDisconnectDialog, setShowDisconnectDialog] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [calendlyUsername, setCalendlyUsername] = useState<string | null>(null)
   const [isConnected, setIsConnected] = useState(false)
@@ -20,65 +30,67 @@ export default function CalendlyPage() {
   useEffect(() => {
     if (!user) return
 
-    const fetchCalendlyInfo = async () => {
-      try {
-        setIsLoading(true)
-        setError(null)
-
-        // Add a timeout to the fetch request
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 5000)
-
-        const response = await fetch(`/api/calendly/info?userId=${user.id}`, {
-          signal: controller.signal,
-        }).catch((err) => {
-          console.error("Fetch error:", err)
-          throw new Error("Network error when connecting to API. Please try again later.")
-        })
-
-        clearTimeout(timeoutId)
-
-        if (!response) {
-          throw new Error("Failed to connect to API")
-        }
-
-        if (!response.ok) {
-          if (response.status === 404) {
-            // Not found is okay, just means no connection yet
-            setIsConnected(false)
-            setConnectionValid(false)
-            setIsLoading(false)
-            return
-          }
-
-          const errorText = await response.text().catch(() => "Unknown error")
-          throw new Error(`API error (${response.status}): ${errorText}`)
-        }
-
-        const data = await response.json()
-        setCalendlyUsername(data.calendlyUsername || null)
-        setIsConnected(!!data.calendlyUsername)
-
-        // If connected, test the connection
-        if (data.calendlyUsername) {
-          await testConnection()
-        } else {
-          setConnectionValid(false)
-        }
-      } catch (err: any) {
-        console.error("Error fetching Calendly info:", err)
-        setError(err.message || "Failed to load Calendly information")
-
-        // Even if there's an error, we'll assume not connected
-        setIsConnected(false)
-        setConnectionValid(false)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
     fetchCalendlyInfo()
   }, [user])
+
+  const fetchCalendlyInfo = async () => {
+    if (!user) return
+
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      // Add a timeout to the fetch request
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000)
+
+      const response = await fetch(`/api/calendly/info?userId=${user.id}`, {
+        signal: controller.signal,
+      }).catch((err) => {
+        console.error("Fetch error:", err)
+        throw new Error("Network error when connecting to API. Please try again later.")
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!response) {
+        throw new Error("Failed to connect to API")
+      }
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          // Not found is okay, just means no connection yet
+          setIsConnected(false)
+          setConnectionValid(false)
+          setIsLoading(false)
+          return
+        }
+
+        const errorText = await response.text().catch(() => "Unknown error")
+        throw new Error(`API error (${response.status}): ${errorText}`)
+      }
+
+      const data = await response.json()
+      setCalendlyUsername(data.calendlyUsername || null)
+      setIsConnected(!!data.calendlyUsername)
+
+      // If connected, test the connection
+      if (data.calendlyUsername) {
+        await testConnection()
+      } else {
+        setConnectionValid(false)
+      }
+    } catch (err: any) {
+      console.error("Error fetching Calendly info:", err)
+      setError(err.message || "Failed to load Calendly information")
+
+      // Even if there's an error, we'll assume not connected
+      setIsConnected(false)
+      setConnectionValid(false)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const testConnection = async () => {
     if (!user) return
@@ -86,10 +98,17 @@ export default function CalendlyPage() {
     try {
       setIsTestingConnection(true)
 
-      const response = await fetch(`/api/calendly/test-connection?userId=${user.id}`)
+      const response = await fetch(`/api/calendly/test-connection?userId=${user.id}`).catch((err) => {
+        console.error("Network error during connection test:", err)
+        throw new Error("Network error when testing connection. Please try again.")
+      })
+
+      if (!response) {
+        throw new Error("Failed to connect to API")
+      }
 
       if (!response.ok) {
-        const errorData = await response.json()
+        const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
         console.error("Connection test failed:", errorData)
         setConnectionValid(false)
         return
@@ -107,6 +126,38 @@ export default function CalendlyPage() {
 
   const handleConnect = () => {
     window.location.href = "/api/calendly/oauth"
+  }
+
+  const handleDisconnect = async () => {
+    if (!user) return
+
+    try {
+      setIsDisconnecting(true)
+      setError(null)
+
+      const response = await fetch(`/api/calendly/disconnect?userId=${user.id}`, {
+        method: "POST",
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Failed to disconnect Calendly: ${errorText}`)
+      }
+
+      // Reset the state
+      setCalendlyUsername(null)
+      setIsConnected(false)
+      setConnectionValid(false)
+      setShowDisconnectDialog(false)
+
+      // Show success message
+      alert("Your Calendly account has been disconnected successfully.")
+    } catch (err: any) {
+      console.error("Error disconnecting Calendly:", err)
+      setError(`Failed to disconnect Calendly: ${err.message}`)
+    } finally {
+      setIsDisconnecting(false)
+    }
   }
 
   // For development/preview environments, provide a way to bypass the API
@@ -189,7 +240,7 @@ export default function CalendlyPage() {
                   Your Calendly account <strong>{calendlyUsername}</strong> is connected.
                 </p>
 
-                <div className="flex gap-2 mt-4">
+                <div className="flex flex-wrap gap-2 mt-4">
                   <Button
                     variant="outline"
                     onClick={testConnection}
@@ -211,6 +262,15 @@ export default function CalendlyPage() {
                       Reconnect Calendly
                     </Button>
                   )}
+
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowDisconnectDialog(true)}
+                    className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                  >
+                    <Unlink className="h-4 w-4" />
+                    Disconnect Calendly
+                  </Button>
                 </div>
               </div>
 
@@ -255,6 +315,32 @@ export default function CalendlyPage() {
           </Button>
         </CardFooter>
       </Card>
+
+      {/* Disconnect Confirmation Dialog */}
+      <Dialog open={showDisconnectDialog} onOpenChange={setShowDisconnectDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Disconnect Calendly Account</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to disconnect your Calendly account? This will remove the integration and clients
+              won't be able to book appointments through Calendly.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDisconnectDialog(false)} disabled={isDisconnecting}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDisconnect}
+              disabled={isDisconnecting}
+              className="flex items-center gap-2"
+            >
+              {isDisconnecting ? "Disconnecting..." : "Disconnect Calendly"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

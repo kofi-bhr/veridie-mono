@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
 import { getCurrentUser } from "@/lib/calendly-api"
-import type { Database } from "@/lib/database.types"
+import { supabaseAdmin } from "@/lib/supabase-server" // Import the existing supabaseAdmin client
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,18 +11,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 })
     }
 
-    // Initialize Supabase client
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      return NextResponse.json({ error: "Missing Supabase credentials" }, { status: 500 })
-    }
-
-    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
-
+    // Use the existing supabaseAdmin client instead of creating a new one
     // Get the mentor record for this user
-    const { data: mentor, error: mentorError } = await supabase
+    const { data: mentor, error: mentorError } = await supabaseAdmin
       .from("mentors")
       .select("id, calendly_access_token, calendly_refresh_token, calendly_expires_at")
       .eq("user_id", userId)
