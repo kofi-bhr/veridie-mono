@@ -1,5 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { supabaseAdmin } from "@/lib/supabase-server"
+import { createClient } from "@supabase/supabase-js"
+import type { Database } from "@/lib/database.types"
+
+// Create a Supabase admin client directly in this file
+const createSupabaseAdmin = () => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error("Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
+  }
+
+  return createClient<Database>(supabaseUrl, supabaseServiceKey)
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,20 +23,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 })
     }
 
-    // Get the mentor record for this user
-    const { data: mentor, error: mentorError } = await supabaseAdmin
-      .from("mentors")
-      .select("id")
-      .eq("user_id", userId)
-      .single()
+    console.log(`Attempting to disconnect Calendly for user ID: ${userId}`)
 
-    if (mentorError) {
-      console.error("Error fetching mentor:", mentorError)
-      return NextResponse.json({ error: "Failed to fetch mentor data" }, { status: 404 })
+    // Create a Supabase client
+    let supabase
+    try {
+      supabase = createSupabaseAdmin()
+    } catch (error: any) {
+      console.error("Error creating Supabase client:", error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Update the mentor record to remove Calendly information
-    const { error: updateError } = await supabaseAdmin
+    // Update the mentor record directly using the user ID
+    const { error: updateError } = await supabase
       .from("mentors")
       .update({
         calendly_access_token: null,
@@ -33,13 +45,14 @@ export async function POST(request: NextRequest) {
         calendly_user_uri: null,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", mentor.id)
+      .eq("id", userId)
 
     if (updateError) {
       console.error("Error updating mentor:", updateError)
       return NextResponse.json({ error: "Failed to disconnect Calendly" }, { status: 500 })
     }
 
+    console.log(`Successfully disconnected Calendly for user ID: ${userId}`)
     return NextResponse.json({ success: true, message: "Calendly disconnected successfully" })
   } catch (error) {
     console.error("Error in disconnect route:", error)

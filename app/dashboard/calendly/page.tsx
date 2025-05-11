@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { toast } from "@/hooks/use-toast"
 
 export default function CalendlyPage() {
   const { user } = useAuth()
@@ -135,14 +136,20 @@ export default function CalendlyPage() {
       setIsDisconnecting(true)
       setError(null)
 
+      console.log("Disconnecting Calendly for user:", user.id)
+
       const response = await fetch(`/api/calendly/disconnect?userId=${user.id}`, {
         method: "POST",
       })
 
+      const responseData = await response.json().catch(() => ({ error: "Failed to parse response" }))
+
       if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Failed to disconnect Calendly: ${errorText}`)
+        console.error("Disconnect failed with status:", response.status, responseData)
+        throw new Error(responseData.error || "Failed to disconnect Calendly")
       }
+
+      console.log("Disconnect successful:", responseData)
 
       // Reset the state
       setCalendlyUsername(null)
@@ -151,10 +158,23 @@ export default function CalendlyPage() {
       setShowDisconnectDialog(false)
 
       // Show success message
-      alert("Your Calendly account has been disconnected successfully.")
+      toast({
+        title: "Calendly Disconnected",
+        description: "Your Calendly account has been disconnected successfully.",
+      })
+
+      // Refresh the page after a short delay
+      setTimeout(() => {
+        window.location.reload()
+      }, 1500)
     } catch (err: any) {
       console.error("Error disconnecting Calendly:", err)
       setError(`Failed to disconnect Calendly: ${err.message}`)
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: err.message || "Failed to disconnect Calendly",
+      })
     } finally {
       setIsDisconnecting(false)
     }
