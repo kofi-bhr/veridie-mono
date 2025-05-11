@@ -70,7 +70,7 @@ export default function ServicesPage() {
         .from("services")
         .select("*")
         .eq("mentor_id", user.id)
-        .order("created_at", { ascending: true })
+        .order("created_at", { ascending: false })
 
       if (error) throw error
       setServices(data || [])
@@ -330,28 +330,22 @@ export default function ServicesPage() {
           </Card>
         ) : (
           services.map((service: any) => (
-            <Card key={service.id} className="bg-[#1C2127] border-0">
+            <Card key={service.id}>
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div>
-                    <CardTitle className="text-white">{service.name}</CardTitle>
-                    <CardDescription className="text-gray-300">${service.price.toFixed(2)}</CardDescription>
+                    <CardTitle>{service.name}</CardTitle>
+                    <CardDescription>${service.price.toFixed(2)}</CardDescription>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(service.id)}
-                    disabled={isDeleting}
-                    className="text-white hover:text-white hover:bg-gray-800"
-                  >
+                  <Button variant="ghost" size="icon" onClick={() => handleDelete(service.id)} disabled={isDeleting}>
                     <Trash2 className="h-4 w-4" />
                     <span className="sr-only">Delete service</span>
                   </Button>
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="mb-4 text-white">{service.description}</p>
-                <div className="text-sm text-gray-300">
+                <p className="mb-4">{service.description}</p>
+                <div className="text-sm text-muted-foreground">
                   <p>Your earnings: ${(service.price * 0.8).toFixed(2)} (after 20% platform fee)</p>
                   {service.stripe_product_id && <p className="mt-1">Stripe Product ID: {service.stripe_product_id}</p>}
                   {service.calendly_event_type_uri && <p className="mt-1">Linked to Calendly event type</p>}

@@ -15,7 +15,6 @@ interface Mentor {
   bio: string | null
   rating: number
   review_count: number
-  profile_image_url: string | null
   profile: {
     name: string
     email: string
@@ -25,18 +24,12 @@ interface Mentor {
     name: string
     price: number
   }[]
-  awards?: {
-    title: string
-    issuer: string
-    year?: string
-  }[]
 }
 
 export default function MentorsDirectoryPage() {
   const [mentors, setMentors] = useState<Mentor[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [mentorImages, setMentorImages] = useState<Record<string, string>>({})
 
   useEffect(() => {
     async function fetchMentors() {
@@ -47,16 +40,9 @@ export default function MentorsDirectoryPage() {
         const { data, error } = await supabase
           .from("mentors")
           .select(`
-            id,
-            title,
-            university,
-            bio,
-            rating,
-            review_count,
-            profile_image_url,
-            profile:profiles(name, email, avatar),
-            services(name, price),
-            awards(title, issuer, year)
+            *,
+            profile:profiles(*),
+            services(*)
           `)
           .order("rating", { ascending: false })
 
@@ -70,34 +56,9 @@ export default function MentorsDirectoryPage() {
             ...mentor,
             profile: mentor.profile,
             services: mentor.services || [],
-            awards: mentor.awards || [],
           })) || []
 
-        console.log(
-          "Fetched mentors with image data:",
-          transformedData.map((m) => ({
-            id: m.id,
-            name: m.profile?.name,
-            profile_image_url: m.profile_image_url,
-            avatar: m.profile?.avatar,
-          })),
-        )
-
         setMentors(transformedData)
-
-        // Process image URLs on the client side
-        const imageMap: Record<string, string> = {}
-        transformedData.forEach((mentor) => {
-          if (mentor.profile_image_url) {
-            imageMap[mentor.id] = mentor.profile_image_url
-          } else if (mentor.profile?.avatar) {
-            imageMap[mentor.id] = mentor.profile.avatar
-          } else {
-            imageMap[mentor.id] = "/placeholder.svg?height=200&width=200"
-          }
-        })
-
-        setMentorImages(imageMap)
       } catch (err: any) {
         console.error("Error fetching mentors:", err)
         setError(err.message || "Failed to load mentors")
@@ -143,12 +104,8 @@ export default function MentorsDirectoryPage() {
               <CardHeader className="flex flex-row items-center gap-4">
                 <Avatar className="h-16 w-16 border-2 border-muted">
                   <AvatarImage
-                    src={mentorImages[mentor.id] || "/placeholder.svg"}
+                    src={mentor.profile?.avatar || "/placeholder.svg?height=200&width=200"}
                     alt={mentor.profile?.name || "Mentor"}
-                    onError={(e) => {
-                      console.error("Failed to load image:", mentorImages[mentor.id])
-                      e.currentTarget.src = "/placeholder.svg?height=200&width=200"
-                    }}
                   />
                   <AvatarFallback>{(mentor.profile?.name || "?").charAt(0)}</AvatarFallback>
                 </Avatar>
@@ -163,14 +120,6 @@ export default function MentorsDirectoryPage() {
                   <StarRating rating={mentor.rating} />
                   <span className="text-sm text-muted-foreground">({mentor.review_count} reviews)</span>
                 </div>
-
-                {mentor.awards && mentor.awards.length > 0 && (
-                  <div className="mb-4">
-                    <div className="text-xs font-medium px-3 py-2 rounded-md bg-gray-700 text-white">
-                      {mentor.awards[0].title}
-                    </div>
-                  </div>
-                )}
 
                 <div className="flex items-center justify-between">
                   <div>

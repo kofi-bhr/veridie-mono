@@ -3,8 +3,10 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Loader2, CalendarCheck } from "lucide-react"
-import { toast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/hooks/use-auth"
+import { CalendarDays, Loader2 } from "lucide-react"
+import { getStripeClient } from "@/lib/stripe-client"
 
 interface CheckoutButtonProps {
   mentorId: string
@@ -12,7 +14,7 @@ interface CheckoutButtonProps {
   serviceName: string
   servicePrice: number
   stripePriceId?: string
-  date: string | null
+  date: Date | null
   time: string | null
   disabled?: boolean
 }
@@ -27,14 +29,35 @@ export function CheckoutButton({
   time,
   disabled = false,
 }: CheckoutButtonProps) {
+  const [isLoading, setIsLoading] = useState(false)
+  const { toast } = useToast()
   const router = useRouter()
-  const [loading, setLoading] = useState(false)
+  const { user } = useAuth()
 
   const handleCheckout = async () => {
-    setLoading(true)
+    if (!user) {
+      toast({
+        title: "Please log in",
+        description: "You need to be logged in to book a session",
+        variant: "destructive",
+      })
+      router.push("/auth/login")
+      return
+    }
+
+    if (!date || !time) {
+      toast({
+        title: "Please select a date and time",
+        description: "You need to select both a date and time for your session",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsLoading(true)
+
     try {
-      // Create a checkout session
-      const response = await fetch("/api/stripe/create-checkout", {
+      const response = await fetch("/api/stripe/create-checkout-session", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -45,42 +68,51 @@ export function CheckoutButton({
           serviceName,
           servicePrice,
           stripePriceId,
-          date,
+          date: date.toISOString().split("T")[0],
           time,
+          clientId: user.id,
         }),
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to create checkout session")
+      const { url, error, sessionId } = await response.json()
+
+      if (error) {
+        throw new Error(error)
       }
 
-      const data = await response.json()
-
-      // Redirect to Stripe Checkout
-      window.location.href = data.url
+      // If we have a direct URL, redirect to it
+      if (url) {
+        window.location.href = url
+      }
+      // Otherwise, use the Stripe client to redirect
+      else if (sessionId) {
+        const stripe = await getStripeClient()
+        if (stripe) {
+          await stripe.redirectToCheckout({ sessionId })
+        }
+      }
     } catch (error) {
-      console.error("Checkout error:", error)
+      console.error("Error creating checkout session:", error)
       toast({
-        title: "Checkout Failed",
-        description: error instanceof Error ? error.message : "Something went wrong",
+        title: "Checkout failed",
+        description: "There was an error processing your booking. Please try again.",
         variant: "destructive",
       })
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
   return (
-    <Button onClick={handleCheckout} disabled={disabled || loading} className="w-full">
-      {loading ? (
+    <Button onClick={handleCheckout} disabled={disabled || isLoading} className="w-full" size="lg">
+      {isLoading ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           Processing...
         </>
       ) : (
         <>
-          <CalendarCheck className="mr-2 h-4 w-4" />
+          <CalendarDays className="mr-2 h-4 w-4" />
           Book Now
         </>
       )}

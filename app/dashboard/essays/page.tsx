@@ -49,7 +49,7 @@ export default function EssaysPage() {
         .from("essays")
         .select("*")
         .eq("mentor_id", user.id)
-        .order("created_at", { ascending: true })
+        .order("created_at", { ascending: false })
 
       if (error) throw error
       setEssays(data || [])
@@ -240,20 +240,14 @@ export default function EssaysPage() {
           </Card>
         ) : (
           essays.map((essay) => (
-            <Card key={essay.id} className="bg-[#1C2127] border-0">
+            <Card key={essay.id}>
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div>
-                    <CardTitle className="text-white">{essay.title}</CardTitle>
-                    <CardDescription className="text-gray-300">{essay.university}</CardDescription>
+                    <CardTitle>{essay.title}</CardTitle>
+                    <CardDescription>{essay.university}</CardDescription>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(essay.id)}
-                    disabled={isDeleting}
-                    className="text-white hover:text-white hover:bg-gray-800"
-                  >
+                  <Button variant="ghost" size="icon" onClick={() => handleDelete(essay.id)} disabled={isDeleting}>
                     <Trash2 className="h-4 w-4" />
                     <span className="sr-only">Delete essay</span>
                   </Button>
@@ -261,12 +255,12 @@ export default function EssaysPage() {
               </CardHeader>
               <CardContent>
                 <div className="mb-4">
-                  <h4 className="text-sm font-medium mb-1 text-white">Prompt:</h4>
-                  <p className="text-sm text-gray-300">{essay.prompt}</p>
+                  <h4 className="text-sm font-medium mb-1">Prompt:</h4>
+                  <p className="text-sm text-muted-foreground">{essay.prompt}</p>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium mb-1 text-white">Essay:</h4>
-                  <p className="text-sm whitespace-pre-wrap text-white">{essay.text}</p>
+                  <h4 className="text-sm font-medium mb-1">Essay:</h4>
+                  <p className="text-sm whitespace-pre-wrap">{essay.text}</p>
                 </div>
               </CardContent>
             </Card>

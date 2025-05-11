@@ -1,176 +1,189 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { useToast } from "@/hooks/use-toast"
-import { CheckCircle, XCircle, ExternalLink, RefreshCcw } from "lucide-react"
 import { StripeConnectButton } from "./stripe-connect-button"
+import { CheckCircle, AlertCircle, ExternalLink, Loader2 } from "lucide-react"
 
-interface StripeConnectSectionProps {
-  userId: string
-  initialAccountId?: string | null
-  initialDetailsSubmitted?: boolean
-  initialChargesEnabled?: boolean
-  initialPayoutsEnabled?: boolean
+interface StripeAccount {
+  id: string
+  details_submitted: boolean
+  charges_enabled: boolean
+  payouts_enabled: boolean
 }
 
-export function StripeConnectSection({
-  userId,
-  initialAccountId = null,
-  initialDetailsSubmitted = false,
-  initialChargesEnabled = false,
-  initialPayoutsEnabled = false,
-}: StripeConnectSectionProps) {
-  const [accountId, setAccountId] = useState<string | null>(initialAccountId)
-  const [detailsSubmitted, setDetailsSubmitted] = useState(initialDetailsSubmitted)
-  const [chargesEnabled, setChargesEnabled] = useState(initialChargesEnabled)
-  const [payoutsEnabled, setPayoutsEnabled] = useState(initialPayoutsEnabled)
-  const [isLoading, setIsLoading] = useState(false)
-  const { toast } = useToast()
-
-  const fetchAccountStatus = async () => {
-    setIsLoading(true)
-    try {
-      const response = await fetch("/api/stripe/account", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ userId }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch account status")
-      }
-
-      const data = await response.json()
-
-      setAccountId(data.accountId)
-      setDetailsSubmitted(data.detailsSubmitted)
-      setChargesEnabled(data.chargesEnabled)
-      setPayoutsEnabled(data.payoutsEnabled)
-    } catch (error) {
-      console.error("Error fetching account status:", error)
-      toast({
-        title: "Error",
-        description: "Failed to fetch Stripe account status",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
+export function StripeConnectSection() {
+  const [account, setAccount] = useState<StripeAccount | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Check URL parameters for Stripe setup completion
-    const urlParams = new URLSearchParams(window.location.search)
-    if (urlParams.get("setup") === "complete" || urlParams.get("stripe") === "success") {
-      fetchAccountStatus()
-      toast({
-        title: "Stripe Setup",
-        description: "Your Stripe Connect account setup is in progress. It may take some time to be fully activated.",
-      })
+    async function fetchAccount() {
+      try {
+        setLoading(true)
+        setError(null)
+
+        // Add a delay to ensure auth is ready
+        await new Promise((resolve) => setTimeout(resolve, 500))
+
+        const response = await fetch("/api/stripe/account", {
+          headers: {
+            Accept: "application/json",
+            "Cache-Control": "no-cache",
+          },
+          // Add credentials to ensure cookies are sent
+          credentials: "include",
+        })
+
+        // Log the response status for debugging
+        console.log("Stripe account response status:", response.status)
+
+        // Handle non-OK responses
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => "Unknown error")
+          console.error("Error response:", errorText)
+
+          // If unauthorized, show a more user-friendly message
+          if (response.status === 401) {
+            throw new Error("Please log in to access your Stripe account")
+          } else {
+            throw new Error(`Failed to fetch account: ${response.status}`)
+          }
+        }
+
+        // Try to parse the JSON response
+        let data
+        try {
+          data = await response.json()
+          console.log("Stripe account data:", data)
+        } catch (jsonError) {
+          console.error("JSON parse error:", jsonError)
+          throw new Error("Invalid response format from server")
+        }
+
+        // If account is null, that's fine - it means no account is connected yet
+        setAccount(data.account)
+      } catch (err) {
+        console.error("Error fetching Stripe account:", err)
+        setError(err instanceof Error ? err.message : "Failed to load account information")
+      } finally {
+        setLoading(false)
+      }
     }
+
+    fetchAccount()
   }, [])
 
-  const getStatusBadge = (isEnabled: boolean) => {
-    if (isEnabled) {
-      return (
-        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-          <CheckCircle className="h-3.5 w-3.5 mr-1" />
-          Enabled
-        </Badge>
-      )
-    }
-    return (
-      <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-        <XCircle className="h-3.5 w-3.5 mr-1" />
-        Not Enabled
-      </Badge>
-    )
-  }
-
-  const handleViewDashboard = async () => {
+  const openDashboard = async () => {
     try {
       const response = await fetch("/api/stripe/dashboard-link", {
-        method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          Accept: "application/json",
         },
-        body: JSON.stringify({ accountId }),
+        credentials: "include",
       })
 
       if (!response.ok) {
-        throw new Error("Failed to create dashboard link")
+        const errorText = await response.text().catch(() => "Unknown error")
+        console.error("Error response:", errorText)
+        throw new Error(`Failed to create dashboard link: ${response.status}`)
       }
 
-      const data = await response.json()
-
-      if (data.url) {
-        window.open(data.url, "_blank")
+      let data
+      try {
+        data = await response.json()
+      } catch (jsonError) {
+        console.error("JSON parse error:", jsonError)
+        throw new Error("Invalid response format from server")
       }
-    } catch (error) {
-      console.error("Error creating dashboard link:", error)
-      toast({
-        title: "Error",
-        description: "Failed to open Stripe dashboard",
-        variant: "destructive",
-      })
+
+      if (!data || !data.url) {
+        throw new Error("Invalid dashboard link response")
+      }
+
+      window.open(data.url, "_blank")
+    } catch (err) {
+      console.error("Error opening dashboard:", err)
+      setError(err instanceof Error ? err.message : "Failed to open Stripe dashboard")
     }
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{accountId ? "Stripe Connect Account Connected" : "Stripe Connect Account"}</CardTitle>
-        <CardDescription>
-          {accountId
-            ? "Your Stripe Connect account is set up to receive payments from clients."
-            : "Set up your Stripe Connect account to receive payments from clients."}
-        </CardDescription>
+        <CardTitle>Stripe Connect</CardTitle>
+        <CardDescription>Connect your Stripe account to receive payments from clients</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {accountId ? (
-          <>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium">Account ID:</span>
-              <span className="text-sm text-muted-foreground font-mono">{accountId}</span>
+      <CardContent>
+        {loading ? (
+          <div className="flex items-center justify-center py-6">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : error ? (
+          <div className="bg-red-50 p-4 rounded-md flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-red-500 mt-0.5" />
+            <div>
+              <h3 className="font-medium text-red-800">Error</h3>
+              <p className="text-sm text-red-700">{error}</p>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium">Details Submitted:</span>
-              {getStatusBadge(detailsSubmitted)}
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium">Charges Enabled:</span>
-              {getStatusBadge(chargesEnabled)}
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium">Payouts Enabled:</span>
-              {getStatusBadge(payoutsEnabled)}
-            </div>
-          </>
+          </div>
+        ) : !account ? (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              You need to connect your Stripe account to receive payments from clients. This is required to offer paid
+              services.
+            </p>
+            <StripeConnectButton />
+          </div>
         ) : (
-          <div className="text-center py-4">{/* Empty div to maintain spacing */}</div>
+          <div className="space-y-4">
+            <div className="bg-green-50 p-4 rounded-md flex items-start gap-3">
+              <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
+              <div>
+                <h3 className="font-medium text-green-800">Stripe Connected</h3>
+                <p className="text-sm text-green-700">Your Stripe account is connected.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="border rounded-md p-3">
+                <div className="text-sm font-medium">Account Setup</div>
+                <div className="mt-1 flex items-center">
+                  {account.details_submitted ? (
+                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 text-amber-500 mr-2" />
+                  )}
+                  <span className="text-sm">{account.details_submitted ? "Complete" : "Incomplete"}</span>
+                </div>
+              </div>
+
+              <div className="border rounded-md p-3">
+                <div className="text-sm font-medium">Payment Status</div>
+                <div className="mt-1 flex items-center">
+                  {account.charges_enabled ? (
+                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 text-amber-500 mr-2" />
+                  )}
+                  <span className="text-sm">
+                    {account.charges_enabled ? "Ready to receive payments" : "Not ready for payments"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </CardContent>
-      <CardFooter className="flex flex-col sm:flex-row gap-3">
-        {accountId ? (
-          <>
-            <Button onClick={fetchAccountStatus} variant="outline" disabled={isLoading} className="w-full sm:w-auto">
-              <RefreshCcw className="mr-2 h-4 w-4" />
-              {isLoading ? "Refreshing..." : "Refresh Status"}
-            </Button>
-            <Button onClick={handleViewDashboard} className="w-full sm:w-auto">
-              View Stripe Dashboard
-              <ExternalLink className="ml-2 h-4 w-4" />
-            </Button>
-          </>
-        ) : (
-          <StripeConnectButton className="w-full">Set Up Stripe Connect</StripeConnectButton>
-        )}
-      </CardFooter>
+      {account && (
+        <CardFooter>
+          <Button onClick={openDashboard} variant="outline" className="w-full">
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Open Stripe Dashboard
+          </Button>
+        </CardFooter>
+      )}
     </Card>
   )
 }

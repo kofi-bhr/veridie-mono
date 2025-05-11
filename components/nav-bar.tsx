@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   NavigationMenu,
+  NavigationMenuContent,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
+  NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
@@ -29,23 +31,13 @@ export function NavBar() {
   const pathname = usePathname()
   const { user, signOut } = useAuth()
   const [showSearch, setShowSearch] = useState(false)
-  const [isSheetOpen, setIsSheetOpen] = useState(false)
-
-  const closeSheet = () => {
-    setIsSheetOpen(false)
-  }
-
-  const handleSignOut = () => {
-    closeSheet()
-    signOut()
-  }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white shadow-sm">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center">
         <div className="mr-4 flex">
           <Link href="/" className="flex items-center">
-            <span className="font-bold text-xl text-gray-900">Veridie</span>
+            <span className="font-bold text-xl">Veridie</span>
           </Link>
         </div>
 
@@ -56,6 +48,45 @@ export function NavBar() {
                 <Link href="/mentors" legacyBehavior passHref>
                   <NavigationMenuLink className={navigationMenuTriggerStyle()}>Find Mentors</NavigationMenuLink>
                 </Link>
+              </NavigationMenuItem>
+              <NavigationMenuItem>
+                <NavigationMenuTrigger>Resources</NavigationMenuTrigger>
+                <NavigationMenuContent>
+                  <div className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
+                    <Link href="/resources/application-guides" legacyBehavior passHref>
+                      <NavigationMenuLink className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground">
+                        <div className="text-sm font-medium leading-none">Application Guides</div>
+                        <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+                          Step-by-step guides for college applications
+                        </p>
+                      </NavigationMenuLink>
+                    </Link>
+                    <Link href="/resources/essay-examples" legacyBehavior passHref>
+                      <NavigationMenuLink className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground">
+                        <div className="text-sm font-medium leading-none">Essay Examples</div>
+                        <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+                          Successful college essay examples
+                        </p>
+                      </NavigationMenuLink>
+                    </Link>
+                    <Link href="/resources/university-profiles" legacyBehavior passHref>
+                      <NavigationMenuLink className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground">
+                        <div className="text-sm font-medium leading-none">University Profiles</div>
+                        <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+                          Detailed information about top universities
+                        </p>
+                      </NavigationMenuLink>
+                    </Link>
+                    <Link href="/resources/scholarship-opportunities" legacyBehavior passHref>
+                      <NavigationMenuLink className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground">
+                        <div className="text-sm font-medium leading-none">Scholarship Opportunities</div>
+                        <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+                          Find scholarships to fund your education
+                        </p>
+                      </NavigationMenuLink>
+                    </Link>
+                  </div>
+                </NavigationMenuContent>
               </NavigationMenuItem>
               <NavigationMenuItem>
                 <Link href="/pricing" legacyBehavior passHref>
@@ -90,23 +121,11 @@ export function NavBar() {
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full overflow-hidden p-0">
-                  <div className="h-full w-full overflow-hidden rounded-full">
-                    <Avatar className="h-full w-full">
-                      <AvatarImage
-                        src={user.avatar || "/placeholder.svg"}
-                        alt={user.name}
-                        style={{
-                          transform: "scale(1.25)",
-                          transformOrigin: "center",
-                          objectFit: "cover",
-                          width: "100%",
-                          height: "100%",
-                        }}
-                      />
-                      <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                  </div>
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
+                    <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
@@ -121,7 +140,7 @@ export function NavBar() {
                   <Link href="/dashboard">Dashboard</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href={`/mentors/${user.id}`}>Profile</Link>
+                  <Link href="/profile">Profile</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/settings">Settings</Link>
@@ -141,7 +160,7 @@ export function NavBar() {
             </div>
           )}
 
-          <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+          <Sheet>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="md:hidden">
                 <Menu className="h-5 w-5" />
@@ -149,28 +168,31 @@ export function NavBar() {
               </Button>
             </SheetTrigger>
             <SheetContent side="right">
-              <Link href="/" className="flex items-center" onClick={closeSheet}>
+              <Link href="/" className="flex items-center">
                 <span className="font-bold text-xl">Veridie</span>
               </Link>
               <div className="mt-8 flex flex-col gap-4">
                 <Link
                   href="/mentors"
                   className={cn("text-lg font-medium", pathname === "/mentors" ? "text-primary" : "text-foreground")}
-                  onClick={closeSheet}
                 >
                   Find Mentors
                 </Link>
                 <Link
+                  href="/resources"
+                  className={cn("text-lg font-medium", pathname === "/resources" ? "text-primary" : "text-foreground")}
+                >
+                  Resources
+                </Link>
+                <Link
                   href="/pricing"
                   className={cn("text-lg font-medium", pathname === "/pricing" ? "text-primary" : "text-foreground")}
-                  onClick={closeSheet}
                 >
                   Pricing
                 </Link>
                 <Link
                   href="/about"
                   className={cn("text-lg font-medium", pathname === "/about" ? "text-primary" : "text-foreground")}
-                  onClick={closeSheet}
                 >
                   About Us
                 </Link>
@@ -178,21 +200,21 @@ export function NavBar() {
                 <div className="mt-4 flex flex-col gap-2">
                   {user ? (
                     <>
-                      <Link href="/dashboard" onClick={closeSheet}>
+                      <Link href="/dashboard">
                         <Button className="w-full">Dashboard</Button>
                       </Link>
-                      <Button variant="outline" onClick={handleSignOut}>
+                      <Button variant="outline" onClick={signOut}>
                         Log Out
                       </Button>
                     </>
                   ) : (
                     <>
-                      <Link href="/auth/login" onClick={closeSheet}>
+                      <Link href="/auth/login">
                         <Button variant="outline" className="w-full">
                           Log In
                         </Button>
                       </Link>
-                      <Link href="/auth/signup" onClick={closeSheet}>
+                      <Link href="/auth/signup">
                         <Button className="w-full">Sign Up</Button>
                       </Link>
                     </>

@@ -1,45 +1,64 @@
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { getStripe } from "@/lib/stripe"
+import Stripe from "stripe"
+import { createClient } from "@supabase/supabase-js"
 
-export async function POST(request: Request) {
+// Initialize Stripe
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY
+const stripe = new Stripe(stripeSecretKey || "", {
+  apiVersion: "2023-10-16",
+})
+
+// Initialize Supabase
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+const adminSupabase = createClient(supabaseUrl, supabaseServiceKey)
+
+export async function GET(request: Request) {
   try {
-    // Get the current user from the session
-    const cookieStore = cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    // Get the session cookie
+    const cookieHeader = request.headers.get("cookie") || ""
 
+    // Extract the session token from cookies
+    const sessionMatch = cookieHeader.match(/sb-.*?-auth-token=([^;]*)/)
+    if (!sessionMatch) {
+      console.error("No session token found in cookies")
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+    }
+
+    // Get session data
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: sessionError,
+    } = await adminSupabase.auth.getUser()
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (sessionError || !user) {
+      console.error("Session error:", sessionError)
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
     }
 
-    // Get request body
-    const body = await request.json()
-    const { accountId } = body
+    // Get mentor data
+    const { data: mentor, error: mentorError } = await adminSupabase
+      .from("mentors")
+      .select("stripe_account_id")
+      .eq("id", user.id)
+      .single()
 
-    if (!accountId) {
-      return NextResponse.json({ error: "Account ID is required" }, { status: 400 })
+    if (mentorError || !mentor?.stripe_account_id) {
+      console.error("Error fetching mentor data:", mentorError)
+      return NextResponse.json({ error: "No Stripe account connected" }, { status: 404 })
     }
 
-    // Get Stripe instance
-    const stripe = getStripe()
-    if (!stripe) {
-      return NextResponse.json({ error: "Payment service unavailable" }, { status: 500 })
+    try {
+      // Create login link
+      const link = await stripe.accounts.createLoginLink(mentor.stripe_account_id)
+
+      return NextResponse.json({ url: link.url })
+    } catch (stripeError: any) {
+      console.error("Stripe API error:", stripeError)
+      return NextResponse.json({ error: `Stripe API error: ${stripeError.message}` }, { status: 500 })
     }
-
-    // Create a login link
-    const link = await stripe.accounts.createLoginLink(accountId)
-
-    return NextResponse.json({ url: link.url })
-  } catch (error) {
-    console.error("Error creating dashboard link:", error)
-    return NextResponse.json(
-      { error: "Failed to create dashboard link", details: error instanceof Error ? error.message : String(error) },
-      { status: 500 },
-    )
+  } catch (error: any) {
+    console.error("Error in /api/stripe/dashboard-link:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

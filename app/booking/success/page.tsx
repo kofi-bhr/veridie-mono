@@ -13,34 +13,6 @@ export default function BookingSuccessPage() {
   const [bookingDetails, setBookingDetails] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const bookingId = searchParams.get("booking_id")
-
-  useEffect(() => {
-    const confirmBooking = async () => {
-      if (sessionId && bookingId) {
-        try {
-          const response = await fetch("/api/booking/confirm", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              sessionId,
-              bookingId,
-            }),
-          })
-
-          if (!response.ok) {
-            console.error("Error confirming booking:", await response.text())
-          }
-        } catch (error) {
-          console.error("Error confirming booking:", error)
-        }
-      }
-    }
-
-    confirmBooking()
-  }, [sessionId, bookingId])
 
   useEffect(() => {
     const fetchBookingDetails = async () => {
