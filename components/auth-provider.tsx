@@ -1,11 +1,8 @@
 "use client"
 
 import type React from "react"
-
-// Update the import to use our singleton client
-import { getSupabaseClient } from "@/lib/supabase-client"
-import { createContext, useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { getSupabaseClient, resetSupabaseClient } from "@/lib/supabase-client"
+import { createContext, useState, useEffect, useCallback } from "react"
 import type { User } from "@/lib/types"
 
 // Define the AuthContext type
@@ -15,6 +12,7 @@ interface AuthContextType {
   signUp: (userData: Partial<User>, password: string) => Promise<{ success: boolean; error?: any }>
   signOut: () => Promise<{ success: boolean; error?: any }>
   loading: boolean
+  refreshSession: () => Promise<void>
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -22,52 +20,132 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const router = useRouter()
+  const [authInitialized, setAuthInitialized] = useState(false)
 
-  // Get the Supabase client once
-  const supabase = getSupabaseClient()
+  // Function to fetch user profile
+  const fetchUserProfile = useCallback(async (userId: string) => {
+    try {
+      const supabase = getSupabaseClient()
+      const { data: profile, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
 
-  // Check if user is logged in on initial load
+      if (error) {
+        console.error("Error fetching profile:", error)
+        return null
+      }
+
+      return profile
+    } catch (error) {
+      console.error("Error in fetchUserProfile:", error)
+      return null
+    }
+  }, [])
+
+  // Function to refresh the session
+  const refreshSession = useCallback(async () => {
+    try {
+      console.log("Refreshing session...")
+      const supabase = getSupabaseClient()
+      const { data, error } = await supabase.auth.refreshSession()
+
+      if (error) {
+        console.error("Error refreshing session:", error)
+        setUser(null)
+        return
+      }
+
+      if (data.session?.user) {
+        const profile = await fetchUserProfile(data.session.user.id)
+
+        if (profile) {
+          setUser({
+            id: data.session.user.id,
+            email: data.session.user.email || "",
+            name: profile.name || "",
+            role: profile.role || "client",
+            avatar: profile.avatar || "",
+          })
+        } else {
+          console.log("No profile found during refresh, logging out")
+          await supabase.auth.signOut()
+          setUser(null)
+        }
+      } else {
+        setUser(null)
+      }
+    } catch (error) {
+      console.error("Error in refreshSession:", error)
+      setUser(null)
+    }
+  }, [fetchUserProfile])
+
+  // Initialize auth state
   useEffect(() => {
-    // Update the fetchUser function in the useEffect to properly handle your database structure
-    const fetchUser = async () => {
+    let mounted = true
+
+    const initializeAuth = async () => {
       try {
+        const supabase = getSupabaseClient()
+
         // Get the current session
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
 
-        if (session?.user) {
-          // Get the user profile data
-          const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+        if (sessionError) {
+          console.error("Error getting session:", sessionError)
+          if (mounted) {
+            setLoading(false)
+            setAuthInitialized(true)
+          }
+          return
+        }
 
-          if (profile) {
+        if (sessionData?.session?.user) {
+          const profile = await fetchUserProfile(sessionData.session.user.id)
+
+          if (profile && mounted) {
             setUser({
-              id: session.user.id,
-              email: session.user.email || "",
+              id: sessionData.session.user.id,
+              email: sessionData.session.user.email || "",
               name: profile.name || "",
               role: profile.role || "client",
               avatar: profile.avatar || "",
             })
           }
         }
+
+        if (mounted) {
+          setLoading(false)
+          setAuthInitialized(true)
+        }
       } catch (error) {
-        console.error("Error fetching user:", error)
-      } finally {
-        setLoading(false)
+        console.error("Error initializing auth:", error)
+        if (mounted) {
+          setLoading(false)
+          setAuthInitialized(true)
+        }
       }
     }
 
-    fetchUser()
+    initializeAuth()
 
-    // Set up auth state change listener
+    return () => {
+      mounted = false
+    }
+  }, [fetchUserProfile])
+
+  // Set up auth state change listener
+  useEffect(() => {
+    if (!authInitialized) return
+
+    const supabase = getSupabaseClient()
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth state changed:", event)
+
       if (event === "SIGNED_IN" && session?.user) {
         try {
-          // Get the user profile data
-          const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+          const profile = await fetchUserProfile(session.user.id)
 
           if (profile) {
             setUser({
@@ -81,20 +159,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch (error) {
           console.error("Error fetching user profile on auth change:", error)
         }
-      } else if (event === "SIGNED_OUT") {
+      } else if (event === "SIGNED_OUT" || event === "USER_DELETED") {
         setUser(null)
+      } else if (event === "TOKEN_REFRESHED") {
+        if (session?.user) {
+          const profile = await fetchUserProfile(session.user.id)
+
+          if (profile) {
+            setUser({
+              id: session.user.id,
+              email: session.user.email || "",
+              name: profile.name || "",
+              role: profile.role || "client",
+              avatar: profile.avatar || "",
+            })
+          }
+        }
       }
     })
 
-    // Cleanup subscription
     return () => {
       subscription.unsubscribe()
     }
-  }, [supabase])
+  }, [authInitialized, fetchUserProfile])
 
   const handleSignIn = async (email: string, password: string) => {
     setLoading(true)
     try {
+      const supabase = getSupabaseClient()
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -106,41 +199,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (data.user) {
-        // Get the user profile data
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", data.user.id)
-          .single()
+        const profile = await fetchUserProfile(data.user.id)
 
-        if (profileError) {
-          console.error("Error fetching profile:", profileError)
-          return { success: false, error: profileError }
+        if (!profile) {
+          return { success: false, error: new Error("Profile not found") }
         }
 
-        if (profile) {
-          setUser({
-            id: data.user.id,
-            email: data.user.email || "",
-            name: profile.name || "",
-            role: profile.role || "client",
-            avatar: profile.avatar || "",
-          })
+        setUser({
+          id: data.user.id,
+          email: data.user.email || "",
+          name: profile.name || "",
+          role: profile.role || "client",
+          avatar: profile.avatar || "",
+        })
 
-          // Add console log to debug
-          console.log("Login successful, redirecting based on role:", profile.role)
+        console.log("Login successful, redirecting based on role:", profile.role)
 
-          // Force navigation using window.location for a full page refresh
+        // Use a small timeout to ensure state is updated before redirect
+        setTimeout(() => {
           if (profile.role === "consultant") {
             window.location.href = "/dashboard"
           } else {
             window.location.href = "/mentors"
           }
+        }, 100)
 
-          return { success: true }
-        } else {
-          return { success: false, error: new Error("Profile not found") }
-        }
+        return { success: true }
       }
 
       return { success: false, error: new Error("User not found") }
@@ -158,6 +242,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!userData.email) {
         return { success: false, error: new Error("Email is required") }
       }
+
+      const supabase = getSupabaseClient()
 
       const { data, error } = await supabase.auth.signUp({
         email: userData.email,
@@ -215,18 +301,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         setUser({
           id: data.user.id,
-          email: userData.email || "",
+          email: data.user.email || "",
           name: userData.name || "",
           role: userData.role || "client",
           avatar: userData.avatar || "/placeholder.svg?height=40&width=40",
         })
 
-        // Use window.location for a full page refresh
-        if (userData.role === "consultant") {
-          window.location.href = "/onboarding"
-        } else {
-          window.location.href = "/mentors"
-        }
+        // Use a small timeout to ensure state is updated before redirect
+        setTimeout(() => {
+          if (userData.role === "consultant") {
+            window.location.href = "/onboarding"
+          } else {
+            window.location.href = "/mentors"
+          }
+        }, 100)
 
         return { success: true }
       }
@@ -242,12 +330,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const handleSignOut = async () => {
     try {
+      const supabase = getSupabaseClient()
+
+      // Clear any local storage items
+      localStorage.removeItem("supabase.auth.token")
+
+      // Sign out from Supabase
       const { error } = await supabase.auth.signOut()
       if (error) {
+        console.error("Sign out error:", error)
         return { success: false, error }
       }
 
+      // Reset user state
       setUser(null)
+
+      // Reset the Supabase client to clear any cached state
+      resetSupabaseClient()
+
+      // Force a full page reload to clear any cached state
       window.location.href = "/"
       return { success: true }
     } catch (error) {
@@ -264,6 +365,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signUp: handleSignUp,
         signOut: handleSignOut,
         loading,
+        refreshSession,
       }}
     >
       {children}

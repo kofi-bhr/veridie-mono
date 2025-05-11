@@ -1,4 +1,5 @@
 // Calendly API Client
+import { CALENDLY_CLIENT_ID, CALENDLY_CLIENT_SECRET } from "@/lib/api-config"
 
 const CALENDLY_API_URL = "https://api.calendly.com"
 
@@ -51,93 +52,69 @@ export function getCalendlyAuthUrl(clientId: string, redirectUri: string): strin
 }
 
 // Exchange authorization code for tokens
-export async function exchangeCalendlyCode(code: string, clientId: string, clientSecret: string, redirectUri: string) {
-  try {
-    console.log("Exchanging code for token with redirect URI:", redirectUri)
+export async function exchangeCalendlyCode(
+  code: string,
+  clientId: string,
+  clientSecret: string,
+  redirectUri: string,
+): Promise<CalendlyTokens> {
+  const response = await fetch("https://auth.calendly.com/oauth/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      client_id: clientId,
+      client_secret: clientSecret,
+      code,
+      redirect_uri: redirectUri,
+    }).toString(),
+  })
 
-    const response = await fetch("https://auth.calendly.com/oauth/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        grant_type: "authorization_code",
-        client_id: clientId,
-        client_secret: clientSecret,
-        code,
-        redirect_uri: redirectUri,
-      }),
-    })
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error("Calendly token exchange error:", errorText)
+    throw new Error(`Failed to exchange Calendly code: ${errorText}`)
+  }
 
-    // Log the entire response for debugging
-    const responseText = await response.text()
-    console.log(`Token exchange response (${response.status}):`, responseText)
-
-    if (!response.ok) {
-      console.error(`Token exchange error (${response.status}):`, responseText)
-      throw new Error(`Token exchange failed: ${response.status}`)
-    }
-
-    // Parse the response JSON
-    let data
-    try {
-      data = JSON.parse(responseText)
-    } catch (e) {
-      console.error("Error parsing token response:", e)
-      throw new Error("Failed to parse token response")
-    }
-
-    // Calculate when the token will expire
-    const expiresIn = data.expires_in || 3600 // Default to 1 hour
-    const expiresAt = new Date(Date.now() + expiresIn * 1000)
-
-    return {
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token,
-      expiresAt: expiresAt,
-    }
-  } catch (error) {
-    console.error("Error exchanging code for token:", error)
-    throw error
+  const data = await response.json()
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    expiresAt: new Date(Date.now() + data.expires_in * 1000),
   }
 }
 
 // Refresh access token
-export async function refreshCalendlyToken(
-  refreshToken: string,
-  clientId: string,
-  clientSecret: string,
-): Promise<CalendlyTokens> {
-  try {
-    const response = await fetch("https://auth.calendly.com/oauth/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
-      },
-      body: new URLSearchParams({
-        grant_type: "refresh_token",
-        client_id: clientId,
-        client_secret: clientSecret,
-        refresh_token: refreshToken,
-      }).toString(),
-    })
+export async function refreshCalendlyToken(refreshToken: string): Promise<CalendlyTokens> {
+  if (!CALENDLY_CLIENT_ID || !CALENDLY_CLIENT_SECRET) {
+    throw new Error("Missing Calendly credentials")
+  }
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error_description || "Failed to refresh token")
-    }
+  const response = await fetch("https://auth.calendly.com/oauth/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: CALENDLY_CLIENT_ID,
+      client_secret: CALENDLY_CLIENT_SECRET,
+      refresh_token: refreshToken,
+    }).toString(),
+  })
 
-    const data = await response.json()
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Failed to refresh Calendly token: ${errorText}`)
+  }
 
-    return {
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token,
-      expiresAt: new Date(Date.now() + data.expires_in * 1000),
-    }
-  } catch (error) {
-    console.error("Error refreshing Calendly token:", error)
-    throw error
+  const data = await response.json()
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    expiresAt: new Date(Date.now() + data.expires_in * 1000),
   }
 }
 

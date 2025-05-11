@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { exchangeCalendlyCode, getCurrentUser } from "@/lib/calendly-api"
+import { CALENDLY_CLIENT_ID, CALENDLY_CLIENT_SECRET } from "@/lib/api-config"
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,9 +40,16 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Exchange the code for tokens
-    const clientId = process.env.CALENDLY_CLIENT_ID
-    const clientSecret = process.env.CALENDLY_CLIENT_SECRET
+    // Check if Calendly credentials are configured
+    if (!CALENDLY_CLIENT_ID || !CALENDLY_CLIENT_SECRET) {
+      console.error("Missing Calendly credentials", {
+        clientIdExists: !!CALENDLY_CLIENT_ID,
+        clientSecretExists: !!CALENDLY_CLIENT_SECRET,
+      })
+      return NextResponse.redirect(
+        `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/calendly?error=${encodeURIComponent("Calendly integration not configured")}`,
+      )
+    }
 
     // Ensure the base URL has no trailing slash
     let baseUrl = process.env.NEXT_PUBLIC_BASE_URL || ""
@@ -51,15 +59,8 @@ export async function GET(request: NextRequest) {
 
     const redirectUri = `${baseUrl}/api/calendly/callback`
 
-    if (!clientId || !clientSecret) {
-      console.error("Missing Calendly credentials")
-      return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/calendly?error=${encodeURIComponent("Calendly integration not configured")}`,
-      )
-    }
-
     console.log("Using redirect URI for token exchange:", redirectUri)
-    const tokens = await exchangeCalendlyCode(code, clientId, clientSecret, redirectUri)
+    const tokens = await exchangeCalendlyCode(code, CALENDLY_CLIENT_ID, CALENDLY_CLIENT_SECRET, redirectUri)
 
     // Get the user's Calendly information
     const calendlyUser = await getCurrentUser(tokens.accessToken)
