@@ -1,8 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
-import { exchangeCalendlyCode, getCurrentUser } from "@/lib/calendly-api"
-import { CALENDLY_CLIENT_ID, CALENDLY_CLIENT_SECRET } from "@/lib/api-config"
 
 export async function GET(request: NextRequest) {
   try {
@@ -41,11 +39,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if Calendly credentials are configured
-    if (!CALENDLY_CLIENT_ID || !CALENDLY_CLIENT_SECRET) {
-      console.error("Missing Calendly credentials", {
-        clientIdExists: !!CALENDLY_CLIENT_ID,
-        clientSecretExists: !!CALENDLY_CLIENT_SECRET,
-      })
+    const clientId = process.env.CALENDLY_CLIENT_ID
+    const clientSecret = process.env.CALENDLY_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      console.error("Missing Calendly credentials")
       return NextResponse.redirect(
         `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/calendly?error=${encodeURIComponent("Calendly integration not configured")}`,
       )
@@ -59,24 +57,69 @@ export async function GET(request: NextRequest) {
 
     const redirectUri = `${baseUrl}/api/calendly/callback`
 
-    console.log("Using redirect URI for token exchange:", redirectUri)
-    const tokens = await exchangeCalendlyCode(code, CALENDLY_CLIENT_ID, CALENDLY_CLIENT_SECRET, redirectUri)
+    // Exchange the authorization code for tokens
+    const tokenResponse = await fetch("https://auth.calendly.com/oauth/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        grant_type: "authorization_code",
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+        redirect_uri: redirectUri,
+      }),
+    })
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text()
+      console.error("Token exchange error:", errorText)
+      return NextResponse.redirect(
+        `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/calendly?error=${encodeURIComponent("Failed to exchange authorization code")}`,
+      )
+    }
+
+    const tokens = await tokenResponse.json()
+    const accessToken = tokens.access_token
+    const refreshToken = tokens.refresh_token
+    const expiresIn = tokens.expires_in || 3600 // Default to 1 hour
+    const expiresAt = new Date(Date.now() + expiresIn * 1000)
 
     // Get the user's Calendly information
-    const calendlyUser = await getCurrentUser(tokens.accessToken)
+    const userResponse = await fetch("https://api.calendly.com/users/me", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
 
-    // Extract username from scheduling URL
-    const username = calendlyUser.schedulingUrl.split("calendly.com/")[1]
+    if (!userResponse.ok) {
+      const errorText = await userResponse.text()
+      console.error("User info error:", errorText)
+      return NextResponse.redirect(
+        `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/calendly?error=${encodeURIComponent("Failed to get user information")}`,
+      )
+    }
+
+    const userData = await userResponse.json()
+    const calendlyUser = userData.resource
+    const username = calendlyUser.scheduling_url.split("calendly.com/")[1]
+
+    console.log("Successfully retrieved Calendly user info:", {
+      username,
+      uri: calendlyUser.uri,
+    })
 
     // Update the mentor's Calendly information
     const { error: updateError } = await supabase
       .from("mentors")
       .update({
         calendly_username: username,
-        calendly_access_token: tokens.accessToken,
-        calendly_refresh_token: tokens.refreshToken,
-        calendly_token_expires_at: tokens.expiresAt.toISOString(),
+        calendly_access_token: accessToken,
+        calendly_refresh_token: refreshToken,
+        calendly_token_expires_at: expiresAt.toISOString(),
         calendly_user_uri: calendlyUser.uri,
+        updated_at: new Date().toISOString(),
       })
       .eq("id", user.id)
 
@@ -87,7 +130,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Redirect back to the Calendly dashboard
+    // Redirect back to the Calendly dashboard with success
     return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/dashboard/calendly?success=true`)
   } catch (error) {
     console.error("Unexpected error in Calendly callback route:", error)

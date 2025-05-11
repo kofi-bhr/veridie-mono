@@ -5,34 +5,33 @@ import { useAuth } from "@/hooks/use-auth"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, Calendar, CheckCircle, RefreshCw, Unlink } from "lucide-react"
+import { AlertCircle, Calendar, CheckCircle, ExternalLink } from "lucide-react"
 import Link from "next/link"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { toast } from "@/hooks/use-toast"
+import { useSearchParams } from "next/navigation"
 
 export default function CalendlyPage() {
   const { user } = useAuth()
   const [isLoading, setIsLoading] = useState(true)
-  const [isTestingConnection, setIsTestingConnection] = useState(false)
-  const [isDisconnecting, setIsDisconnecting] = useState(false)
-  const [showDisconnectDialog, setShowDisconnectDialog] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<boolean>(false)
   const [calendlyUsername, setCalendlyUsername] = useState<string | null>(null)
-  const [isConnected, setIsConnected] = useState(false)
-  const [connectionValid, setConnectionValid] = useState<boolean | null>(null)
+  const searchParams = useSearchParams()
 
   useEffect(() => {
-    if (!user) return
+    // Check for success or error parameters in URL
+    const successParam = searchParams?.get("success")
+    const errorParam = searchParams?.get("error")
 
-    fetchCalendlyInfo()
-  }, [user])
+    if (successParam === "true") {
+      setSuccess(true)
+    } else if (errorParam) {
+      setError(decodeURIComponent(errorParam))
+    }
+
+    if (user) {
+      fetchCalendlyInfo()
+    }
+  }, [user, searchParams])
 
   const fetchCalendlyInfo = async () => {
     if (!user) return
@@ -41,152 +40,28 @@ export default function CalendlyPage() {
       setIsLoading(true)
       setError(null)
 
-      // Add a timeout to the fetch request
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 5000)
-
-      const response = await fetch(`/api/calendly/info?userId=${user.id}`, {
-        signal: controller.signal,
-      }).catch((err) => {
-        console.error("Fetch error:", err)
-        throw new Error("Network error when connecting to API. Please try again later.")
-      })
-
-      clearTimeout(timeoutId)
-
-      if (!response) {
-        throw new Error("Failed to connect to API")
-      }
+      const response = await fetch(`/api/calendly/user-info?userId=${user.id}`)
 
       if (!response.ok) {
-        if (response.status === 404) {
-          // Not found is okay, just means no connection yet
-          setIsConnected(false)
-          setConnectionValid(false)
-          setIsLoading(false)
-          return
+        if (response.status !== 404) {
+          // 404 just means no connection yet, not an error to display
+          const errorText = await response.text().catch(() => "Unknown error")
+          throw new Error(`API error (${response.status}): ${errorText}`)
         }
-
-        const errorText = await response.text().catch(() => "Unknown error")
-        throw new Error(`API error (${response.status}): ${errorText}`)
-      }
-
-      const data = await response.json()
-      setCalendlyUsername(data.calendlyUsername || null)
-      setIsConnected(!!data.calendlyUsername)
-
-      // If connected, test the connection
-      if (data.calendlyUsername) {
-        await testConnection()
       } else {
-        setConnectionValid(false)
+        const data = await response.json()
+        setCalendlyUsername(data.username || null)
       }
     } catch (err: any) {
       console.error("Error fetching Calendly info:", err)
       setError(err.message || "Failed to load Calendly information")
-
-      // Even if there's an error, we'll assume not connected
-      setIsConnected(false)
-      setConnectionValid(false)
     } finally {
       setIsLoading(false)
     }
   }
 
-  const testConnection = async () => {
-    if (!user) return
-
-    try {
-      setIsTestingConnection(true)
-
-      const response = await fetch(`/api/calendly/test-connection?userId=${user.id}`).catch((err) => {
-        console.error("Network error during connection test:", err)
-        throw new Error("Network error when testing connection. Please try again.")
-      })
-
-      if (!response) {
-        throw new Error("Failed to connect to API")
-      }
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
-        console.error("Connection test failed:", errorData)
-        setConnectionValid(false)
-        return
-      }
-
-      const data = await response.json()
-      setConnectionValid(data.valid)
-    } catch (err) {
-      console.error("Error testing connection:", err)
-      setConnectionValid(false)
-    } finally {
-      setIsTestingConnection(false)
-    }
-  }
-
   const handleConnect = () => {
-    window.location.href = "/api/calendly/oauth"
-  }
-
-  const handleDisconnect = async () => {
-    if (!user) return
-
-    try {
-      setIsDisconnecting(true)
-      setError(null)
-
-      console.log("Disconnecting Calendly for user:", user.id)
-
-      const response = await fetch(`/api/calendly/disconnect?userId=${user.id}`, {
-        method: "POST",
-      })
-
-      const responseData = await response.json().catch(() => ({ error: "Failed to parse response" }))
-
-      if (!response.ok) {
-        console.error("Disconnect failed with status:", response.status, responseData)
-        throw new Error(responseData.error || "Failed to disconnect Calendly")
-      }
-
-      console.log("Disconnect successful:", responseData)
-
-      // Reset the state
-      setCalendlyUsername(null)
-      setIsConnected(false)
-      setConnectionValid(false)
-      setShowDisconnectDialog(false)
-
-      // Show success message
-      toast({
-        title: "Calendly Disconnected",
-        description: "Your Calendly account has been disconnected successfully.",
-      })
-
-      // Refresh the page after a short delay
-      setTimeout(() => {
-        window.location.reload()
-      }, 1500)
-    } catch (err: any) {
-      console.error("Error disconnecting Calendly:", err)
-      setError(`Failed to disconnect Calendly: ${err.message}`)
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: err.message || "Failed to disconnect Calendly",
-      })
-    } finally {
-      setIsDisconnecting(false)
-    }
-  }
-
-  // For development/preview environments, provide a way to bypass the API
-  const handleDevelopmentConnect = () => {
-    // This is just for development/preview to bypass the API
-    setCalendlyUsername("development_user")
-    setIsConnected(true)
-    setConnectionValid(true)
-    setError(null)
+    window.location.href = "/api/calendly/authorize"
   }
 
   if (isLoading) {
@@ -206,20 +81,16 @@ export default function CalendlyPage() {
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
-          <AlertDescription>
-            {error}
-            <div className="mt-2">
-              <Button variant="outline" onClick={() => window.location.reload()}>
-                Try Again
-              </Button>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-              {/* Development/Preview mode button */}
-              {process.env.NODE_ENV !== "production" && (
-                <Button variant="outline" className="ml-2" onClick={handleDevelopmentConnect}>
-                  Development Mode: Simulate Connected
-                </Button>
-              )}
-            </div>
+      {success && !error && (
+        <Alert className="mb-6 bg-green-50 border-green-200">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertTitle className="text-green-800">Successfully Connected!</AlertTitle>
+          <AlertDescription className="text-green-700">
+            Your Calendly account has been connected. Clients can now book sessions with you directly.
           </AlertDescription>
         </Alert>
       )}
@@ -233,66 +104,21 @@ export default function CalendlyPage() {
           <CardDescription>Link your Calendly account to enable scheduling for your services.</CardDescription>
         </CardHeader>
         <CardContent>
-          {isConnected ? (
+          {calendlyUsername ? (
             <div>
-              {connectionValid === false && (
-                <Alert variant="warning" className="mb-4">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Connection Issue</AlertTitle>
-                  <AlertDescription>
-                    Your Calendly connection has expired or is invalid. Please reconnect your account.
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {connectionValid === true && (
-                <Alert className="mb-4 bg-green-50 border-green-200">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <AlertTitle className="text-green-800">Connected</AlertTitle>
-                  <AlertDescription className="text-green-700">
-                    Your Calendly account is connected and working properly.
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              <div className="p-4 border rounded-md mb-4">
-                <p className="mb-2">
-                  Your Calendly account <strong>{calendlyUsername}</strong> is connected.
-                </p>
-
-                <div className="flex flex-wrap gap-2 mt-4">
-                  <Button
-                    variant="outline"
-                    onClick={testConnection}
-                    disabled={isTestingConnection}
-                    className="flex items-center gap-2"
-                  >
-                    {isTestingConnection ? (
-                      <>Testing...</>
-                    ) : (
-                      <>
-                        <RefreshCw className="h-4 w-4" />
-                        Test Connection
-                      </>
-                    )}
-                  </Button>
-
-                  {connectionValid === false && (
-                    <Button onClick={handleConnect} className="flex items-center gap-2">
-                      Reconnect Calendly
-                    </Button>
-                  )}
-
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowDisconnectDialog(true)}
-                    className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-                  >
-                    <Unlink className="h-4 w-4" />
-                    Disconnect Calendly
-                  </Button>
+              <div className="p-4 bg-green-50 border border-green-200 rounded-md mb-6">
+                <div className="flex items-center mb-2">
+                  <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
+                  <h3 className="font-medium">Connected to Calendly</h3>
                 </div>
+                <p className="text-sm text-gray-600">
+                  Username: <span className="font-medium">{calendlyUsername}</span>
+                </p>
               </div>
+
+              <p className="mb-4">
+                Your Calendly account is connected. You can now assign event types to your services.
+              </p>
 
               <Button asChild>
                 <Link href="/dashboard/services">Manage Services</Link>
@@ -301,16 +127,7 @@ export default function CalendlyPage() {
           ) : (
             <div>
               <p className="mb-4">Connect your Calendly account to allow clients to schedule appointments with you.</p>
-              <Button
-                onClick={() => {
-                  // In development/preview, we can simulate the connection
-                  if (process.env.NODE_ENV !== "production") {
-                    handleDevelopmentConnect()
-                  } else {
-                    handleConnect()
-                  }
-                }}
-              >
+              <Button onClick={handleConnect} className="flex items-center gap-2">
                 Connect to Calendly
               </Button>
             </div>
@@ -330,37 +147,11 @@ export default function CalendlyPage() {
               className="flex items-center gap-2"
             >
               Sign up for Calendly
-              <Calendar className="h-4 w-4 ml-1" />
+              <ExternalLink className="h-4 w-4 ml-1" />
             </a>
           </Button>
         </CardFooter>
       </Card>
-
-      {/* Disconnect Confirmation Dialog */}
-      <Dialog open={showDisconnectDialog} onOpenChange={setShowDisconnectDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Disconnect Calendly Account</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to disconnect your Calendly account? This will remove the integration and clients
-              won't be able to book appointments through Calendly.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDisconnectDialog(false)} disabled={isDisconnecting}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDisconnect}
-              disabled={isDisconnecting}
-              className="flex items-center gap-2"
-            >
-              {isDisconnecting ? "Disconnecting..." : "Disconnect Calendly"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
