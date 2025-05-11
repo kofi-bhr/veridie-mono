@@ -4,73 +4,39 @@ import { cookies } from "next/headers"
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.nextUrl.searchParams.get("userId")
+    const searchParams = request.nextUrl.searchParams
+    const userId = searchParams.get("userId")
+
     if (!userId) {
-      return NextResponse.json({ error: "Missing userId" }, { status: 400 })
+      return NextResponse.json({ error: "Missing userId parameter" }, { status: 400 })
     }
 
-    // Create Supabase client
+    // Get user's Calendly data from database
     const supabase = createRouteHandlerClient({ cookies })
-
-    // First check if the user exists
-    const { data: userExists, error: userCheckError } = await supabase
-      .from("profiles")
-      .select("id")
+    const { data, error } = await supabase
+      .from("mentors")
+      .select("calendly_username, calendly_access_token, calendly_refresh_token, calendly_token_expires_at, updated_at")
       .eq("id", userId)
       .single()
 
-    if (userCheckError) {
-      console.error("User check failed:", userCheckError)
-      return NextResponse.json({
-        error: "User not found",
-        username: null,
-        isConnected: false,
-      })
+    if (error) {
+      console.error("Database query error:", error)
+      return NextResponse.json({ error: "Database query failed" }, { status: 500 })
     }
 
-    // Now check if the mentor record exists
-    const { data: mentorData, error: mentorError } = await supabase
-      .from("mentors")
-      .select("calendly_username, calendly_access_token, calendly_refresh_token")
-      .eq("id", userId)
-
-    if (mentorError) {
-      console.error("Mentor query failed:", mentorError)
-      return NextResponse.json({
-        error: "Failed to retrieve mentor data",
-        username: null,
-        isConnected: false,
-      })
-    }
-
-    // If no mentor record or empty array, return not connected
-    if (!mentorData || mentorData.length === 0) {
-      return NextResponse.json({
-        username: null,
-        isConnected: false,
-      })
-    }
-
-    // Get the first mentor record (should only be one)
-    const mentor = mentorData[0]
-
-    // Check if the user actually has Calendly credentials
-    const isConnected = !!(mentor?.calendly_username && mentor?.calendly_access_token && mentor?.calendly_refresh_token)
+    // Check if token is expired
+    const tokenExpiresAt = data.calendly_token_expires_at ? new Date(data.calendly_token_expires_at) : null
+    const isTokenExpired = tokenExpiresAt ? tokenExpiresAt < new Date() : false
 
     return NextResponse.json({
-      username: mentor?.calendly_username || null,
-      isConnected: isConnected,
+      username: data.calendly_username,
+      isConnected: !!(data.calendly_username && data.calendly_access_token && data.calendly_refresh_token),
+      hasToken: !!data.calendly_access_token,
+      isTokenExpired,
+      lastUpdated: data.updated_at,
     })
   } catch (error) {
-    console.error("Info error:", error)
-    // Return a more graceful error response
-    return NextResponse.json(
-      {
-        error: "Server error",
-        username: null,
-        isConnected: false,
-      },
-      { status: 200 },
-    ) // Return 200 to prevent client-side errors
+    console.error("Error getting Calendly info:", error)
+    return NextResponse.json({ error: "Server error" }, { status: 500 })
   }
 }

@@ -7,9 +7,17 @@ export async function GET(request: NextRequest) {
   try {
     // Get the current user
     const supabase = createRouteHandlerClient({ cookies })
-    const { data: userData } = await supabase.auth.getUser()
+    const { data: userData, error: userError } = await supabase.auth.getUser()
+
+    if (userError) {
+      console.error("Auth error:", userError)
+      return NextResponse.redirect(
+        new URL(`/dashboard/calendly?error=${encodeURIComponent("Authentication error")}`, request.url),
+      )
+    }
 
     if (!userData.user) {
+      console.error("No authenticated user found")
       return NextResponse.redirect(new URL("/auth/login", request.url))
     }
 
@@ -25,21 +33,24 @@ export async function GET(request: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin
     const redirectUri = `${baseUrl}/api/calendly/simple-callback`
 
+    console.log("Initiating Calendly OAuth flow with redirect URI:", redirectUri)
+
     // Construct the authorization URL
     const authUrl = new URL("https://auth.calendly.com/oauth/authorize")
     authUrl.searchParams.append("client_id", CALENDLY_CLIENT_ID)
     authUrl.searchParams.append("response_type", "code")
     authUrl.searchParams.append("redirect_uri", redirectUri)
-    // Use a minimal scope to reduce chances of errors
-    authUrl.searchParams.append("scope", "user:read")
+    // Use a more comprehensive scope to ensure we have all needed permissions
+    authUrl.searchParams.append("scope", "user:read event_types:read")
 
     console.log("Redirecting to Calendly auth URL:", authUrl.toString())
 
     return NextResponse.redirect(authUrl)
   } catch (error) {
     console.error("Auth error:", error)
+    const errorMessage = error instanceof Error ? error.message : "Unknown error"
     return NextResponse.redirect(
-      new URL(`/dashboard/calendly?error=${encodeURIComponent("Server error")}`, request.url),
+      new URL(`/dashboard/calendly?error=${encodeURIComponent("Server error: " + errorMessage)}`, request.url),
     )
   }
 }
