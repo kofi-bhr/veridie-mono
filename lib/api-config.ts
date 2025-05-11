@@ -1,14 +1,21 @@
-// API configuration and utilities
+// API Configuration
+// This file centralizes API configuration and credentials
 
-// Access the API key from environment variables (server-side only)
+// API Base URL and Key
 export const apiKey = process.env.API_KEY
-
-// Base URL for API calls (can be used client-side)
 export const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL
 
-// Calendly OAuth credentials
-export const CALENDLY_CLIENT_ID = process.env.CALENDLY_CLIENT_ID
-export const CALENDLY_CLIENT_SECRET = process.env.CALENDLY_CLIENT_SECRET
+// Calendly API
+export const CALENDLY_CLIENT_ID = process.env.CALENDLY_CLIENT_ID || ""
+export const CALENDLY_CLIENT_SECRET = process.env.CALENDLY_CLIENT_SECRET || ""
+
+// Base URL
+export const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || ""
+
+// Stripe API
+export const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || ""
+export const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
+export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || ""
 
 // Helper function to create headers with the API key (server-side only)
 export function createApiHeaders() {
@@ -58,4 +65,19 @@ export async function fetchFromApiClient(endpoint: string, options: RequestInit 
   }
 
   return response.json()
+}
+
+// Check if required credentials are available
+export function checkRequiredCredentials() {
+  const missing = []
+
+  if (!CALENDLY_CLIENT_ID) missing.push("CALENDLY_CLIENT_ID")
+  if (!CALENDLY_CLIENT_SECRET) missing.push("CALENDLY_CLIENT_SECRET")
+  if (!STRIPE_SECRET_KEY) missing.push("STRIPE_SECRET_KEY")
+  if (!STRIPE_PUBLISHABLE_KEY) missing.push("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY")
+
+  return {
+    hasAllCredentials: missing.length === 0,
+    missingCredentials: missing,
+  }
 }

@@ -14,6 +14,7 @@ export default function CalendlyDebugPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [queryParams, setQueryParams] = useState<Record<string, string>>({})
 
   useEffect(() => {
     // Get the current URL
@@ -27,6 +28,13 @@ export default function CalendlyDebugPage() {
     const urlParams = new URLSearchParams(window.location.search)
     const errorParam = urlParams.get("error")
     const messageParam = urlParams.get("message")
+
+    // Collect all query parameters
+    const params: Record<string, string> = {}
+    urlParams.forEach((value, key) => {
+      params[key] = value
+    })
+    setQueryParams(params)
 
     if (errorParam) {
       setError(errorParam)
@@ -75,13 +83,13 @@ export default function CalendlyDebugPage() {
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription className="whitespace-pre-wrap">{error}</AlertDescription>
         </Alert>
       )}
 
       {message && (
         <Alert className="mb-6">
-          <AlertTitle>Message</AlertTitle>
+          <AlertTitle>Success</AlertTitle>
           <AlertDescription>{message}</AlertDescription>
         </Alert>
       )}
@@ -112,6 +120,15 @@ export default function CalendlyDebugPage() {
               <p className="font-medium">Calendly Client Secret:</p>
               <p className="text-sm text-muted-foreground">{clientSecret || "Not set"}</p>
             </div>
+
+            {Object.keys(queryParams).length > 0 && (
+              <div>
+                <p className="font-medium">Query Parameters:</p>
+                <pre className="text-sm bg-muted p-2 rounded overflow-x-auto">
+                  {JSON.stringify(queryParams, null, 2)}
+                </pre>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -149,6 +166,29 @@ export default function CalendlyDebugPage() {
           </div>
         </CardContent>
       </Card>
+
+      <div className="mt-8">
+        <h2 className="text-xl font-semibold mb-4">Troubleshooting Steps</h2>
+        <ol className="list-decimal pl-5 space-y-2">
+          <li>
+            <strong>Check Redirect URI:</strong> Make sure <code className="bg-muted px-1 rounded">{redirectUri}</code>{" "}
+            is added to your Calendly app's allowed redirect URIs.
+          </li>
+          <li>
+            <strong>Verify Credentials:</strong> Ensure your Calendly Client ID and Client Secret are correctly set in
+            your environment variables.
+          </li>
+          <li>
+            <strong>Clear Browser Cache:</strong> Try clearing your browser cache and cookies, then test again.
+          </li>
+          <li>
+            <strong>Check Logs:</strong> Look at your server logs for any errors during the callback process.
+          </li>
+          <li>
+            <strong>Try Incognito Mode:</strong> Test the integration in an incognito/private browsing window.
+          </li>
+        </ol>
+      </div>
     </div>
   )
 }

@@ -62,7 +62,16 @@ export async function GET(request: NextRequest) {
 
     // Check the response
     if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text()
+      let errorText = "Unknown error"
+      try {
+        // Try to parse as JSON first
+        const errorJson = await tokenResponse.json()
+        errorText = JSON.stringify(errorJson)
+      } catch (e) {
+        // If not JSON, get as text
+        errorText = await tokenResponse.text()
+      }
+
       console.error(`Token exchange error (${tokenResponse.status}):`, errorText)
       return NextResponse.redirect(
         new URL(
@@ -73,39 +82,66 @@ export async function GET(request: NextRequest) {
     }
 
     // Parse the token response
-    const tokenData = await tokenResponse.json()
+    let tokenData
+    try {
+      tokenData = await tokenResponse.json()
+    } catch (e) {
+      console.error("Error parsing token response:", e)
+      return NextResponse.redirect(
+        new URL(`/calendly-debug?error=${encodeURIComponent("Failed to parse token response")}`, request.url),
+      )
+    }
 
     // Get the user info
-    const userResponse = await fetch("https://api.calendly.com/users/me", {
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-      },
-    })
+    try {
+      const userResponse = await fetch("https://api.calendly.com/users/me", {
+        headers: {
+          Authorization: `Bearer ${tokenData.access_token}`,
+        },
+      })
 
-    // Check the user response
-    if (!userResponse.ok) {
-      const errorText = await userResponse.text()
-      console.error(`User info error (${userResponse.status}):`, errorText)
+      // Check the user response
+      if (!userResponse.ok) {
+        let errorText = "Unknown error"
+        try {
+          // Try to parse as JSON first
+          const errorJson = await userResponse.json()
+          errorText = JSON.stringify(errorJson)
+        } catch (e) {
+          // If not JSON, get as text
+          errorText = await userResponse.text()
+        }
+
+        console.error(`User info error (${userResponse.status}):`, errorText)
+        return NextResponse.redirect(
+          new URL(
+            `/calendly-debug?error=${encodeURIComponent(`User info failed: ${userResponse.status} - ${errorText}`)}`,
+            request.url,
+          ),
+        )
+      }
+
+      // Parse the user response
+      const userData = await userResponse.json()
+
+      // Success! Redirect with a success message
       return NextResponse.redirect(
         new URL(
-          `/calendly-debug?error=${encodeURIComponent(`User info failed: ${userResponse.status} - ${errorText}`)}`,
+          `/calendly-debug?message=${encodeURIComponent(
+            `Successfully connected to Calendly as ${userData.resource.name}. Access token obtained.`,
+          )}`,
+          request.url,
+        ),
+      )
+    } catch (error) {
+      console.error("Error fetching user info:", error)
+      return NextResponse.redirect(
+        new URL(
+          `/calendly-debug?error=${encodeURIComponent(`Error fetching user info: ${error instanceof Error ? error.message : String(error)}`)}`,
           request.url,
         ),
       )
     }
-
-    // Parse the user response
-    const userData = await userResponse.json()
-
-    // Success! Redirect with a success message
-    return NextResponse.redirect(
-      new URL(
-        `/calendly-debug?message=${encodeURIComponent(
-          `Successfully connected to Calendly as ${userData.resource.name}. Access token obtained.`,
-        )}`,
-        request.url,
-      ),
-    )
   } catch (error) {
     console.error("Debug callback error:", error)
     const errorMessage = error instanceof Error ? error.message : "Unknown error"
