@@ -11,10 +11,13 @@ export async function GET(request: NextRequest) {
     const error = searchParams.get("error")
     const errorDescription = searchParams.get("error_description")
 
+    // Log all parameters for debugging
     console.log("Calendly callback received:", {
+      url: request.url,
       code: code ? "present" : "missing",
       error,
       errorDescription,
+      allParams: Object.fromEntries(searchParams.entries()),
     })
 
     // Handle error from Calendly
@@ -35,7 +38,10 @@ export async function GET(request: NextRequest) {
 
     // Check if Calendly credentials are available
     if (!CALENDLY_CLIENT_ID || !CALENDLY_CLIENT_SECRET) {
-      console.error("Missing Calendly credentials")
+      console.error("Missing Calendly credentials:", {
+        clientId: CALENDLY_CLIENT_ID ? "present" : "missing",
+        clientSecret: CALENDLY_CLIENT_SECRET ? "present" : "missing",
+      })
       return NextResponse.redirect(
         new URL(`/dashboard/calendly?error=${encodeURIComponent("Missing Calendly credentials")}`, request.url),
       )
@@ -86,7 +92,16 @@ export async function GET(request: NextRequest) {
 
     // Check if the token request was successful
     if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text()
+      let errorText
+      try {
+        // Try to parse as JSON first
+        const errorJson = await tokenResponse.json()
+        errorText = JSON.stringify(errorJson)
+      } catch (e) {
+        // If not JSON, get as text
+        errorText = await tokenResponse.text()
+      }
+
       console.error(`Token exchange error (${tokenResponse.status}):`, errorText)
       return NextResponse.redirect(
         new URL(
@@ -124,7 +139,16 @@ export async function GET(request: NextRequest) {
 
     // Check if the user request was successful
     if (!userResponse.ok) {
-      const errorText = await userResponse.text()
+      let errorText
+      try {
+        // Try to parse as JSON first
+        const errorJson = await userResponse.json()
+        errorText = JSON.stringify(errorJson)
+      } catch (e) {
+        // If not JSON, get as text
+        errorText = await userResponse.text()
+      }
+
       console.error(`User info error (${userResponse.status}):`, errorText)
       return NextResponse.redirect(
         new URL(
