@@ -22,18 +22,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [authInitialized, setAuthInitialized] = useState(false)
 
-  // Function to fetch user profile
+  // Function to fetch user profile with proper error handling
   const fetchUserProfile = useCallback(async (userId: string) => {
     try {
       const supabase = getSupabaseClient()
-      const { data: profile, error } = await supabase.from("profiles").select("*").eq("id", userId).single()
 
-      if (error) {
-        console.error("Error fetching profile:", error)
+      // Use a custom fetch to handle rate limiting and other errors
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=*`,
+        {
+          method: "GET",
+          headers: {
+            apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""}`,
+            "Content-Type": "application/json",
+            Prefer: "return=representation",
+          },
+        },
+      )
+
+      // Check if response is OK before parsing JSON
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`Error fetching profile (${response.status}):`, errorText)
+
+        // If rate limited, wait and retry
+        if (response.status === 429) {
+          console.log("Rate limited, waiting before retry...")
+          await new Promise((resolve) => setTimeout(resolve, 2000))
+          return await fetchUserProfile(userId) // Retry once after waiting
+        }
+
+        throw new Error(`API error: ${response.status} - ${errorText}`)
+      }
+
+      // Only parse JSON if response is OK
+      const profiles = await response.json()
+
+      if (!profiles || profiles.length === 0) {
+        console.error("No profile found for user:", userId)
         return null
       }
 
-      return profile
+      return profiles[0]
     } catch (error) {
       console.error("Error in fetchUserProfile:", error)
       return null
@@ -99,16 +130,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (sessionData?.session?.user) {
-          const profile = await fetchUserProfile(sessionData.session.user.id)
+          try {
+            const profile = await fetchUserProfile(sessionData.session.user.id)
 
-          if (profile && mounted) {
-            setUser({
-              id: sessionData.session.user.id,
-              email: sessionData.session.user.email || "",
-              name: profile.name || "",
-              role: profile.role || "client",
-              avatar: profile.avatar || "",
-            })
+            if (profile && mounted) {
+              setUser({
+                id: sessionData.session.user.id,
+                email: sessionData.session.user.email || "",
+                name: profile.name || "",
+                role: profile.role || "client",
+                avatar: profile.avatar || "",
+              })
+            }
+          } catch (profileError) {
+            console.error("Error fetching profile during initialization:", profileError)
           }
         }
 
@@ -163,16 +198,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null)
       } else if (event === "TOKEN_REFRESHED") {
         if (session?.user) {
-          const profile = await fetchUserProfile(session.user.id)
+          try {
+            const profile = await fetchUserProfile(session.user.id)
 
-          if (profile) {
-            setUser({
-              id: session.user.id,
-              email: session.user.email || "",
-              name: profile.name || "",
-              role: profile.role || "client",
-              avatar: profile.avatar || "",
-            })
+            if (profile) {
+              setUser({
+                id: session.user.id,
+                email: session.user.email || "",
+                name: profile.name || "",
+                role: profile.role || "client",
+                avatar: profile.avatar || "",
+              })
+            }
+          } catch (error) {
+            console.error("Error fetching profile on token refresh:", error)
           }
         }
       }
@@ -199,32 +238,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (data.user) {
-        const profile = await fetchUserProfile(data.user.id)
+        try {
+          const profile = await fetchUserProfile(data.user.id)
 
-        if (!profile) {
-          return { success: false, error: new Error("Profile not found") }
-        }
-
-        setUser({
-          id: data.user.id,
-          email: data.user.email || "",
-          name: profile.name || "",
-          role: profile.role || "client",
-          avatar: profile.avatar || "",
-        })
-
-        console.log("Login successful, redirecting based on role:", profile.role)
-
-        // Use a small timeout to ensure state is updated before redirect
-        setTimeout(() => {
-          if (profile.role === "consultant") {
-            window.location.href = "/dashboard"
-          } else {
-            window.location.href = "/mentors"
+          if (!profile) {
+            return { success: false, error: new Error("Profile not found") }
           }
-        }, 100)
 
-        return { success: true }
+          setUser({
+            id: data.user.id,
+            email: data.user.email || "",
+            name: profile.name || "",
+            role: profile.role || "client",
+            avatar: profile.avatar || "",
+          })
+
+          console.log("Login successful, redirecting based on role:", profile.role)
+
+          // Use a small timeout to ensure state is updated before redirect
+          setTimeout(() => {
+            if (profile.role === "consultant") {
+              window.location.href = "/dashboard"
+            } else {
+              window.location.href = "/mentors"
+            }
+          }, 100)
+
+          return { success: true }
+        } catch (profileError) {
+          console.error("Error fetching profile after login:", profileError)
+          return { success: false, error: profileError }
+        }
       }
 
       return { success: false, error: new Error("User not found") }

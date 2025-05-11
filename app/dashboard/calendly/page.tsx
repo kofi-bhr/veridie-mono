@@ -3,72 +3,81 @@
 import { useState, useEffect } from "react"
 import { useAuth } from "@/hooks/use-auth"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, Calendar, CheckCircle, ExternalLink } from "lucide-react"
+import { Calendar, AlertCircle, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
 
 export default function CalendlyPage() {
   const { user } = useAuth()
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<boolean>(false)
   const [calendlyUsername, setCalendlyUsername] = useState<string | null>(null)
-  const searchParams = useSearchParams()
+  const [isConnected, setIsConnected] = useState<boolean>(false)
+  const [isLoading, setIsLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Check for success or error parameters in URL
-    const successParam = searchParams?.get("success")
-    const errorParam = searchParams?.get("error")
-
-    if (successParam === "true") {
-      setSuccess(true)
-    } else if (errorParam) {
-      setError(decodeURIComponent(errorParam))
-    }
-
-    if (user) {
-      fetchCalendlyInfo()
-    }
-  }, [user, searchParams])
-
-  const fetchCalendlyInfo = async () => {
-    if (!user) return
-
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      const response = await fetch(`/api/calendly/user-info?userId=${user.id}`)
-
-      if (!response.ok) {
-        if (response.status !== 404) {
-          // 404 just means no connection yet, not an error to display
-          const errorText = await response.text().catch(() => "Unknown error")
-          throw new Error(`API error (${response.status}): ${errorText}`)
-        }
+    // Check for error in URL
+    const urlParams = new URLSearchParams(window.location.search)
+    const errorParam = urlParams.get("error")
+    if (errorParam) {
+      if (errorParam === "rate_limited") {
+        setError("Calendly API rate limit exceeded. Please try again in a few minutes.")
       } else {
-        const data = await response.json()
-        setCalendlyUsername(data.username || null)
+        setError(`Connection error: ${errorParam}`)
       }
-    } catch (err: any) {
-      console.error("Error fetching Calendly info:", err)
-      setError(err.message || "Failed to load Calendly information")
-    } finally {
+    }
+
+    // Check for success in URL
+    if (urlParams.get("success") === "true") {
+      // Clear any previous errors
+      setError(null)
+    }
+
+    // Check user's Calendly connection
+    if (user) {
+      setIsLoading(true)
+      fetch(`/api/calendly/simple-info?userId=${user.id}`)
+        .then((res) => {
+          // Don't throw on non-200 responses, just log and continue
+          if (!res.ok) {
+            console.warn(`API returned status: ${res.status}`)
+          }
+          return res.json()
+        })
+        .then((data) => {
+          if (data.error) {
+            console.warn("API returned error:", data.error)
+            // Don't set error state, just log it
+          }
+
+          setCalendlyUsername(data.username)
+          setIsConnected(data.isConnected)
+        })
+        .catch((err) => {
+          console.error("Error checking Calendly connection:", err)
+          // Don't show error to user, just log it
+        })
+        .finally(() => {
+          setIsLoading(false)
+        })
+    } else {
       setIsLoading(false)
     }
-  }
+  }, [user])
 
   const handleConnect = () => {
-    window.location.href = "/api/calendly/authorize"
+    // Direct redirect to authorize endpoint
+    window.location.href = "/api/calendly/simple-auth"
   }
 
-  if (isLoading) {
+  if (!user) {
     return (
       <div className="container py-10">
         <h1 className="text-3xl font-bold mb-6">Calendly Integration</h1>
-        <p>Loading...</p>
+        <p>Please log in to connect your Calendly account.</p>
+        <Button asChild className="mt-4">
+          <Link href="/auth/login">Log In</Link>
+        </Button>
       </div>
     )
   }
@@ -85,72 +94,40 @@ export default function CalendlyPage() {
         </Alert>
       )}
 
-      {success && !error && (
-        <Alert className="mb-6 bg-green-50 border-green-200">
-          <CheckCircle className="h-4 w-4 text-green-600" />
-          <AlertTitle className="text-green-800">Successfully Connected!</AlertTitle>
-          <AlertDescription className="text-green-700">
-            Your Calendly account has been connected. Clients can now book sessions with you directly.
-          </AlertDescription>
-        </Alert>
-      )}
-
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
             Connect Your Calendly Account
           </CardTitle>
-          <CardDescription>Link your Calendly account to enable scheduling for your services.</CardDescription>
         </CardHeader>
         <CardContent>
-          {calendlyUsername ? (
+          {isLoading ? (
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <p>Checking connection status...</p>
+            </div>
+          ) : isConnected ? (
             <div>
-              <div className="p-4 bg-green-50 border border-green-200 rounded-md mb-6">
-                <div className="flex items-center mb-2">
-                  <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
-                  <h3 className="font-medium">Connected to Calendly</h3>
-                </div>
-                <p className="text-sm text-gray-600">
-                  Username: <span className="font-medium">{calendlyUsername}</span>
-                </p>
-              </div>
-
               <p className="mb-4">
-                Your Calendly account is connected. You can now assign event types to your services.
+                Your Calendly account <strong>{calendlyUsername}</strong> is connected.
               </p>
-
-              <Button asChild>
-                <Link href="/dashboard/services">Manage Services</Link>
-              </Button>
+              <div className="flex gap-4">
+                <Button asChild>
+                  <Link href="/dashboard/services">Manage Services</Link>
+                </Button>
+                <Button variant="outline" onClick={handleConnect}>
+                  Reconnect Calendly
+                </Button>
+              </div>
             </div>
           ) : (
             <div>
               <p className="mb-4">Connect your Calendly account to allow clients to schedule appointments with you.</p>
-              <Button onClick={handleConnect} className="flex items-center gap-2">
-                Connect to Calendly
-              </Button>
+              <Button onClick={handleConnect}>Connect to Calendly</Button>
             </div>
           )}
         </CardContent>
-        <CardFooter className="flex flex-col items-start border-t pt-6">
-          <h4 className="text-sm font-semibold mb-2">Don't have a Calendly account?</h4>
-          <p className="text-sm text-muted-foreground mb-4">
-            Calendly is a free scheduling tool that lets you set your availability preferences and share a booking link
-            with your clients.
-          </p>
-          <Button variant="outline" asChild>
-            <a
-              href="https://calendly.com/signup"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2"
-            >
-              Sign up for Calendly
-              <ExternalLink className="h-4 w-4 ml-1" />
-            </a>
-          </Button>
-        </CardFooter>
       </Card>
     </div>
   )
