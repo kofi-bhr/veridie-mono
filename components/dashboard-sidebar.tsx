@@ -15,6 +15,7 @@ import {
   User,
   Briefcase,
   RefreshCw,
+  CreditCard,
 } from "lucide-react"
 
 interface DashboardSidebarProps {
@@ -34,6 +35,7 @@ export function DashboardSidebar({ onLinkClick }: DashboardSidebarProps) {
     { href: "/dashboard/awards", label: "Awards", icon: Trophy },
     { href: "/dashboard/essays", label: "Essays", icon: FileText },
     { href: "/dashboard/services", label: "Services", icon: BarChart3 },
+    { href: "/dashboard/payments", label: "Payments", icon: CreditCard },
     { href: "/dashboard/calendly", label: "Calendly Setup", icon: Calendar },
     { href: "/dashboard/calendly-reconnect", label: "Reconnect Calendly", icon: RefreshCw },
     { href: "/dashboard/sessions", label: "Sessions", icon: Calendar },

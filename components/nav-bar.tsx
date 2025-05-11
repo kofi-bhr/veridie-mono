@@ -90,23 +90,23 @@ export function NavBar() {
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                  <Avatar className="h-8 w-8">
-                    {user.profile_image_url ? (
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full overflow-hidden p-0">
+                  <div className="h-full w-full overflow-hidden rounded-full">
+                    <Avatar className="h-full w-full">
                       <AvatarImage
-                        src={user.profile_image_url || "/placeholder.svg"}
-                        alt={user.name || "User"}
-                        className="object-cover object-center scale-110"
-                        onError={(e) => {
-                          // Fallback if image fails to load
-                          e.currentTarget.src = "/abstract-profile.png"
+                        src={user.avatar || "/placeholder.svg"}
+                        alt={user.name}
+                        style={{
+                          transform: "scale(1.25)",
+                          transformOrigin: "center",
+                          objectFit: "cover",
+                          width: "100%",
+                          height: "100%",
                         }}
                       />
-                    ) : (
-                      <AvatarImage src="/abstract-profile.png" alt="Default profile" />
-                    )}
-                    <AvatarFallback>{user.name?.charAt(0) || "U"}</AvatarFallback>
-                  </Avatar>
+                      <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                  </div>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
@@ -131,15 +131,13 @@ export function NavBar() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <div className="flex items-center gap-4">
-              <Link href="/auth/login">
-                <Button variant="ghost" size="sm">
-                  Log in
-                </Button>
-              </Link>
-              <Link href="/auth/signup">
-                <Button size="sm">Sign up</Button>
-              </Link>
+            <div className="hidden md:flex items-center gap-2">
+              <Button variant="ghost" asChild>
+                <Link href="/auth/login">Log In</Link>
+              </Button>
+              <Button asChild>
+                <Link href="/auth/signup">Sign Up</Link>
+              </Button>
             </div>
           )}
 
