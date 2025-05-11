@@ -22,10 +22,20 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url)
     const redirectUri = url.searchParams.get("redirect_uri") || `${url.origin}/api/calendly/callback`
 
-    // Include all the necessary scopes, especially availability:read
-    const scopes = "availability:read event_types:read scheduling_links:read user:read"
+    // Use the exact scope format that Calendly expects
+    // These are the current valid scopes as of the latest Calendly API
+    const scope = "user:read event_types:read scheduling_links:read"
 
-    const calendlyAuthUrl = `https://auth.calendly.com/oauth/authorize?client_id=${CALENDLY_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}`
+    // Build the authorization URL with properly encoded parameters
+    const params = new URLSearchParams({
+      client_id: CALENDLY_CLIENT_ID,
+      response_type: "code",
+      redirect_uri: redirectUri,
+      scope: scope,
+    })
+
+    const calendlyAuthUrl = `https://auth.calendly.com/oauth/authorize?${params.toString()}`
+    console.log("Generated Calendly auth URL:", calendlyAuthUrl)
 
     return NextResponse.json({ url: calendlyAuthUrl })
   } catch (error) {

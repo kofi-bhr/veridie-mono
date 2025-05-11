@@ -38,13 +38,12 @@ export interface CalendlySchedulingLink {
 
 // Generate OAuth authorization URL
 export function getCalendlyAuthUrl(clientId: string, redirectUri: string): string {
-  // Ensure the redirect URI is properly encoded
-  const encodedRedirectUri = encodeURIComponent(redirectUri)
-
+  // Use URLSearchParams to properly encode parameters
   const params = new URLSearchParams({
     client_id: clientId,
     response_type: "code",
     redirect_uri: redirectUri,
+    scope: "user:read event_types:read scheduling_links:read",
   })
 
   console.log("Generated Calendly Auth URL with redirect URI:", redirectUri)
