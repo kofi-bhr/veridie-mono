@@ -3,82 +3,103 @@
 import { useState, useEffect } from "react"
 import { useAuth } from "@/hooks/use-auth"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle } from "lucide-react"
+import { Calendar, AlertCircle, Loader2, RefreshCw } from "lucide-react"
 import Link from "next/link"
 
 export default function CalendlyPage() {
   const { user } = useAuth()
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [calendlyUsername, setCalendlyUsername] = useState<string | null>(null)
-  const [isConnected, setIsConnected] = useState(false)
+  const [isConnected, setIsConnected] = useState<boolean>(false)
+  const [isLoading, setIsLoading] = useState<boolean>(true)
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
+  const [error, setError] = useState<string | null>(null)
+  const [apiResponse, setApiResponse] = useState<any>(null)
 
-  useEffect(() => {
+  const checkConnection = async () => {
     if (!user) return
 
-    const fetchCalendlyInfo = async () => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      console.log("Checking Calendly connection for user:", user.id)
+      const res = await fetch(`/api/calendly/simple-info?userId=${user.id}`)
+
+      // Store the raw response text for debugging
+      const responseText = await res.text()
+      console.log("Raw API response:", responseText)
+
+      // Try to parse the response as JSON
+      let data
       try {
-        // Add a timeout to the fetch request
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 5000)
+        data = JSON.parse(responseText)
+        setApiResponse(data)
+      } catch (parseError) {
+        console.error("Error parsing JSON response:", parseError)
+        throw new Error(`Failed to parse API response: ${responseText}`)
+      }
 
-        const response = await fetch(`/api/calendly/info?userId=${user.id}`, {
-          signal: controller.signal,
-        }).catch((err) => {
-          console.error("Fetch error:", err)
-          throw new Error("Network error when connecting to API. Please try again later.")
-        })
+      if (data.error) {
+        throw new Error(data.error)
+      }
 
-        clearTimeout(timeoutId)
+      setCalendlyUsername(data.username)
+      setIsConnected(data.isConnected)
+    } catch (err: any) {
+      console.error("Error checking Calendly connection:", err)
+      setError(err.message || "Failed to check connection")
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
-        if (!response) {
-          throw new Error("Failed to connect to API")
-        }
-
-        if (!response.ok) {
-          if (response.status === 404) {
-            // Not found is okay, just means no connection yet
-            setIsConnected(false)
-            setIsLoading(false)
-            return
-          }
-
-          const errorText = await response.text().catch(() => "Unknown error")
-          throw new Error(`API error (${response.status}): ${errorText}`)
-        }
-
-        const data = await response.json()
-        setCalendlyUsername(data.calendlyUsername || null)
-        setIsConnected(!!data.calendlyUsername)
-      } catch (err: any) {
-        console.error("Error fetching Calendly info:", err)
-        setError(err.message || "Failed to load Calendly information")
-
-        // Even if there's an error, we'll assume not connected
-        setIsConnected(false)
-      } finally {
-        setIsLoading(false)
+  useEffect(() => {
+    // Check for error in URL
+    const urlParams = new URLSearchParams(window.location.search)
+    const errorParam = urlParams.get("error")
+    if (errorParam) {
+      if (errorParam === "rate_limited") {
+        setError("Calendly API rate limit exceeded. Please try again in a few minutes.")
+      } else {
+        setError(`Connection error: ${errorParam}`)
       }
     }
 
-    fetchCalendlyInfo()
+    // Check for success in URL
+    if (urlParams.get("success") === "true") {
+      // Clear any previous errors
+      setError(null)
+    }
+
+    // Check user's Calendly connection
+    if (user) {
+      checkConnection()
+    } else {
+      setIsLoading(false)
+    }
   }, [user])
 
-  // For development/preview environments, provide a way to bypass the API
-  const handleDevelopmentConnect = () => {
-    // This is just for development/preview to bypass the API
-    setCalendlyUsername("development_user")
-    setIsConnected(true)
-    setError(null)
+  const handleConnect = () => {
+    // Use the exact URL format that works
+    window.location.href = "/api/calendly/simple-auth"
   }
 
-  if (isLoading) {
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    await checkConnection()
+    setIsRefreshing(false)
+  }
+
+  if (!user) {
     return (
       <div className="container py-10">
         <h1 className="text-3xl font-bold mb-6">Calendly Integration</h1>
-        <p>Loading...</p>
+        <p>Please log in to connect your Calendly account.</p>
+        <Button asChild className="mt-4">
+          <Link href="/auth/login">Log In</Link>
+        </Button>
       </div>
     )
   }
@@ -91,58 +112,93 @@ export default function CalendlyPage() {
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
-          <AlertDescription>
-            {error}
-            <div className="mt-2">
-              <Button variant="outline" onClick={() => window.location.reload()}>
-                Try Again
-              </Button>
-
-              {/* Development/Preview mode button */}
-              {process.env.NODE_ENV !== "production" && (
-                <Button variant="outline" className="ml-2" onClick={handleDevelopmentConnect}>
-                  Development Mode: Simulate Connected
-                </Button>
-              )}
-            </div>
-          </AlertDescription>
+          <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
       <Card>
         <CardHeader>
-          <CardTitle>Connect Your Calendly Account</CardTitle>
-          <CardDescription>Link your Calendly account to enable scheduling for your services.</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Connect Your Calendly Account
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          {isConnected ? (
+          {isLoading ? (
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <p>Checking connection status...</p>
+            </div>
+          ) : isConnected ? (
             <div>
               <p className="mb-4">
                 Your Calendly account <strong>{calendlyUsername}</strong> is connected.
               </p>
-              <Button asChild>
-                <Link href="/dashboard/services">Manage Services</Link>
-              </Button>
+              <div className="flex gap-4">
+                <Button asChild>
+                  <Link href="/dashboard/services">Manage Services</Link>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="flex items-center gap-2"
+                >
+                  {isRefreshing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Refreshing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4" />
+                      Refresh Status
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           ) : (
             <div>
               <p className="mb-4">Connect your Calendly account to allow clients to schedule appointments with you.</p>
-              <Button
-                onClick={() => {
-                  // In development/preview, we can simulate the connection
-                  if (process.env.NODE_ENV !== "production") {
-                    handleDevelopmentConnect()
-                  } else {
-                    window.location.href = "/api/calendly/oauth"
-                  }
-                }}
-              >
-                Connect to Calendly
-              </Button>
+              <div className="flex gap-4">
+                <Button onClick={handleConnect}>Connect to Calendly</Button>
+                <Button
+                  variant="outline"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="flex items-center gap-2"
+                >
+                  {isRefreshing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Refreshing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4" />
+                      Refresh Status
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Debug section - only visible when there's an error */}
+      {error && (
+        <div className="mt-8 p-4 border border-gray-200 rounded-md">
+          <h2 className="text-lg font-semibold mb-2">Debug Information</h2>
+          <p className="text-sm text-gray-600 mb-2">User ID: {user?.id}</p>
+          {apiResponse && (
+            <pre className="text-xs bg-gray-100 p-2 rounded overflow-auto max-h-40">
+              {JSON.stringify(apiResponse, null, 2)}
+            </pre>
+          )}
+        </div>
+      )}
     </div>
   )
 }

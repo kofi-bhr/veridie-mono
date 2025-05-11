@@ -6,7 +6,11 @@ import { useAuth } from "@/hooks/use-auth"
 import { cn } from "@/lib/utils"
 import { BarChart3, Calendar, FileText, Home, MessageSquare, Settings, Trophy, User, Briefcase } from "lucide-react"
 
-export function DashboardSidebar() {
+interface DashboardSidebarProps {
+  onLinkClick?: () => void
+}
+
+export function DashboardSidebar({ onLinkClick }: DashboardSidebarProps) {
   const pathname = usePathname()
   const { user } = useAuth()
 
@@ -33,10 +37,16 @@ export function DashboardSidebar() {
 
   const links = isConsultant ? consultantLinks : clientLinks
 
+  const handleLinkClick = () => {
+    if (onLinkClick) {
+      onLinkClick()
+    }
+  }
+
   return (
-    <div className="w-64 bg-muted/40 border-r min-h-screen p-4">
+    <div className="w-64 bg-muted/40 border-r h-full min-h-screen p-4">
       <div className="flex items-center mb-8 px-2">
-        <Link href="/" className="flex items-center">
+        <Link href="/" className="flex items-center" onClick={handleLinkClick}>
           <span className="font-bold text-xl">Veridie</span>
         </Link>
       </div>
@@ -50,6 +60,7 @@ export function DashboardSidebar() {
             <Link
               key={link.href}
               href={link.href}
+              onClick={handleLinkClick}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
                 isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted hover:text-foreground",

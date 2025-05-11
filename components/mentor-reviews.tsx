@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { addReview } from "@/lib/actions"
 import { supabase } from "@/lib/supabase-client"
 import { Skeleton } from "@/components/ui/skeleton"
+import { supabaseAdmin, isAdminClientConfigured } from "@/lib/supabase-admin"
 
 interface MentorReviewsProps {
   mentorId: string
@@ -25,6 +26,7 @@ export function MentorReviews({ mentorId }: MentorReviewsProps) {
   const [rating, setRating] = useState(5)
   const [reviewText, setReviewText] = useState("")
   const [service, setService] = useState("")
+  const [reviewerName, setReviewerName] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [reviews, setReviews] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -85,16 +87,9 @@ export function MentorReviews({ mentorId }: MentorReviewsProps) {
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!user) {
-      toast({
-        title: "Please log in",
-        description: "You need to be logged in to leave a review",
-        variant: "destructive",
-      })
-      return
-    }
+    // No longer requiring login
 
-    if (!reviewText || !service) {
+    if (!reviewText || !service || !reviewerName) {
       toast({
         title: "Missing information",
         description: "Please fill out all fields",
@@ -106,26 +101,57 @@ export function MentorReviews({ mentorId }: MentorReviewsProps) {
     setIsSubmitting(true)
 
     try {
-      // Try to insert directly into the reviews table
-      const { data, error } = await supabase
-        .from("reviews")
-        .insert([
-          {
-            mentor_id: mentorId,
-            client_id: user.id,
-            name: user.name,
-            rating: rating,
-            service: service,
-            text: reviewText,
-          },
-        ])
-        .select()
+      // First, check if the reviews table exists
+      const { error: tableCheckError } = await supabase.from("reviews").select("id").limit(1)
 
-      if (error) {
-        // If direct insert fails, fall back to the server action
+      if (tableCheckError && tableCheckError.message.includes('relation "reviews" does not exist')) {
+        // Table doesn't exist, create it first
+        console.log("Reviews table doesn't exist, creating it...")
+        const createTableResult = await fetch("/api/setup/reviews-table", {
+          method: "POST",
+        })
+
+        if (!createTableResult.ok) {
+          throw new Error("Failed to create reviews table. Please try again later.")
+        }
+      }
+
+      let success = false
+
+      // Check if admin client is configured before trying to use it
+      if (isAdminClientConfigured()) {
+        console.log("Attempting to use admin client for review submission...")
+        try {
+          const { error } = await supabaseAdmin.from("reviews").insert([
+            {
+              mentor_id: mentorId,
+              client_id: user?.id || null,
+              name: reviewerName,
+              rating: rating,
+              service: service,
+              text: reviewText,
+            },
+          ])
+
+          if (error) {
+            console.error("Error inserting review with admin client:", error)
+          } else {
+            success = true
+            console.log("Review successfully submitted with admin client")
+          }
+        } catch (adminError) {
+          console.error("Admin client operation failed:", adminError)
+        }
+      } else {
+        console.log("Admin client not configured, skipping admin client attempt")
+      }
+
+      // If admin client failed or isn't configured, use the server action
+      if (!success) {
+        console.log("Using server action for review submission...")
         const formData = new FormData()
         formData.append("mentorId", mentorId)
-        formData.append("name", user.name)
+        formData.append("name", reviewerName)
         formData.append("rating", rating.toString())
         formData.append("service", service)
         formData.append("text", reviewText)
@@ -133,8 +159,10 @@ export function MentorReviews({ mentorId }: MentorReviewsProps) {
         const result = await addReview(formData)
 
         if (!result.success) {
-          throw new Error(result.message)
+          throw new Error(result.message || "Failed to submit review via server action")
         }
+
+        console.log("Review successfully submitted with server action")
       }
 
       toast({
@@ -146,6 +174,7 @@ export function MentorReviews({ mentorId }: MentorReviewsProps) {
       setService("")
       setRating(5)
       setDialogOpen(false)
+      setReviewerName("")
 
       // Refresh reviews
       const { data: refreshedData } = await supabase
@@ -158,6 +187,7 @@ export function MentorReviews({ mentorId }: MentorReviewsProps) {
         setReviews(refreshedData)
       }
     } catch (error: any) {
+      console.error("Full error details:", error)
       toast({
         title: "Submission failed",
         description: error.message || "There was an error submitting your review",
@@ -239,6 +269,17 @@ export function MentorReviews({ mentorId }: MentorReviewsProps) {
                 </div>
               </div>
               <div className="space-y-2">
+                <Label htmlFor="reviewer-name">Your Name</Label>
+                <input
+                  id="reviewer-name"
+                  className="w-full p-2 border rounded-md"
+                  placeholder="Enter your name"
+                  value={reviewerName}
+                  onChange={(e) => setReviewerName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="service">Service Used</Label>
                 <select
                   id="service"
@@ -283,7 +324,7 @@ export function MentorReviews({ mentorId }: MentorReviewsProps) {
             <div key={review.id} className="border-b pb-6 last:border-0">
               <div className="flex items-start gap-4">
                 <Avatar>
-                  <AvatarImage src={"/placeholder-40px-height.png?height=40&width=40"} alt={review.name} />
+                  <AvatarImage src={"/placeholder.svg?height=40&width=40&query=user"} alt={review.name} />
                   <AvatarFallback>
                     {review.name
                       .split(" ")
