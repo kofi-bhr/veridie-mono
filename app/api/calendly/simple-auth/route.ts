@@ -40,8 +40,8 @@ export async function GET(request: NextRequest) {
     authUrl.searchParams.append("client_id", CALENDLY_CLIENT_ID)
     authUrl.searchParams.append("response_type", "code")
     authUrl.searchParams.append("redirect_uri", redirectUri)
-    // Use a more comprehensive scope to ensure we have all needed permissions
-    authUrl.searchParams.append("scope", "user:read event_types:read")
+    // Use the correct scope for Calendly
+    authUrl.searchParams.append("scope", "default")
 
     console.log("Redirecting to Calendly auth URL:", authUrl.toString())
 

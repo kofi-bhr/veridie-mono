@@ -33,11 +33,12 @@ export default function CalendlyConnectPage() {
       }
 
       // Construct the authorization URL
-      const authUrl = new URL("https://calendly.com/oauth/authorize")
+      const authUrl = new URL("https://auth.calendly.com/oauth/authorize")
       authUrl.searchParams.append("client_id", data.clientId || "")
       authUrl.searchParams.append("response_type", "code")
       authUrl.searchParams.append("redirect_uri", redirectUri)
-      authUrl.searchParams.append("scope", "user:read event_types:read")
+      // Use the correct scope for Calendly
+      authUrl.searchParams.append("scope", "default")
 
       // Redirect to Calendly
       window.location.href = authUrl.toString()
@@ -71,7 +72,7 @@ export default function CalendlyConnectPage() {
             This will redirect you to Calendly where you'll be asked to authorize access to your account.
           </p>
           <p className="text-sm text-muted-foreground mb-4">
-            We only request read access to your user information and event types.
+            We request the default permissions needed to access your Calendly account.
           </p>
         </CardContent>
         <CardFooter className="flex justify-between">
@@ -86,6 +87,20 @@ export default function CalendlyConnectPage() {
           </Button>
         </CardFooter>
       </Card>
+
+      <div className="mt-8 p-4 bg-muted rounded-lg">
+        <h2 className="text-xl font-semibold mb-2">Troubleshooting</h2>
+        <p className="mb-2">If you're experiencing issues connecting your Calendly account:</p>
+        <ol className="list-decimal pl-5 space-y-2">
+          <li>
+            Make sure your Calendly OAuth application has the correct redirect URI:{" "}
+            <code className="bg-background p-1 rounded">{window.location.origin}/api/calendly/simple-callback</code>
+          </li>
+          <li>Ensure your Calendly application is approved and active in the Calendly Developer Portal</li>
+          <li>Check that your Client ID and Client Secret are correctly set in your environment variables</li>
+          <li>Try clearing your browser cookies and cache before attempting to connect again</li>
+        </ol>
+      </div>
     </div>
   )
 }
