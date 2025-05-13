@@ -17,8 +17,57 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
+    console.log("Creating guest booking with:", {
+      guestName,
+      guestEmail,
+      mentorId,
+      serviceId,
+      date,
+      time,
+    })
+
+    // Check if the bookings table has the guest_name and guest_email columns
+    const { data: columns, error: columnsError } = await supabase.rpc("exec_sql", {
+      sql_query: `
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'bookings' 
+        AND column_name IN ('guest_name', 'guest_email');
+      `,
+    })
+
+    if (columnsError) {
+      console.error("Error checking columns:", columnsError)
+      return NextResponse.json({ error: "Failed to check database schema" }, { status: 500 })
+    }
+
+    const hasGuestNameColumn = columns.some((col: any) => col.column_name === "guest_name")
+    const hasGuestEmailColumn = columns.some((col: any) => col.column_name === "guest_email")
+
+    if (!hasGuestNameColumn || !hasGuestEmailColumn) {
+      console.error("Missing guest columns:", { hasGuestNameColumn, hasGuestEmailColumn })
+      return NextResponse.json(
+        {
+          error: "Database schema is missing guest columns. Please run the migration at /add-guest-fields",
+        },
+        { status: 500 },
+      )
+    }
+
     // Create a temporary booking record for the guest
     const bookingId = uuidv4()
+
+    // Log the booking data we're about to insert
+    console.log("Inserting booking with ID:", bookingId, {
+      mentor_id: mentorId,
+      service_id: serviceId,
+      date,
+      time,
+      status: "pending_payment",
+      guest_name: guestName,
+      guest_email: guestEmail,
+    })
+
     const { error: bookingError } = await supabase.from("bookings").insert({
       id: bookingId,
       mentor_id: mentorId,
@@ -33,7 +82,27 @@ export async function POST(request: Request) {
 
     if (bookingError) {
       console.error("Error creating booking:", bookingError)
-      return NextResponse.json({ error: "Failed to create booking" }, { status: 500 })
+
+      // Check if there are any constraints or required fields we're missing
+      const { data: tableInfo, error: tableError } = await supabase.rpc("exec_sql", {
+        sql_query: `
+          SELECT column_name, is_nullable, column_default, data_type
+          FROM information_schema.columns 
+          WHERE table_name = 'bookings';
+        `,
+      })
+
+      if (!tableError) {
+        console.log("Bookings table schema:", tableInfo)
+      }
+
+      return NextResponse.json(
+        {
+          error: `Failed to create booking: ${bookingError.message}`,
+          details: bookingError,
+        },
+        { status: 500 },
+      )
     }
 
     // Get the base URL for success and cancel URLs
