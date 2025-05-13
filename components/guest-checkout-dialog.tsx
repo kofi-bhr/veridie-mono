@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 // Form schema
 const guestFormSchema = z.object({
@@ -55,6 +56,7 @@ export function GuestCheckoutDialog({
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Initialize form
   const form = useForm<GuestFormValues>({
@@ -76,6 +78,7 @@ export function GuestCheckoutDialog({
     }
 
     setLoading(true)
+    setError(null)
 
     try {
       // Create a guest checkout session
@@ -97,17 +100,18 @@ export function GuestCheckoutDialog({
         }),
       })
 
+      const responseData = await response.json()
+
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to create checkout session")
+        console.error("Checkout error response:", responseData)
+        throw new Error(responseData.error || "Failed to create checkout session")
       }
 
-      const checkoutData = await response.json()
-
       // Redirect to Stripe Checkout
-      window.location.href = checkoutData.url
+      window.location.href = responseData.url
     } catch (error) {
       console.error("Guest checkout error:", error)
+      setError(error instanceof Error ? error.message : "Something went wrong")
       toast({
         title: "Checkout Failed",
         description: error instanceof Error ? error.message : "Something went wrong",
@@ -124,6 +128,13 @@ export function GuestCheckoutDialog({
           <DialogTitle>Book as Guest</DialogTitle>
           <DialogDescription>Enter your information to book a session with {mentorName}</DialogDescription>
         </DialogHeader>
+
+        {error && (
+          <Alert variant="destructive" className="mt-2">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-2">
