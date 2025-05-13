@@ -38,9 +38,10 @@ export async function POST(request: Request) {
       status: "pending_payment",
       guest_name: guestName,
       guest_email: guestEmail,
+      client_id: null, // Explicitly set client_id to null for guest bookings
     })
 
-    // Directly insert the booking without checking schema
+    // Insert the booking with client_id explicitly set to null
     const { error: bookingError } = await supabase.from("bookings").insert({
       id: bookingId,
       mentor_id: mentorId,
@@ -50,6 +51,7 @@ export async function POST(request: Request) {
       status: "pending_payment",
       guest_name: guestName,
       guest_email: guestEmail,
+      client_id: null, // Explicitly set client_id to null for guest bookings
       created_at: new Date().toISOString(),
     })
 
