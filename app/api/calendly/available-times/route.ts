@@ -1,94 +1,105 @@
-import { NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase-client"
+import { type NextRequest, NextResponse } from "next/server"
+import { createClient } from "@supabase/supabase-js"
 import { fetchAvailableTimes } from "@/lib/calendly-availability"
+import { refreshCalendlyToken } from "@/lib/calendly-token-refresh"
 
-export async function POST(request: Request) {
+// Create a Supabase client with admin privileges
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+)
+
+export async function POST(request: NextRequest) {
   try {
-    const { mentorId, date, serviceId } = await request.json()
-    console.log("Available times request:", { mentorId, date, serviceId })
+    const body = await request.json()
+    const { mentorId, date, serviceId } = body
 
     if (!mentorId || !date || !serviceId) {
-      console.log("Missing required parameters")
-      return NextResponse.json({ error: "Missing required parameters" }, { status: 400 })
+      return NextResponse.json({ error: "Missing required parameters: mentorId, date, serviceId" }, { status: 400 })
     }
 
-    // First, get the mentor's Calendly access token
-    const { data: mentor, error: mentorError } = await supabase
+    console.log("Fetching available times for:", { mentorId, date, serviceId })
+
+    // Get the mentor data
+    const { data: mentor, error: mentorError } = await supabaseAdmin
       .from("mentors")
-      .select("calendly_username, calendly_access_token, calendly_refresh_token, calendly_token_expires_at")
+      .select("calendly_access_token, calendly_token_expires_at")
       .eq("id", mentorId)
       .single()
 
-    if (mentorError || !mentor) {
+    if (mentorError) {
       console.error("Error fetching mentor:", mentorError)
       return NextResponse.json({ error: "Mentor not found" }, { status: 404 })
     }
 
-    console.log("Mentor Calendly data:", {
-      username: mentor.calendly_username,
-      hasAccessToken: !!mentor.calendly_access_token,
-      hasRefreshToken: !!mentor.calendly_refresh_token,
-      tokenExpiresAt: mentor.calendly_token_expires_at,
-    })
-
-    if (!mentor.calendly_access_token) {
-      console.log("Mentor doesn't have Calendly access token")
-      return NextResponse.json(
-        {
-          error: "Mentor doesn't have Calendly access token",
-          needsReconnect: true,
-        },
-        { status: 401 },
-      )
-    }
-
-    // Now, get the event URI from the services table
-    const { data: service, error: serviceError } = await supabase
+    // Get the service data
+    const { data: service, error: serviceError } = await supabaseAdmin
       .from("services")
-      .select("*")
+      .select("calendly_event_type_uri")
       .eq("id", serviceId)
       .single()
 
-    if (serviceError || !service) {
+    if (serviceError) {
       console.error("Error fetching service:", serviceError)
       return NextResponse.json({ error: "Service not found" }, { status: 404 })
     }
 
-    console.log("Service data:", {
-      id: service.id,
-      name: service.name,
-      eventTypeUri: service.calendly_event_type_uri || service.calendly_event_uri,
-    })
+    const eventTypeUri = service.calendly_event_type_uri
 
-    // Check for the Calendly event URI in different possible column names
-    const eventUri = service.calendly_event_type_uri || service.calendly_event_uri
-
-    if (!eventUri) {
-      console.log("Service doesn't have Calendly event URI")
+    if (!eventTypeUri) {
+      console.error("Service is missing Calendly event type URI")
       return NextResponse.json(
-        {
-          error: "Service doesn't have Calendly event URI",
-          missingEventUri: true,
-        },
+        { error: "Service is not configured with Calendly", missingEventUri: true },
         { status: 400 },
       )
     }
 
-    console.log("Fetching real available times from Calendly for service:", serviceId, "with event URI:", eventUri)
+    // Check if token needs refreshing
+    let accessToken = mentor.calendly_access_token
+    const tokenExpiresAt = mentor.calendly_token_expires_at ? new Date(mentor.calendly_token_expires_at) : null
+    const now = new Date()
 
+    // Add a buffer of 30 minutes to prevent edge cases
+    const bufferTime = 30 * 60 * 1000 // 30 minutes in milliseconds
+    const isExpired = !tokenExpiresAt || tokenExpiresAt.getTime() - now.getTime() < bufferTime
+
+    // If token is expired or close to expiry, refresh it
+    if (isExpired || !accessToken) {
+      console.log("Token is expired or close to expiry, refreshing...")
+
+      // Refresh the token
+      const refreshResult = await refreshCalendlyToken(mentorId)
+
+      if (!refreshResult.success) {
+        console.error("Failed to refresh Calendly token:", refreshResult.error)
+        return NextResponse.json({ error: "Failed to refresh Calendly token", needsReconnect: true }, { status: 401 })
+      }
+
+      // Use the new access token
+      accessToken = refreshResult.accessToken
+      console.log("Successfully refreshed Calendly token")
+    } else {
+      console.log("Calendly token is still valid, no need to refresh")
+    }
+
+    if (!accessToken) {
+      console.error("No Calendly access token available")
+      return NextResponse.json({ error: "Consultant needs to connect Calendly", needsReconnect: true }, { status: 401 })
+    }
+
+    // Fetch available times from Calendly
     try {
-      // Try to fetch available times with current token
-      const accessToken = mentor.calendly_access_token
-      const availableTimes = await fetchAvailableTimes(new Date(date), eventUri, accessToken)
-
-      console.log("Calendly API returned times:", availableTimes)
+      const dateObj = new Date(date)
+      const times = await fetchAvailableTimes(dateObj, eventTypeUri, accessToken)
 
       return NextResponse.json({
-        times: availableTimes,
+        times,
         source: "calendly",
         debug: {
-          eventUri: eventUri,
-          mentorHasToken: !!accessToken,
+          mentorId,
+          serviceId,
+          eventTypeUri: eventTypeUri.substring(0, 20) + "...", // Truncate for security
+          date,
         },
       })
     } catch (error) {
@@ -96,35 +107,14 @@ export async function POST(request: Request) {
 
       // Check if it's an authentication error
       const errorMessage = error instanceof Error ? error.message : String(error)
-
-      if (errorMessage.includes("401") || errorMessage.includes("Unauthenticated")) {
-        return NextResponse.json(
-          {
-            error: "Calendly authentication error. The consultant needs to reconnect their Calendly account.",
-            needsReconnect: true,
-            details: errorMessage,
-          },
-          { status: 401 },
-        )
+      if (errorMessage.includes("401") || errorMessage.includes("auth")) {
+        return NextResponse.json({ error: "Calendly authentication failed", needsReconnect: true }, { status: 401 })
       }
 
-      // For other errors, return the error details
-      return NextResponse.json(
-        {
-          error: "Failed to fetch available times from Calendly",
-          details: errorMessage,
-        },
-        { status: 500 },
-      )
+      return NextResponse.json({ error: `Failed to fetch available times: ${errorMessage}` }, { status: 500 })
     }
   } catch (error) {
-    console.error("Error in available times route handler:", error)
-    return NextResponse.json(
-      {
-        error: "Failed to fetch available times",
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 },
-    )
+    console.error("Unexpected error in available-times API:", error)
+    return NextResponse.json({ error: "An unexpected error occurred" }, { status: 500 })
   }
 }
