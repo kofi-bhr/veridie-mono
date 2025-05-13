@@ -27,8 +27,7 @@ export async function POST(request: Request) {
       .select(`
         *,
         mentors!inner(calendly_access_token, calendly_refresh_token, calendly_user_uri, calendly_event_type_uri),
-        services(calendly_event_type_uri),
-        profiles!client_id(name, email)
+        services(calendly_event_type_uri)
       `)
       .eq("id", bookingId)
       .single()
@@ -49,12 +48,30 @@ export async function POST(request: Request) {
         const dateTime = new Date(`${booking.date}T${booking.time}`)
         const endTime = new Date(dateTime.getTime() + 60 * 60 * 1000) // Add 1 hour
 
+        // Get the guest name and email (either from client_id or guest fields)
+        let attendeeName = booking.guest_name
+        let attendeeEmail = booking.guest_email
+
+        // If this is a registered user booking, get their profile info
+        if (booking.client_id) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("name, email")
+            .eq("id", booking.client_id)
+            .single()
+
+          if (profile) {
+            attendeeName = profile.name
+            attendeeEmail = profile.email
+          }
+        }
+
         console.log("Creating Calendly event with:", {
           eventTypeUri,
           startTime: dateTime.toISOString(),
           endTime: endTime.toISOString(),
-          inviteeEmail: booking.profiles.email,
-          inviteeName: booking.profiles.name,
+          inviteeEmail: attendeeEmail,
+          inviteeName: attendeeName,
         })
 
         // Create the event in Calendly
@@ -70,12 +87,12 @@ export async function POST(request: Request) {
             end_time: endTime.toISOString(),
             invitees: [
               {
-                email: booking.profiles.email,
-                name: booking.profiles.name,
+                email: attendeeEmail,
+                name: attendeeName,
                 questions_and_answers: [
                   {
                     question: "Booking Reference",
-                    answer: `Mentor ID: ${booking.mentor_id}, Booking ID: ${bookingId}`,
+                    answer: `Booking ID: ${bookingId}`,
                   },
                 ],
               },

@@ -15,6 +15,7 @@ interface CheckoutButtonProps {
   date: string | null
   time: string | null
   disabled?: boolean
+  onBeforeCheckout?: () => boolean // Return true to prevent default checkout
 }
 
 export function CheckoutButton({
@@ -26,11 +27,17 @@ export function CheckoutButton({
   date,
   time,
   disabled = false,
+  onBeforeCheckout,
 }: CheckoutButtonProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
   const handleCheckout = async () => {
+    // If onBeforeCheckout returns true, don't proceed with default checkout
+    if (onBeforeCheckout && onBeforeCheckout()) {
+      return
+    }
+
     setLoading(true)
     try {
       // Create a checkout session

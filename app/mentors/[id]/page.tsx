@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { getProfileImageUrl, getInitials } from "@/lib/image-utils"
 import { CheckoutButton } from "@/components/checkout-button"
+import { GuestCheckoutDialog } from "@/components/guest-checkout-dialog"
 
 export default function MentorPage() {
   const { id } = useParams()
@@ -36,6 +37,7 @@ export default function MentorPage() {
   const [timeSource, setTimeSource] = useState<string | null>(null)
   const [imageLoadFailed, setImageLoadFailed] = useState(false)
   const [debugInfo, setDebugInfo] = useState<any>(null)
+  const [showGuestDialog, setShowGuestDialog] = useState(false)
 
   useEffect(() => {
     async function fetchMentor() {
@@ -193,13 +195,15 @@ export default function MentorPage() {
     }
   }
 
-  const handleLoginPrompt = () => {
-    toast({
-      title: "Please log in",
-      description: "You need to be logged in to book a session",
-      variant: "destructive",
-    })
-    router.push("/auth/login")
+  const handleBooking = () => {
+    if (user) {
+      // User is logged in, proceed with normal checkout
+      return false // Let the CheckoutButton handle it
+    } else {
+      // User is not logged in, show guest checkout dialog
+      setShowGuestDialog(true)
+      return true // We handled it, don't proceed with normal checkout
+    }
   }
 
   if (loading) {
@@ -443,23 +447,17 @@ export default function MentorPage() {
                       </div>
                     </div>
 
-                    {user ? (
-                      <CheckoutButton
-                        mentorId={mentor.id}
-                        serviceId={selectedService.id}
-                        serviceName={selectedService.name}
-                        servicePrice={selectedService.price}
-                        stripePriceId={selectedService.stripe_price_id}
-                        date={selectedDate ? selectedDate.toISOString().split("T")[0] : null}
-                        time={selectedTime}
-                        disabled={!selectedService || !selectedDate || !selectedTime || isBooking}
-                      />
-                    ) : (
-                      <Button onClick={handleLoginPrompt} className="w-full" size="lg">
-                        <CalendarDays className="mr-2 h-4 w-4" />
-                        Log in to Book
-                      </Button>
-                    )}
+                    <CheckoutButton
+                      mentorId={mentor.id}
+                      serviceId={selectedService.id}
+                      serviceName={selectedService.name}
+                      servicePrice={selectedService.price}
+                      stripePriceId={selectedService.stripe_price_id}
+                      date={selectedDate ? selectedDate.toISOString().split("T")[0] : null}
+                      time={selectedTime}
+                      disabled={!selectedService || !selectedDate || !selectedTime || isBooking}
+                      onBeforeCheckout={handleBooking}
+                    />
                   </div>
                 </>
               )}
@@ -523,6 +521,20 @@ export default function MentorPage() {
           </Tabs>
         </div>
       </div>
+
+      {/* Guest Checkout Dialog */}
+      <GuestCheckoutDialog
+        open={showGuestDialog}
+        onOpenChange={setShowGuestDialog}
+        mentorId={mentor.id}
+        mentorName={mentor.name}
+        serviceId={selectedService?.id}
+        serviceName={selectedService?.name}
+        servicePrice={selectedService?.price}
+        stripePriceId={selectedService?.stripe_price_id}
+        date={selectedDate ? selectedDate.toISOString().split("T")[0] : null}
+        time={selectedTime}
+      />
     </div>
   )
 }
