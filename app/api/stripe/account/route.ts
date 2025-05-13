@@ -1,85 +1,71 @@
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { getStripe } from "@/lib/stripe"
+import { cookies } from "next/headers"
 
-export async function POST(request: Request) {
+export async function GET() {
   try {
-    // Get the current user from the session
-    const cookieStore = cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    // Explicitly set the content type to application/json
+    const headers = {
+      "Content-Type": "application/json",
+    }
 
+    // Get the current user
+    const supabase = createRouteHandlerClient({ cookies })
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized", isConnected: false }, { status: 401, headers })
     }
 
-    // Get request body
-    const body = await request.json()
-    const { userId } = body
-
-    if (!userId) {
-      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
-    }
-
-    // Verify that the user is requesting their own account
-    if (session.user.id !== userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
-    }
-
-    // Get Stripe instance
-    const stripe = getStripe()
-    if (!stripe) {
-      return NextResponse.json({ error: "Payment service unavailable" }, { status: 500 })
-    }
-
-    // Get the user's Stripe account ID
-    const { data: mentor, error: fetchError } = await supabase
+    // Get the mentor record
+    const { data: mentor, error: mentorError } = await supabase
       .from("mentors")
-      .select("stripe_connect_accounts")
-      .eq("id", userId)
+      .select(
+        "stripe_connect_accounts, stripe_account_details_submitted, stripe_account_charges_enabled, stripe_account_payouts_enabled",
+      )
+      .eq("id", user.id)
       .single()
 
-    if (fetchError) {
-      return NextResponse.json({ error: "Failed to fetch mentor data" }, { status: 500 })
+    if (mentorError) {
+      console.error("Error fetching mentor:", mentorError)
+      return NextResponse.json(
+        {
+          error: "Failed to fetch mentor data",
+          isConnected: false,
+          details: mentorError.message,
+        },
+        { status: 500, headers },
+      )
     }
 
-    if (!mentor?.stripe_connect_accounts) {
-      return NextResponse.json({
-        accountId: null,
-        detailsSubmitted: false,
-        chargesEnabled: false,
-        payoutsEnabled: false,
-      })
-    }
+    // Check if Stripe account is connected
+    const isConnected = !!mentor?.stripe_connect_accounts
 
-    // Get account details from Stripe
-    const account = await stripe.accounts.retrieve(mentor.stripe_connect_accounts)
-
-    // Update the database with the latest account status
-    await supabase
-      .from("mentors")
-      .update({
-        stripe_account_details_submitted: account.details_submitted,
-        stripe_account_charges_enabled: account.charges_enabled,
-        stripe_account_payouts_enabled: account.payouts_enabled,
-      })
-      .eq("id", userId)
-
-    return NextResponse.json({
-      accountId: account.id,
-      detailsSubmitted: account.details_submitted,
-      chargesEnabled: account.charges_enabled,
-      payoutsEnabled: account.payouts_enabled,
-    })
-  } catch (error) {
-    console.error("Error fetching account status:", error)
     return NextResponse.json(
-      { error: "Failed to fetch account status", details: error instanceof Error ? error.message : String(error) },
-      { status: 500 },
+      {
+        isConnected,
+        accountId: mentor?.stripe_connect_accounts || null,
+        chargesEnabled: mentor?.stripe_account_charges_enabled || false,
+        detailsSubmitted: mentor?.stripe_account_details_submitted || false,
+        payoutsEnabled: mentor?.stripe_account_payouts_enabled || false,
+      },
+      { headers },
+    )
+  } catch (error) {
+    console.error("Error in Stripe account route:", error)
+    return NextResponse.json(
+      {
+        error: "Unexpected error",
+        isConnected: false,
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      },
     )
   }
 }
