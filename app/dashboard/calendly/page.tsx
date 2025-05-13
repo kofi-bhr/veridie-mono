@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Calendar, AlertCircle, Loader2, RefreshCw, Clock, ArrowRight } from "lucide-react"
+import { Calendar, AlertCircle, Loader2, RefreshCw, Clock, ArrowRight, ExternalLink } from "lucide-react"
 import Link from "next/link"
 
 export default function CalendlyPage() {
@@ -14,10 +14,12 @@ export default function CalendlyPage() {
   const [isConnected, setIsConnected] = useState<boolean>(false)
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
+  const [isConnecting, setIsConnecting] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
   const [apiResponse, setApiResponse] = useState<any>(null)
   const [tokenExpiresAt, setTokenExpiresAt] = useState<string | null>(null)
   const [needsReconnect, setNeedsReconnect] = useState<boolean>(false)
+  const [oauthUrl, setOauthUrl] = useState<string | null>(null)
 
   const checkConnection = async () => {
     if (!user) return
@@ -64,7 +66,27 @@ export default function CalendlyPage() {
     }
   }
 
+  // Get the OAuth URL
+  const getOAuthUrl = async () => {
+    try {
+      const res = await fetch("/api/calendly/oauth-url")
+      if (!res.ok) {
+        throw new Error("Failed to get OAuth URL")
+      }
+      const data = await res.json()
+      setOauthUrl(data.url)
+      return data.url
+    } catch (err) {
+      console.error("Error getting OAuth URL:", err)
+      setError("Failed to get Calendly authorization URL")
+      return null
+    }
+  }
+
   useEffect(() => {
+    // Get the OAuth URL when the component loads
+    getOAuthUrl()
+
     // Check for error in URL
     const urlParams = new URLSearchParams(window.location.search)
     const errorParam = urlParams.get("error")
@@ -90,9 +112,27 @@ export default function CalendlyPage() {
     }
   }, [user])
 
-  const handleConnect = () => {
-    // Use the exact URL format that works
-    window.location.href = "/api/calendly/oauth"
+  const handleConnect = async () => {
+    setIsConnecting(true)
+    try {
+      // Get the latest OAuth URL
+      const url = await getOAuthUrl()
+      if (!url) {
+        throw new Error("Failed to get Calendly authorization URL")
+      }
+
+      console.log("Redirecting to Calendly OAuth URL:", url)
+
+      // Log the URL to the console for debugging
+      console.log("Calendly OAuth URL:", url)
+
+      // Redirect to the Calendly OAuth URL
+      window.location.href = url
+    } catch (err: any) {
+      console.error("Error connecting to Calendly:", err)
+      setError(err.message || "Failed to connect to Calendly")
+      setIsConnecting(false)
+    }
   }
 
   const handleReconnect = () => {
@@ -259,7 +299,23 @@ export default function CalendlyPage() {
             <div>
               <p className="mb-4">Connect your Calendly account to allow clients to schedule appointments with you.</p>
               <div className="flex gap-4">
-                <Button onClick={handleConnect}>Connect to Calendly</Button>
+                <Button
+                  onClick={handleConnect}
+                  disabled={isConnecting || !oauthUrl}
+                  className="flex items-center gap-2"
+                >
+                  {isConnecting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Connecting...
+                    </>
+                  ) : (
+                    <>
+                      <Calendar className="h-4 w-4" />
+                      Connect to Calendly
+                    </>
+                  )}
+                </Button>
                 <Button
                   variant="outline"
                   onClick={handleRefresh}
@@ -279,6 +335,24 @@ export default function CalendlyPage() {
                   )}
                 </Button>
               </div>
+
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <h3 className="text-sm font-medium mb-2">Don't have a Calendly account?</h3>
+                <p className="text-sm text-gray-500 mb-3">
+                  Calendly is a free scheduling tool that lets you set your availability preferences.
+                </p>
+                <Button variant="outline" size="sm" asChild>
+                  <a
+                    href="https://calendly.com/signup"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2"
+                  >
+                    Sign up for Calendly
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
@@ -289,10 +363,19 @@ export default function CalendlyPage() {
         <div className="mt-8 p-4 border border-gray-200 rounded-md">
           <h2 className="text-lg font-semibold mb-2">Debug Information</h2>
           <p className="text-sm text-gray-600 mb-2">User ID: {user?.id}</p>
+          {oauthUrl && (
+            <div className="mb-4">
+              <h3 className="text-sm font-semibold mb-1">OAuth URL:</h3>
+              <div className="text-xs bg-gray-100 p-2 rounded overflow-auto">{oauthUrl}</div>
+            </div>
+          )}
           {apiResponse && (
-            <pre className="text-xs bg-gray-100 p-2 rounded overflow-auto max-h-40">
-              {JSON.stringify(apiResponse, null, 2)}
-            </pre>
+            <div>
+              <h3 className="text-sm font-semibold mb-1">API Response:</h3>
+              <pre className="text-xs bg-gray-100 p-2 rounded overflow-auto max-h-40">
+                {JSON.stringify(apiResponse, null, 2)}
+              </pre>
+            </div>
           )}
         </div>
       )}

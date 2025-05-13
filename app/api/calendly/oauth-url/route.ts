@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     // Ensure we have the client ID
     if (!CALENDLY_CLIENT_ID) {
       console.error("Missing Calendly client ID")
-      return NextResponse.redirect(new URL(`/dashboard/calendly?error=missing_client_id`, request.url))
+      return NextResponse.json({ error: "Calendly client ID is not configured" }, { status: 500 })
     }
 
     // Use the exact redirect URI format
@@ -16,13 +16,13 @@ export async function GET(request: NextRequest) {
     console.log("Generating Calendly OAuth URL with redirect URI:", redirectUri)
 
     // Generate the OAuth URL
-    const authUrl = getCalendlyAuthUrl(CALENDLY_CLIENT_ID, redirectUri)
+    const oauthUrl = getCalendlyAuthUrl(CALENDLY_CLIENT_ID, redirectUri)
 
-    console.log("Redirecting to Calendly OAuth URL:", authUrl)
+    console.log("Generated Calendly OAuth URL:", oauthUrl)
 
-    return NextResponse.redirect(authUrl)
+    return NextResponse.json({ url: oauthUrl })
   } catch (error) {
-    console.error("Error in Calendly auth:", error)
-    return NextResponse.redirect(new URL(`/dashboard/calendly?error=auth_error`, request.url))
+    console.error("Error generating Calendly OAuth URL:", error)
+    return NextResponse.json({ error: "Failed to generate Calendly OAuth URL" }, { status: 500 })
   }
 }

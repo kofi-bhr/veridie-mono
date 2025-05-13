@@ -22,16 +22,8 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 // Generate OAuth authorization URL
 export function getCalendlyAuthUrl(clientId: string, redirectUri: string): string {
-  // Use URLSearchParams to properly encode parameters
-  const params = new URLSearchParams({
-    client_id: clientId,
-    response_type: "code",
-    redirect_uri: redirectUri,
-    scope: "user:read event_types:read scheduling_links:read",
-  })
-
-  console.log("Generated Calendly Auth URL with redirect URI:", redirectUri)
-  return `https://auth.calendly.com/oauth/authorize?${params.toString()}`
+  // Use the exact format specified
+  return `https://auth.calendly.com/oauth/authorize?client_id=${encodeURIComponent(clientId)}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}`
 }
 
 // Exchange authorization code for tokens
