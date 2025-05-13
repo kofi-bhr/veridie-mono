@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Calendar, AlertCircle, Loader2, RefreshCw, Clock } from "lucide-react"
+import { Calendar, AlertCircle, Loader2, RefreshCw, Clock, ArrowRight } from "lucide-react"
 import Link from "next/link"
 
 export default function CalendlyPage() {
@@ -17,6 +17,7 @@ export default function CalendlyPage() {
   const [error, setError] = useState<string | null>(null)
   const [apiResponse, setApiResponse] = useState<any>(null)
   const [tokenExpiresAt, setTokenExpiresAt] = useState<string | null>(null)
+  const [needsReconnect, setNeedsReconnect] = useState<boolean>(false)
 
   const checkConnection = async () => {
     if (!user) return
@@ -28,19 +29,14 @@ export default function CalendlyPage() {
       console.log("Checking Calendly connection for user:", user.id)
       const res = await fetch(`/api/calendly/simple-info?userId=${user.id}`)
 
-      // Store the raw response text for debugging
-      const responseText = await res.text()
-      console.log("Raw API response:", responseText)
-
-      // Try to parse the response as JSON
-      let data
-      try {
-        data = JSON.parse(responseText)
-        setApiResponse(data)
-      } catch (parseError) {
-        console.error("Error parsing JSON response:", parseError)
-        throw new Error(`Failed to parse API response: ${responseText}`)
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || "Failed to check connection")
       }
+
+      // Parse the response as JSON
+      const data = await res.json()
+      setApiResponse(data)
 
       if (data.error) {
         throw new Error(data.error)
@@ -49,9 +45,20 @@ export default function CalendlyPage() {
       setCalendlyUsername(data.username)
       setIsConnected(data.isConnected)
       setTokenExpiresAt(data.tokenExpiresAt)
+      setNeedsReconnect(data.needsReconnect || false)
     } catch (err: any) {
       console.error("Error checking Calendly connection:", err)
       setError(err.message || "Failed to check connection")
+
+      // Check if the error indicates we need to reconnect
+      if (
+        err.message &&
+        (err.message.includes("authentication failed") ||
+          err.message.includes("token expired") ||
+          err.message.includes("invalid token"))
+      ) {
+        setNeedsReconnect(true)
+      }
     } finally {
       setIsLoading(false)
     }
@@ -85,7 +92,11 @@ export default function CalendlyPage() {
 
   const handleConnect = () => {
     // Use the exact URL format that works
-    window.location.href = "/api/calendly/simple-auth"
+    window.location.href = "/api/calendly/oauth"
+  }
+
+  const handleReconnect = () => {
+    window.location.href = "/reconnect-calendly"
   }
 
   const handleRefresh = async () => {
@@ -111,6 +122,16 @@ export default function CalendlyPage() {
     } catch (err: any) {
       console.error("Error refreshing token:", err)
       setError(err.message || "Failed to refresh token")
+
+      // Check if we need to reconnect
+      if (
+        err.message &&
+        (err.message.includes("authentication failed") ||
+          err.message.includes("token expired") ||
+          err.message.includes("invalid token"))
+      ) {
+        setNeedsReconnect(true)
+      }
     } finally {
       setIsRefreshing(false)
     }
@@ -167,6 +188,23 @@ export default function CalendlyPage() {
         </Alert>
       )}
 
+      {needsReconnect && (
+        <Alert variant="warning" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Authentication Expired</AlertTitle>
+          <AlertDescription className="flex flex-col gap-2">
+            <p>
+              Your Calendly authentication has expired. Please reconnect your account to continue using Calendly
+              integration.
+            </p>
+            <Button onClick={handleReconnect} className="w-full sm:w-auto mt-2">
+              Reconnect Calendly Account
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -180,7 +218,7 @@ export default function CalendlyPage() {
               <Loader2 className="h-5 w-5 animate-spin" />
               <p>Checking connection status...</p>
             </div>
-          ) : isConnected ? (
+          ) : isConnected && !needsReconnect ? (
             <div>
               <p className="mb-4">
                 Your Calendly account <strong>{calendlyUsername}</strong> is connected.

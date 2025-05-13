@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     // Now check if the mentor record exists
     const { data, error } = await supabase
       .from("mentors")
-      .select("calendly_username, calendly_access_token, calendly_refresh_token")
+      .select("calendly_username, calendly_access_token, calendly_refresh_token, calendly_token_expires_at")
       .eq("id", userId)
 
     if (error) {
@@ -70,11 +70,24 @@ export async function GET(request: NextRequest) {
     // Check if the user actually has Calendly credentials
     const isConnected = !!(mentor?.calendly_username && mentor?.calendly_access_token && mentor?.calendly_refresh_token)
 
+    // Check if token is expired
+    const tokenExpiresAt = mentor?.calendly_token_expires_at ? new Date(mentor.calendly_token_expires_at) : null
+    const isTokenExpired = tokenExpiresAt ? tokenExpiresAt < new Date() : false
+
+    // Determine if the user needs to reconnect
+    const needsReconnect = isTokenExpired && isConnected
+
     console.log("Calendly connection status for user:", userId, "is:", isConnected)
+    console.log("Token expires at:", tokenExpiresAt)
+    console.log("Token expired:", isTokenExpired)
+    console.log("Needs reconnect:", needsReconnect)
 
     return NextResponse.json({
       username: mentor?.calendly_username || null,
       isConnected: isConnected,
+      tokenExpiresAt: mentor?.calendly_token_expires_at || null,
+      isTokenExpired: isTokenExpired,
+      needsReconnect: needsReconnect,
     })
   } catch (error) {
     console.error("Unexpected error in Calendly info endpoint:", error)

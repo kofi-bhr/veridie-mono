@@ -1,5 +1,4 @@
 import type { CalendlyEventType } from "@/types"
-import { CALENDLY_CLIENT_ID, CALENDLY_CLIENT_SECRET } from "@/lib/api-config"
 
 const CALENDLY_API_URL = "https://api.calendly.com"
 
@@ -71,44 +70,60 @@ export async function exchangeCalendlyCode(
 }
 
 // Refresh access token - this is the missing export
-export async function refreshCalendlyToken(refreshToken: string): Promise<CalendlyTokens> {
-  if (!CALENDLY_CLIENT_ID || !CALENDLY_CLIENT_SECRET) {
-    throw new Error("Missing Calendly credentials")
-  }
+export async function refreshCalendlyToken(
+  refreshToken: string,
+  clientId: string,
+  clientSecret: string,
+): Promise<CalendlyTokens> {
+  console.log("Refreshing Calendly token with client ID:", clientId?.substring(0, 5) + "...")
 
-  const response = await fetch("https://auth.calendly.com/oauth/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      client_id: CALENDLY_CLIENT_ID,
-      client_secret: CALENDLY_CLIENT_SECRET,
-      refresh_token: refreshToken,
-    }).toString(),
-  })
+  try {
+    const response = await fetch("https://auth.calendly.com/oauth/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+      }).toString(),
+    })
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Failed to refresh Calendly token: ${errorText}`)
-  }
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`Token refresh error (${response.status}):`, errorText)
+      throw new Error(`Token refresh failed: ${response.status} - ${errorText}`)
+    }
 
-  const data = await response.json()
-  return {
-    accessToken: data.access_token,
-    refreshToken: data.refresh_token,
-    expiresAt: new Date(Date.now() + data.expires_in * 1000),
+    const data = await response.json()
+    console.log("Token refresh successful")
+
+    // Calculate when the token will expire
+    const expiresIn = data.expires_in || 3600 // Default to 1 hour
+    const expiresAt = new Date(Date.now() + expiresIn * 1000)
+
+    return {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token || refreshToken, // Use the new refresh token if provided, otherwise keep the old one
+      expiresAt: expiresAt,
+    }
+  } catch (error) {
+    console.error("Error refreshing token:", error)
+    throw error
   }
 }
 
-// Get user's event types with retry logic
+// Get user's event types with retry logic and auto token refresh
 export async function getUserEventTypes(
   accessToken: string,
   userUri: string,
+  refreshTokenFn?: () => Promise<string>,
   maxRetries = 3,
 ): Promise<CalendlyEventType[]> {
   let retries = 0
+  let currentToken = accessToken
 
   while (retries < maxRetries) {
     try {
@@ -137,7 +152,7 @@ export async function getUserEventTypes(
       const response = await fetch(apiUrl, {
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${currentToken}`,
         },
       })
 
@@ -148,6 +163,19 @@ export async function getUserEventTypes(
         await delay(backoffTime)
         retries++
         continue
+      }
+
+      // If unauthorized and we have a refresh function, try to refresh the token
+      if (response.status === 401 && refreshTokenFn && retries === 0) {
+        console.log("Access token expired, attempting to refresh...")
+        try {
+          currentToken = await refreshTokenFn()
+          console.log("Token refreshed successfully, retrying request...")
+          continue // Retry with the new token without incrementing retries
+        } catch (refreshError) {
+          console.error("Failed to refresh token:", refreshError)
+          // Continue with retry logic
+        }
       }
 
       if (!response.ok) {
