@@ -27,8 +27,8 @@ export async function refreshCalendlyToken(mentorId: string) {
     const tokenExpiresAt = mentor.calendly_token_expires_at ? new Date(mentor.calendly_token_expires_at) : null
     const now = new Date()
 
-    // Add a buffer of 5 minutes to prevent edge cases
-    const bufferTime = 5 * 60 * 1000 // 5 minutes in milliseconds
+    // Add a buffer of 30 minutes to prevent edge cases (increased from 5 minutes)
+    const bufferTime = 30 * 60 * 1000 // 30 minutes in milliseconds
     const isExpired = !tokenExpiresAt || tokenExpiresAt.getTime() - now.getTime() < bufferTime
 
     if (!isExpired) {

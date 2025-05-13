@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Calendar, AlertCircle, Loader2, RefreshCw } from "lucide-react"
+import { Calendar, AlertCircle, Loader2, RefreshCw, Clock } from "lucide-react"
 import Link from "next/link"
 
 export default function CalendlyPage() {
@@ -16,6 +16,7 @@ export default function CalendlyPage() {
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
   const [apiResponse, setApiResponse] = useState<any>(null)
+  const [tokenExpiresAt, setTokenExpiresAt] = useState<string | null>(null)
 
   const checkConnection = async () => {
     if (!user) return
@@ -47,6 +48,7 @@ export default function CalendlyPage() {
 
       setCalendlyUsername(data.username)
       setIsConnected(data.isConnected)
+      setTokenExpiresAt(data.tokenExpiresAt)
     } catch (err: any) {
       console.error("Error checking Calendly connection:", err)
       setError(err.message || "Failed to check connection")
@@ -88,8 +90,57 @@ export default function CalendlyPage() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true)
-    await checkConnection()
-    setIsRefreshing(false)
+
+    try {
+      // Force token refresh
+      const res = await fetch("/api/calendly/refresh-token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId: user?.id }),
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || "Failed to refresh token")
+      }
+
+      // Check connection again
+      await checkConnection()
+    } catch (err: any) {
+      console.error("Error refreshing token:", err)
+      setError(err.message || "Failed to refresh token")
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
+  // Format the expiration time in a human-readable way
+  const formatExpirationTime = () => {
+    if (!tokenExpiresAt) return null
+
+    const expiresAt = new Date(tokenExpiresAt)
+    const now = new Date()
+    const diffMs = expiresAt.getTime() - now.getTime()
+
+    if (diffMs < 0) {
+      return "Expired"
+    }
+
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
+
+    if (diffHours > 24) {
+      const diffDays = Math.floor(diffHours / 24)
+      return `Expires in ${diffDays} day${diffDays !== 1 ? "s" : ""}`
+    }
+
+    if (diffHours > 0) {
+      return `Expires in ${diffHours} hour${diffHours !== 1 ? "s" : ""} and ${diffMinutes} minute${diffMinutes !== 1 ? "s" : ""}`
+    }
+
+    return `Expires in ${diffMinutes} minute${diffMinutes !== 1 ? "s" : ""}`
   }
 
   if (!user) {
@@ -134,6 +185,14 @@ export default function CalendlyPage() {
               <p className="mb-4">
                 Your Calendly account <strong>{calendlyUsername}</strong> is connected.
               </p>
+
+              {tokenExpiresAt && (
+                <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
+                  <Clock className="h-4 w-4" />
+                  <span>{formatExpirationTime()}</span>
+                </div>
+              )}
+
               <div className="flex gap-4">
                 <Button asChild>
                   <Link href="/dashboard/services">Manage Services</Link>
@@ -152,7 +211,7 @@ export default function CalendlyPage() {
                   ) : (
                     <>
                       <RefreshCw className="h-4 w-4" />
-                      Refresh Status
+                      Refresh Token
                     </>
                   )}
                 </Button>
