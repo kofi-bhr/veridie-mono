@@ -3,53 +3,11 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CheckCircle, GraduationCap, Heart, Lightbulb, Users } from "lucide-react"
+import { CheckCircle, Heart, Lightbulb, Users } from "lucide-react"
 
 export default function AboutPage() {
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Hero Section */}
-      <section className="relative bg-slate-50 py-32 md:py-48">
-        <div className="container px-6 md:px-10 lg:px-16">
-          <div className="grid gap-12 lg:grid-cols-2 lg:gap-16 items-center">
-            <div className="flex flex-col justify-center space-y-8">
-              <div className="space-y-4">
-                <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none">
-                  Our Mission to Transform College Consulting
-                </h1>
-                <p className="max-w-[600px] text-slate-500 md:text-xl">
-                  Connecting ambitious students with successful college mentors for personalized, affordable guidance.
-                </p>
-              </div>
-              <div className="flex flex-col gap-4 min-[400px]:flex-row">
-                <Button asChild size="lg" className="text-lg py-6">
-                  <Link href="/mentors">Find a Mentor</Link>
-                </Button>
-                <Button variant="outline" size="lg" className="text-lg py-6">
-                  <Link href="/auth/signup">Join Our Community</Link>
-                </Button>
-              </div>
-            </div>
-            <div className="mx-auto lg:mr-0 relative">
-              <Image
-                src="/campus-quad.webp"
-                alt="University campus quad with students"
-                width={650}
-                height={500}
-                className="rounded-lg object-cover shadow-xl"
-                priority
-              />
-              <div className="absolute -bottom-8 -left-8 bg-white p-6 rounded-lg shadow-lg hidden md:block">
-                <div className="flex items-center gap-3">
-                  <GraduationCap className="h-8 w-8 text-primary" />
-                  <span className="font-bold text-lg">500+ Successful Admissions</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Our Story Section */}
       <section className="py-16 bg-white">
         <div className="container px-6 md:px-10 lg:px-16">
@@ -62,38 +20,38 @@ export default function AboutPage() {
           </div>
 
           <div className="grid gap-10 md:grid-cols-3">
-            <Card>
+            <Card className="bg-primary text-white">
               <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
-                <div className="bg-primary/10 p-3 rounded-full">
-                  <Lightbulb className="h-8 w-8 text-primary" />
+                <div className="bg-white/10 p-3 rounded-full">
+                  <Lightbulb className="h-8 w-8 text-white" />
                 </div>
                 <h3 className="text-xl font-bold">The Inspiration</h3>
-                <p className="text-slate-500">
+                <p className="text-slate-200">
                   Founded in 2022 by college students who saw how traditional consulting failed to meet the needs of
                   most applicants.
                 </p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="bg-primary text-white">
               <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
-                <div className="bg-primary/10 p-3 rounded-full">
-                  <Heart className="h-8 w-8 text-primary" />
+                <div className="bg-white/10 p-3 rounded-full">
+                  <Heart className="h-8 w-8 text-white" />
                 </div>
                 <h3 className="text-xl font-bold">The Mission</h3>
-                <p className="text-slate-500">
+                <p className="text-slate-200">
                   We believe every student deserves access to quality guidance from peers who've recently succeeded.
                 </p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="bg-primary text-white">
               <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
-                <div className="bg-primary/10 p-3 rounded-full">
-                  <Users className="h-8 w-8 text-primary" />
+                <div className="bg-white/10 p-3 rounded-full">
+                  <Users className="h-8 w-8 text-white" />
                 </div>
                 <h3 className="text-xl font-bold">The Community</h3>
-                <p className="text-slate-500">
+                <p className="text-slate-200">
                   Today, we've grown into a thriving community of students helping students achieve their academic
                   dreams.
                 </p>
