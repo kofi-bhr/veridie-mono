@@ -9,9 +9,9 @@ export function HeroSection() {
       <div className="container px-6 md:px-10 lg:px-16">
         <div className="grid gap-12 lg:grid-cols-2 lg:gap-16 items-center">
           <div className="flex flex-col justify-center space-y-8">
-            <div className="flex flex-col">
-              <h1 className="text-3xl font-bold tracking-tighter mb-6 md:mb-4 sm:text-5xl xl:text-6xl/none">Veridie</h1>
-              <p className="max-w-[600px] text-slate-500 md:text-xl mb-8 md:mb-0">
+            <div className="space-y-4">
+              <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none">Veridie</h1>
+              <p className="max-w-[600px] text-slate-500 md:text-xl">
                 Connecting ambitious students with successful college mentors for personalized, affordable guidance.
               </p>
             </div>
@@ -19,7 +19,7 @@ export function HeroSection() {
               <Button asChild size="lg" className="text-lg py-6">
                 <Link href="/mentors">Find a Mentor</Link>
               </Button>
-              <Button variant="outline" size="lg" className="text-lg py-6 mb-4 min-[400px]:mb-0">
+              <Button variant="outline" size="lg" className="text-lg py-6">
                 <Link href="/auth/signup">Join Our Community</Link>
               </Button>
             </div>
