@@ -90,7 +90,7 @@ function TopConsultantsSection() {
 
   if (loading) {
     return (
-      <div className="flex flex-nowrap overflow-x-auto pb-4 pt-3 gap-4 snap-x justify-center">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:flex md:flex-nowrap md:overflow-x-auto md:pb-4 md:pt-3 md:gap-4 md:snap-x md:justify-center mx-auto max-w-xs sm:max-w-md md:max-w-none">
         {[1, 2, 3, 4, 5].map((i) => (
           <div key={i} className="flex-none w-48 bg-card rounded-lg shadow-md p-4 pt-6 h-64 animate-pulse snap-center">
             <div className="w-16 h-16 rounded-full bg-muted mx-auto mb-3"></div>
@@ -105,12 +105,12 @@ function TopConsultantsSection() {
   }
 
   return (
-    <div className="flex flex-nowrap overflow-x-auto pb-4 pt-3 gap-4 snap-x justify-center">
+    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:flex md:flex-nowrap md:overflow-x-auto md:pb-4 md:pt-3 md:gap-4 md:snap-x md:justify-center mx-auto max-w-xs sm:max-w-md md:max-w-none">
       {consultants.length > 0 ? (
         consultants.map((consultant, index) => (
           <div
             key={consultant.id}
-            className="flex-none w-48 relative bg-card rounded-lg shadow-md p-4 pt-6 flex flex-col items-center text-center snap-center"
+            className="flex-none md:w-48 relative bg-card rounded-lg shadow-md p-4 pt-6 flex flex-col items-center text-center snap-center mx-auto w-full"
           >
             {/* Ranking badge - positioned higher to avoid being cut off */}
             <div className="absolute -top-3 -right-2 z-10 w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold shadow-md text-sm">
@@ -156,7 +156,7 @@ export default function HomePage() {
         <HowItWorks />
       </div>
       <div className="py-16 bg-muted/30">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-6 md:px-10 lg:px-16">
           <h2 className="text-3xl font-bold mb-2 text-center">Consultant Leaderboard</h2>
           <p className="text-center text-muted-foreground mb-8">Our top-performing consultants ranked by total sales</p>
           <TopConsultantsSection />
@@ -171,7 +171,7 @@ export default function HomePage() {
         <Testimonials />
       </div>
       <div className="bg-primary/10 py-16">
-        <div className="container mx-auto px-4 text-center">
+        <div className="container mx-auto px-6 md:px-10 lg:px-16 text-center">
           <h2 className="text-3xl font-bold mb-4">Ready to Get Started?</h2>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
             Connect with experienced college consultants who can help you achieve your academic dreams.

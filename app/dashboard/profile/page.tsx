@@ -397,12 +397,13 @@ export default function ProfilePage() {
                             formData.profile_image_url ||
                             formData.avatar ||
                             "/placeholder.svg?height=128&width=128&query=profile" ||
+                            "/placeholder.svg" ||
                             "/placeholder.svg"
                           }
                           alt="Profile picture"
                           width={128}
                           height={128}
-                          className="object-cover w-full h-full"
+                          className="object-cover w-full h-full scale-125"
                           unoptimized={true}
                           onError={(e) => {
                             console.error("Failed to load image:", formData.profile_image_url || formData.avatar)

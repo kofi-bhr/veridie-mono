@@ -5,7 +5,7 @@ import { Check } from "lucide-react"
 
 export default function PricingPage() {
   return (
-    <div className="container mx-auto px-4 py-16">
+    <div className="container mx-auto px-6 md:px-10 lg:px-16 py-16">
       <div className="text-center mb-16">
         <h1 className="text-4xl font-bold mb-4">Simple Pricing</h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
@@ -170,7 +170,7 @@ export default function PricingPage() {
         </div>
       </div>
 
-      <div className="mt-16 text-center bg-muted/30 py-12 px-4 rounded-lg">
+      <div className="mt-16 text-center bg-muted/30 py-12 px-6 md:px-10 lg:px-16 rounded-lg">
         <h2 className="text-2xl font-bold mb-4">Ready to get started?</h2>
         <p className="text-lg text-muted-foreground mb-6 max-w-2xl mx-auto">
           Join Veridie today and connect with students or consultants to make the college application process easier.

@@ -145,7 +145,7 @@ export default function EssaysPage() {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">College Essays</h1>
+        <h1 className="text-3xl font-bold">Essays</h1>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button>

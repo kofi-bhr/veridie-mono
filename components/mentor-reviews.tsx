@@ -231,7 +231,7 @@ export function MentorReviews({ mentorId }: MentorReviewsProps) {
         <div className="flex items-center justify-between">
           <h3 className="font-medium text-lg">Reviews</h3>
         </div>
-        <div className="text-center p-6 bg-red-50 rounded-lg">
+        <div className="text-center py-6 px-0 sm:px-6 bg-red-50 rounded-lg">
           <p className="text-red-500">Error loading reviews: {error}</p>
         </div>
       </div>
@@ -315,7 +315,7 @@ export function MentorReviews({ mentorId }: MentorReviewsProps) {
       </div>
 
       {reviews.length === 0 ? (
-        <div className="text-center p-6 bg-muted/20 rounded-lg">
+        <div className="text-center py-6 px-0 sm:px-6 bg-muted/20 rounded-lg">
           <p className="text-muted-foreground">No reviews yet. Be the first to leave a review!</p>
         </div>
       ) : (

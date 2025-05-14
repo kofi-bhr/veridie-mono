@@ -116,7 +116,11 @@ export function ConsultantDashboard({ user, mentorData }: { user: any; mentorDat
                 <CardTitle>Recent Reviews</CardTitle>
                 <CardDescription>You have no reviews yet.</CardDescription>
               </CardHeader>
-              <CardContent>No reviews to display.</CardContent>
+              <CardContent>
+                <div className="text-center py-4 px-0 sm:px-4">
+                  <p className="text-muted-foreground">No reviews to display.</p>
+                </div>
+              </CardContent>
             </Card>
           </div>
           <Card className="col-span-7">

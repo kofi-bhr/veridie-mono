@@ -8,9 +8,10 @@ import { BarChart3, Calendar, FileText, Home, MessageSquare, Settings, Trophy, U
 
 interface DashboardSidebarProps {
   onLinkClick?: () => void
+  className?: string
 }
 
-export function DashboardSidebar({ onLinkClick }: DashboardSidebarProps) {
+export function DashboardSidebar({ onLinkClick, className }: DashboardSidebarProps) {
   const pathname = usePathname()
   const { user } = useAuth()
 
@@ -44,34 +45,42 @@ export function DashboardSidebar({ onLinkClick }: DashboardSidebarProps) {
   }
 
   return (
-    <div className="w-64 bg-muted/40 border-r h-full min-h-screen p-4">
-      <div className="flex items-center mb-8 px-2">
-        <Link href="/" className="flex items-center" onClick={handleLinkClick}>
-          <span className="font-bold text-xl">Veridie</span>
-        </Link>
+    <div className={cn("w-full h-full flex flex-col bg-white dark:bg-gray-950", className)}>
+      <div className="flex-1 overflow-y-auto py-6 px-4">
+        <nav className="space-y-1">
+          {links.map((link) => {
+            const isActive = pathname === link.href
+            const Icon = link.icon
+
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={handleLinkClick}
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+                  isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted hover:text-foreground",
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                <span>{link.label}</span>
+              </Link>
+            )
+          })}
+        </nav>
       </div>
 
-      <nav className="space-y-1">
-        {links.map((link) => {
-          const isActive = pathname === link.href
-          const Icon = link.icon
-
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={handleLinkClick}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-                isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted hover:text-foreground",
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              <span>{link.label}</span>
-            </Link>
-          )
-        })}
-      </nav>
+      <div className="p-4 border-t mt-auto">
+        <div className="flex items-center gap-3 px-3 py-2">
+          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+            <User className="h-4 w-4" />
+          </div>
+          <div className="flex-1 truncate">
+            <p className="text-sm font-medium truncate">{user?.name || "User"}</p>
+            <p className="text-xs text-muted-foreground truncate">{user?.email || ""}</p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

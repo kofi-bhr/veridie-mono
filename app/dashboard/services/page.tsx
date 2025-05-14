@@ -230,7 +230,7 @@ export default function ServicesPage() {
   if (!stripeAccount && !isDevelopment) {
     return (
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">Services & Pricing</h1>
+        <h1 className="text-3xl font-bold mb-8">Services</h1>
         <Card>
           <CardHeader>
             <CardTitle>Connect Stripe to Add Services</CardTitle>
@@ -276,7 +276,7 @@ export default function ServicesPage() {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Services & Pricing</h1>
+        <h1 className="text-3xl font-bold">Services</h1>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button>
