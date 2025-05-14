@@ -90,60 +90,64 @@ function TopConsultantsSection() {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:flex md:flex-nowrap md:overflow-x-auto md:pb-4 md:pt-3 md:gap-4 md:snap-x md:justify-center mx-auto max-w-xs sm:max-w-md md:max-w-none">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="flex-none w-48 bg-card rounded-lg shadow-md p-4 pt-6 h-64 animate-pulse snap-center">
-            <div className="w-16 h-16 rounded-full bg-muted mx-auto mb-3"></div>
-            <div className="h-3 bg-muted rounded w-3/4 mx-auto mb-2"></div>
-            <div className="h-2 bg-muted rounded w-1/2 mx-auto mb-2"></div>
-            <div className="h-2 bg-muted rounded w-2/3 mx-auto mb-3"></div>
-            <div className="h-6 bg-muted rounded w-1/3 mx-auto"></div>
-          </div>
-        ))}
+      <div className="flex justify-center">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:flex md:flex-wrap md:justify-center md:gap-6 mx-auto max-w-xs sm:max-w-md md:max-w-5xl">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="flex-none w-full md:w-48 bg-card rounded-lg shadow-md p-4 pt-6 h-64 animate-pulse">
+              <div className="w-16 h-16 rounded-full bg-muted mx-auto mb-3"></div>
+              <div className="h-3 bg-muted rounded w-3/4 mx-auto mb-2"></div>
+              <div className="h-2 bg-muted rounded w-1/2 mx-auto mb-2"></div>
+              <div className="h-2 bg-muted rounded w-2/3 mx-auto mb-3"></div>
+              <div className="h-6 bg-muted rounded w-1/3 mx-auto"></div>
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:flex md:flex-nowrap md:overflow-x-auto md:pb-4 md:pt-3 md:gap-4 md:snap-x md:justify-center mx-auto max-w-xs sm:max-w-md md:max-w-none">
-      {consultants.length > 0 ? (
-        consultants.map((consultant, index) => (
-          <div
-            key={consultant.id}
-            className="flex-none md:w-48 relative bg-card rounded-lg shadow-md p-4 pt-6 flex flex-col items-center text-center snap-center mx-auto w-full"
-          >
-            {/* Ranking badge - positioned higher to avoid being cut off */}
-            <div className="absolute -top-3 -right-2 z-10 w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold shadow-md text-sm">
-              #{index + 1}
+    <div className="flex justify-center">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:flex md:flex-wrap md:justify-center md:gap-6 mx-auto max-w-xs sm:max-w-md md:max-w-5xl">
+        {consultants.length > 0 ? (
+          consultants.map((consultant, index) => (
+            <div
+              key={consultant.id}
+              className="flex-none w-full md:w-48 relative bg-card rounded-lg shadow-md p-4 pt-6 flex flex-col items-center text-center mx-auto"
+            >
+              {/* Ranking badge - positioned higher to avoid being cut off */}
+              <div className="absolute -top-3 -right-2 z-10 w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold shadow-md text-sm">
+                #{index + 1}
+              </div>
+              <div className="w-16 h-16 rounded-full bg-muted mb-3 overflow-hidden">
+                <img
+                  src={consultant.avatar || "/placeholder.svg"}
+                  alt={consultant.name}
+                  className="w-full h-full object-cover scale-125 transform"
+                  onError={(e) => {
+                    e.currentTarget.src = "/diverse-avatars.png"
+                  }}
+                />
+              </div>
+              <h3 className="font-semibold text-sm mb-1 line-clamp-1">{consultant.name}</h3>
+              <p className="text-muted-foreground text-xs mb-1 line-clamp-1">{consultant.university}</p>
+              <p className="text-xs mb-2 line-clamp-1">{consultant.title}</p>
+              {/* Display rating */}
+              <div className="flex items-center mb-2">
+                <span className="text-yellow-500 mr-1 text-xs">★</span>
+                <span className="text-xs">{consultant.rating.toFixed(1)}</span>
+              </div>
+              <Button asChild variant="outline" size="sm" className="w-full text-xs py-1 h-7">
+                <Link href={`/mentors/${consultant.id}`}>View Profile</Link>
+              </Button>
             </div>
-            <div className="w-16 h-16 rounded-full bg-muted mb-3 overflow-hidden">
-              <img
-                src={consultant.avatar || "/placeholder.svg"}
-                alt={consultant.name}
-                className="w-full h-full object-cover scale-125 transform"
-                onError={(e) => {
-                  e.currentTarget.src = "/diverse-avatars.png"
-                }}
-              />
-            </div>
-            <h3 className="font-semibold text-sm mb-1 line-clamp-1">{consultant.name}</h3>
-            <p className="text-muted-foreground text-xs mb-1 line-clamp-1">{consultant.university}</p>
-            <p className="text-xs mb-2 line-clamp-1">{consultant.title}</p>
-            {/* Display rating */}
-            <div className="flex items-center mb-2">
-              <span className="text-yellow-500 mr-1 text-xs">★</span>
-              <span className="text-xs">{consultant.rating.toFixed(1)}</span>
-            </div>
-            <Button asChild variant="outline" size="sm" className="w-full text-xs py-1 h-7">
-              <Link href={`/mentors/${consultant.id}`}>View Profile</Link>
-            </Button>
+          ))
+        ) : (
+          <div className="w-full text-center py-8">
+            <p className="text-muted-foreground">Our consultants are getting ready to help you. Check back soon!</p>
           </div>
-        ))
-      ) : (
-        <div className="w-full text-center py-8">
-          <p className="text-muted-foreground">Our consultants are getting ready to help you. Check back soon!</p>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

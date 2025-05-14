@@ -5,13 +5,13 @@ import { GraduationCap } from "lucide-react"
 
 export function HeroSection() {
   return (
-    <section className="relative bg-slate-50 pt-16 pb-24 md:pt-48 md:pb-64">
+    <section className="relative bg-slate-50 pt-16 pb-36 md:pt-48 md:pb-64">
       <div className="container px-6 md:px-10 lg:px-16">
         <div className="grid gap-12 lg:grid-cols-2 lg:gap-16 items-center">
           <div className="flex flex-col justify-center space-y-8">
-            <div className="space-y-4">
-              <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none">Veridie</h1>
-              <p className="max-w-[600px] text-slate-500 md:text-xl">
+            <div className="flex flex-col">
+              <h1 className="text-3xl font-bold tracking-tighter mb-6 md:mb-4 sm:text-5xl xl:text-6xl/none">Veridie</h1>
+              <p className="max-w-[600px] text-slate-500 md:text-xl mb-8 md:mb-0">
                 Connecting ambitious students with successful college mentors for personalized, affordable guidance.
               </p>
             </div>
@@ -19,7 +19,7 @@ export function HeroSection() {
               <Button asChild size="lg" className="text-lg py-6">
                 <Link href="/mentors">Find a Mentor</Link>
               </Button>
-              <Button variant="outline" size="lg" className="text-lg py-6">
+              <Button variant="outline" size="lg" className="text-lg py-6 mb-4 min-[400px]:mb-0">
                 <Link href="/auth/signup">Join Our Community</Link>
               </Button>
             </div>
