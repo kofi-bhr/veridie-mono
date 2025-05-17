@@ -4,7 +4,18 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
 import { cn } from "@/lib/utils"
-import { BarChart3, Calendar, FileText, Home, MessageSquare, Settings, Trophy, User, Briefcase } from "lucide-react"
+import {
+  BarChart3,
+  Calendar,
+  FileText,
+  Home,
+  MessageSquare,
+  Settings,
+  Trophy,
+  User,
+  Briefcase,
+  Upload,
+} from "lucide-react"
 
 interface DashboardSidebarProps {
   onLinkClick?: () => void
@@ -26,6 +37,7 @@ export function DashboardSidebar({ onLinkClick, className }: DashboardSidebarPro
     { href: "/dashboard/services", label: "Services", icon: BarChart3 },
     { href: "/dashboard/calendly", label: "Calendly Setup", icon: Calendar },
     { href: "/dashboard/sessions", label: "Sessions", icon: Calendar },
+    { href: "/dashboard/common-app", label: "Common App", icon: Upload },
   ]
 
   const clientLinks = [
