@@ -16,6 +16,42 @@ import { supabase } from "@/lib/supabase-client"
 import Image from "next/image"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, Upload, Camera } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+// List of top universities
+const UNIVERSITIES = [
+  "Harvard University",
+  "Stanford University",
+  "MIT",
+  "Princeton University",
+  "Yale University",
+  "Columbia University",
+  "University of Chicago",
+  "University of Pennsylvania",
+  "California Institute of Technology",
+  "Duke University",
+  "Northwestern University",
+  "Johns Hopkins University",
+  "Dartmouth College",
+  "Brown University",
+  "Cornell University",
+  "Rice University",
+  "Vanderbilt University",
+  "Washington University in St. Louis",
+  "University of Notre Dame",
+  "University of California, Berkeley",
+  "University of California, Los Angeles",
+  "University of Michigan",
+  "University of Virginia",
+  "Georgetown University",
+  "Carnegie Mellon University",
+  "University of Southern California",
+  "New York University",
+  "Tufts University",
+  "University of North Carolina at Chapel Hill",
+  "Boston College",
+  "Other",
+]
 
 export default function ProfilePage() {
   const { user } = useAuth()
@@ -25,7 +61,6 @@ export default function ProfilePage() {
 
   const [formData, setFormData] = useState({
     name: "",
-    title: "",
     university: "",
     bio: "",
     avatar: "",
@@ -38,6 +73,7 @@ export default function ProfilePage() {
   const [uploadProgress, setUploadProgress] = useState(0)
   const [bucketError, setBucketError] = useState<string | null>(null)
   const [imageDebug, setImageDebug] = useState<string | null>(null)
+  const [otherUniversity, setOtherUniversity] = useState("")
 
   useEffect(() => {
     async function loadProfile() {
@@ -62,11 +98,15 @@ export default function ProfilePage() {
           if (mentor) {
             setFormData((prev) => ({
               ...prev,
-              title: mentor.title || "",
               university: mentor.university || "",
               bio: mentor.bio || "",
               profile_image_url: mentor.profile_image_url || profile?.avatar || "",
             }))
+
+            // If university is not in our list, set it as "Other" and store the value
+            if (mentor.university && !UNIVERSITIES.includes(mentor.university)) {
+              setOtherUniversity(mentor.university)
+            }
 
             // Debug info
             console.log("Loaded mentor profile:", mentor)
@@ -91,6 +131,16 @@ export default function ProfilePage() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleUniversityChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, university: value === "Other" ? otherUniversity : value }))
+  }
+
+  const handleOtherUniversityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setOtherUniversity(value)
+    setFormData((prev) => ({ ...prev, university: value }))
   }
 
   const handleImageClick = () => {
@@ -270,7 +320,6 @@ export default function ProfilePage() {
       // Update mentor profile if consultant
       if (user.role === "consultant") {
         const result = await updateMentorProfile(user.id, {
-          title: formData.title,
           university: formData.university,
           bio: formData.bio,
           profile_image_url: formData.profile_image_url || formData.avatar,
@@ -335,31 +384,47 @@ export default function ProfilePage() {
             {user.role === "consultant" && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="title">Title</Label>
-                  <Input
-                    id="title"
-                    name="title"
-                    value={formData.title}
-                    onChange={handleChange}
-                    placeholder="e.g., Junior, Computer Science"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
                   <Label htmlFor="university">University</Label>
-                  <Input
-                    id="university"
-                    name="university"
-                    value={formData.university}
-                    onChange={handleChange}
-                    required
-                  />
+                  <Select
+                    value={UNIVERSITIES.includes(formData.university) ? formData.university : "Other"}
+                    onValueChange={handleUniversityChange}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select your university" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {UNIVERSITIES.map((university) => (
+                        <SelectItem key={university} value={university}>
+                          {university}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Show input field if "Other" is selected */}
+                  {formData.university === otherUniversity && !UNIVERSITIES.includes(formData.university) && (
+                    <div className="mt-2">
+                      <Input
+                        placeholder="Enter your university"
+                        value={otherUniversity}
+                        onChange={handleOtherUniversityChange}
+                        required
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="bio">Bio</Label>
-                  <Textarea id="bio" name="bio" value={formData.bio} onChange={handleChange} rows={5} required />
+                  <Label htmlFor="bio">Bio (For example: Math @ Harvard)</Label>
+                  <Textarea
+                    id="bio"
+                    name="bio"
+                    value={formData.bio}
+                    onChange={handleChange}
+                    rows={5}
+                    placeholder="Describe your academic focus, achievements, and how you can help students. Example: 'Computer Science @ Stanford, specializing in AI research.'"
+                    required
+                  />
                 </div>
               </>
             )}
@@ -397,6 +462,7 @@ export default function ProfilePage() {
                             formData.profile_image_url ||
                             formData.avatar ||
                             "/placeholder.svg?height=128&width=128&query=profile" ||
+                            "/placeholder.svg" ||
                             "/placeholder.svg" ||
                             "/placeholder.svg"
                           }

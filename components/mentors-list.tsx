@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MentorCard } from "@/components/mentor-card"
 import { Pagination } from "@/components/pagination"
@@ -10,19 +11,29 @@ import { AlertCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export function MentorsList() {
+  const searchParams = useSearchParams()
   const [sortBy, setSortBy] = useState("rating")
   const [currentPage, setCurrentPage] = useState(1)
   const [mentors, setMentors] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tableExists, setTableExists] = useState(true)
+  const [totalMentors, setTotalMentors] = useState(0)
   const itemsPerPage = 9
 
-  // Fetch mentors from Supabase
+  // Get search and filter params
+  const query = searchParams.get("q") || ""
+  const minPrice = Number(searchParams.get("minPrice") || 50)
+  const maxPrice = Number(searchParams.get("maxPrice") || 200)
+  const universities = searchParams.get("universities")?.split(",") || []
+  const specialties = searchParams.get("specialties")?.split(",") || []
+
+  // This effect runs when the search params change
   useEffect(() => {
     async function fetchMentors() {
       try {
         setLoading(true)
+        setCurrentPage(1) // Reset to first page when filters change
 
         // First check if the mentors table exists
         const { error: tableCheckError } = await supabase.from("mentors").select("id").limit(1)
@@ -35,16 +46,45 @@ export function MentorsList() {
           return
         }
 
-        // Get mentors data
-        const { data: mentorsData, error: mentorsError } = await supabase
+        // Get total count of mentors for reference
+        const { count: totalCount, error: countError } = await supabase
           .from("mentors")
-          .select("*")
-          .order("rating", { ascending: false })
+          .select("*", { count: "exact", head: true })
 
-        if (mentorsError) throw mentorsError
+        if (!countError && totalCount !== null) {
+          setTotalMentors(totalCount)
+        }
+
+        // Start building the query
+        let mentorsQuery = supabase.from("mentors").select("*")
+
+        // Apply university filter if selected
+        if (universities.length > 0) {
+          console.log("Filtering by universities:", universities)
+          mentorsQuery = mentorsQuery.in("university", universities)
+        }
+
+        // Execute the query
+        const { data: mentorsData, error: mentorsError } = await mentorsQuery
+
+        if (mentorsError) {
+          console.error("Error fetching mentors:", mentorsError)
+          throw mentorsError
+        }
+
+        console.log(`Found ${mentorsData.length} mentors after university filter`)
+
+        // If no mentors match the university filter, return early
+        if (mentorsData.length === 0) {
+          setMentors([])
+          setLoading(false)
+          return
+        }
+
+        // Get mentor IDs for related data queries
+        const mentorIds = mentorsData.map((mentor) => mentor.id)
 
         // Get profiles data for these mentors
-        const mentorIds = mentorsData.map((mentor) => mentor.id)
         const { data: profilesData, error: profilesError } = await supabase
           .from("profiles")
           .select("*")
@@ -60,14 +100,6 @@ export function MentorsList() {
 
         if (servicesError) throw servicesError
 
-        // Get awards for these mentors
-        const { data: awardsData, error: awardsError } = await supabase
-          .from("awards")
-          .select("*")
-          .in("mentor_id", mentorIds)
-
-        if (awardsError) throw awardsError
-
         // Get specialties for these mentors
         const { data: specialtiesData, error: specialtiesError } = await supabase
           .from("specialties")
@@ -76,12 +108,20 @@ export function MentorsList() {
 
         if (specialtiesError) throw specialtiesError
 
+        // Get awards for these mentors
+        const { data: awardsData, error: awardsError } = await supabase
+          .from("awards")
+          .select("*")
+          .in("mentor_id", mentorIds)
+
+        if (awardsError) throw awardsError
+
         // Transform data to match the expected format
-        const transformedData = mentorsData.map((mentor) => {
+        let transformedData = mentorsData.map((mentor) => {
           const profile = profilesData.find((p) => p.id === mentor.id) || {}
           const services = servicesData.filter((s) => s.mentor_id === mentor.id) || []
+          const mentorSpecialties = specialtiesData.filter((s) => s.mentor_id === mentor.id).map((s) => s.name) || []
           const awards = awardsData.filter((a) => a.mentor_id === mentor.id) || []
-          const specialties = specialtiesData.filter((s) => s.mentor_id === mentor.id).map((s) => s.name) || []
 
           return {
             id: mentor.id,
@@ -93,9 +133,42 @@ export function MentorsList() {
             reviewCount: mentor.review_count || 0,
             services: services,
             awards: awards,
-            specialties: specialties,
+            specialties: mentorSpecialties,
+            bio: profile.bio || "",
           }
         })
+
+        // Apply client-side filters
+
+        // Filter by search query
+        if (query) {
+          const lowerQuery = query.toLowerCase()
+          transformedData = transformedData.filter(
+            (mentor) =>
+              mentor.name.toLowerCase().includes(lowerQuery) ||
+              mentor.university.toLowerCase().includes(lowerQuery) ||
+              mentor.bio?.toLowerCase().includes(lowerQuery) ||
+              mentor.specialties.some((s: string) => s.toLowerCase().includes(lowerQuery)),
+          )
+        }
+
+        // Filter by price range
+        if (minPrice > 0 || maxPrice < 500) {
+          transformedData = transformedData.filter((mentor) => {
+            // If mentor has no services, exclude if filtering by price
+            if (!mentor.services.length) return false
+
+            // Check if any service falls within the price range
+            return mentor.services.some((service: any) => service.price >= minPrice && service.price <= maxPrice)
+          })
+        }
+
+        // Filter by specialties
+        if (specialties.length > 0) {
+          transformedData = transformedData.filter((mentor) =>
+            specialties.some((specialty) => mentor.specialties.includes(specialty)),
+          )
+        }
 
         setMentors(transformedData)
       } catch (err: any) {
@@ -107,7 +180,7 @@ export function MentorsList() {
     }
 
     fetchMentors()
-  }, [])
+  }, [searchParams])
 
   // Sort mentors based on selected option
   const sortedMentors = [...mentors].sort((a, b) => {
@@ -181,6 +254,8 @@ export function MentorsList() {
     )
   }
 
+  const isFiltered = query || universities.length > 0 || specialties.length > 0 || minPrice > 50 || maxPrice < 200
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -192,9 +267,10 @@ export function MentorsList() {
                 {startIndex + 1}-{Math.min(startIndex + itemsPerPage, sortedMentors.length)}
               </span>{" "}
               of <span className="font-medium">{sortedMentors.length}</span> consultants
+              {isFiltered && totalMentors > 0 && <span> (filtered from {totalMentors})</span>}
             </>
           ) : (
-            "No consultants available at this time"
+            "No consultants available with the selected filters"
           )}
         </p>
 
@@ -218,7 +294,20 @@ export function MentorsList() {
 
       {mentors.length === 0 ? (
         <div className="text-center py-12 bg-muted/20 rounded-lg">
-          <p className="text-muted-foreground">No consultants found. Check back later!</p>
+          <p className="text-muted-foreground">
+            {isFiltered ? (
+              <>
+                No consultants found with the selected filters. Try adjusting your search criteria.
+                {universities.length > 0 && (
+                  <div className="mt-2">
+                    <strong>University filter:</strong> {universities.join(", ")}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>No consultants found. Check back later!</>
+            )}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

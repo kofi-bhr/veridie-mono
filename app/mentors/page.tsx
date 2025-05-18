@@ -3,12 +3,26 @@ import { MentorsSearch } from "@/components/mentors-search"
 import { MentorsList } from "@/components/mentors-list"
 import { MentorsFilters } from "@/components/mentors-filters"
 
-export default function MentorsPage() {
+export default function MentorsPage({
+  searchParams,
+}: { searchParams: { [key: string]: string | string[] | undefined } }) {
+  // Get search parameters for SEO title
+  const query = (searchParams.q as string) || ""
+  const universities = typeof searchParams.universities === "string" ? searchParams.universities.split(",") : []
+
+  // Create a dynamic page title based on search parameters
+  let pageTitle = "Find Your Perfect College Consultant"
+  if (query) {
+    pageTitle = `College Consultants matching "${query}"`
+  } else if (universities.length > 0) {
+    pageTitle = `College Consultants from ${universities.join(", ")}`
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col gap-6">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Find Your Perfect College Consultant</h1>
+          <h1 className="text-3xl font-bold mb-2">{pageTitle}</h1>
           <p className="text-muted-foreground">
             Browse our network of experienced college consultants and find the perfect match for your needs.
           </p>
